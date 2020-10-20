@@ -35,6 +35,8 @@ def gec(wh, xmat, targets,
         objective: ec.Objective = ec.Objective.ENTROPY,
         increment: float = 0.001):
 
+    a = timer()
+
     # ec.Objective.ENTROPY ec.Objective.QUADRATIC
 
     # small_positive = np.nextafter(np.float64(0), np.float64(1))
@@ -60,5 +62,22 @@ def gec(wh, xmat, targets,
     # wh, when multiplied by g, will yield the targets
     g = ompw * pop / wh
     g = np.array(g, dtype=float).reshape((-1, ))  # djb
+    wh_opt = g * wh
+    targets_opt = np.dot(xmat.T, wh_opt)
+    b = timer()
 
-    return l2_norm, g
+    # create a named tuple of items to return
+    fields = ('elapsed_seconds',
+              'wh_opt',
+              'targets_opt',
+              'g',
+              'l2_norm')
+    Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
+
+    res = Result(elapsed_seconds=b - a,
+                 wh_opt=wh_opt,
+                 targets_opt=targets_opt,
+                 g=g,
+                 l2_norm=l2_norm)
+
+    return res

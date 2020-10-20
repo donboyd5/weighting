@@ -13,16 +13,6 @@ from collections import namedtuple
 import scipy.optimize as spo
 
 
-# %% named tuples
-# create a named tuple of items to return
-fields = ('elapsed_seconds',
-          'whs_opt',
-          'geotargets_opt',
-          'beta_opt',
-          'delta_opt')
-Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
-
-
 # %% poisson - the primary function
 
 def poisson(wh, xmat, geotargets):
@@ -44,6 +34,14 @@ def poisson(wh, xmat, geotargets):
     geotargets_opt = get_geotargets(beta_opt, wh, xmat)
 
     b = timer()
+
+    # create a named tuple of items to return
+    fields = ('elapsed_seconds',
+              'whs_opt',
+              'geotargets_opt',
+              'beta_opt',
+              'delta_opt')
+    Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
 
     res = Result(elapsed_seconds = b - a,
                  whs_opt = whs_opt,

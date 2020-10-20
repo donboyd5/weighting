@@ -1,69 +1,62 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Oct 12 05:13:47 2020
+Created on Tue Oct 20 14:55:34 2020
 
 @author: donbo
 """
-arr_m = np.arange(12).reshape(2, 2, 3)
 
-arr_m[1:5:2, ::3]
+import numpy as np
+import src.make_test_problems as mtp
 
-m = np.arange(15).reshape(4, 3)
-m
-m[(1, 2)]
-m[(1,)]
+p = mtp.Problem(h=40, s=2, k=3)
 
-m[(1, (0, 2))]
-m[(1, [0, 2])]
-m[[1, [0, 2]]]  # NOT ok - MUST start with a tuple
+wh = p.wh.copy().reshape((-1, 1))
+wh.shape
 
-t = (1, (0, 2))
-m[t] = 99
+np.dot(p.xmat.T, wh)
+np.inner(p.xmat.T, wh.T)
 
-tt = np.array([[1, [0,2]]])
-tt = (t, [0,2])
-m[tt]
+%timeit np.dot(p.xmat.T, wh)
+%timeit np.inner(p.xmat.T, wh.T)
 
-type([0,2])
-drops = [(6, (6))]
-drops = [(1, (1, 2))]
-for ij in drops: mask[ij] = False
-m = np.arange(15).reshape(5, 3)
-for ij in drops: m[ij] = 99
 
-tt = [(1, (0, 2)), (3, (1, 2))]
-for t in tt: m[t] = 99
-m
+(p.xmat * p.wh).T
 
-# {6: (5, 6)}
-dt ={1: (0, 2), 3: (1, 2)}
 
-for key in dt:
-    print(key, '->', dt[key])
+class Result:
+    def __init__(self, elapsed_seconds):
+        self.elapsed_seconds = elapsed_seconds
 
-dt ={1: (0, 2), 3: (1, 2)}
-m = np.arange(15).reshape(5, 3)
-for key in dt:
-    print(key)
-    m[key, dt[key]] = 99
-m
+res1 = Result(elapsed_seconds=10 - 3)
 
-dt ={1: (0, 2), 3: (1, 2)}
-m = np.arange(15).reshape(5, 3)
-for row, cols in dt.items():
-    # print(row)
-    m[row, cols] = 99
-m
-a_dict = {'color': 'blue', 'fruit': 'apple', 'pet': 'dog'}
-for key, value in a_dict.items():
-    print(type(key))
-    print(type(value))
-    print(key, '->', value)
+res1.elapsed_seconds = 2
+res1.elapsed_seconds
+res1.color = "green"
+res1.color
 
-a_dict = {1: (0, 2), 3: (1, 2)}
-for key, value in a_dict.items():
-    print(type(key))
-    print(type(value))
-    print(key, '->', value)
+res2 = Result()
 
+from collections import namedtuple
+
+fields = ('elapsed_seconds',
+                        'Q_opt',
+                        'whs_opt',
+                        'geotargets_opt',
+                        'pctdiff',
+                        'iter_opt')
+Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
+
+a = Result()
+a
+dir(a)
+a.iter_opt = 10
+
+Res2 = namedtuple()
+
+fields = ('elapsed_seconds', 'x', 'other')
+Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
+
+a = Result(10, (2, 4, 6))
+a = Result(10, (2, 4, 6), other = {'a': 1, 'b':2, 'c':[3, 5]})
+a
 

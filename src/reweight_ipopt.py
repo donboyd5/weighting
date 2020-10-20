@@ -10,6 +10,9 @@ Reweight class
 from __future__ import print_function, unicode_literals
 import os
 import numpy as np
+from timeit import default_timer as timer
+from collections import namedtuple
+
 import ipopt
 
 
@@ -68,6 +71,7 @@ def rw_ipopt(wh, xmat, targets,
         DESCRIPTION.
 
     """
+    a = timer()
     n = xmat.shape[0]
     m = xmat.shape[1]
 
@@ -88,7 +92,7 @@ def rw_ipopt(wh, xmat, targets,
     cc = cc * ccscale  # mult by scale to have avg derivative meet our goal
     # print(targets)
     # targets_scaled = targets.copy() * ccscale  # djb do I need to copy?
-    print(ccscale)
+    # print(ccscale)
     targets_scaled = targets * ccscale  # djb do I need to copy?
     # print(targets_scaled)
 
@@ -116,7 +120,10 @@ def rw_ipopt(wh, xmat, targets,
 
     # objective function scaling
     # djb should I pass n and callbacks???
-    objscale = get_objscale(objgoal=objgoal, xbase=1.2, n=n, callbacks=callbacks)
+    objscale = get_objscale(objgoal=objgoal,
+                            xbase=1.2,
+                            n=n,
+                            callbacks=callbacks)
     # print(objscale)
     nlp.addOption('obj_scaling_factor', objscale)  # multiplier
 
@@ -138,11 +145,31 @@ def rw_ipopt(wh, xmat, targets,
     if(not quiet):
         print(f'\n {"":10} Iter {"":25} obj {"":22} infeas')
 
-    x, info = nlp.solve(x0)
-    return x, info
+    # solve the problem
+    g, ipopt_info = nlp.solve(x0)
+
+    wh_opt = g * wh
+    targets_opt = np.dot(xmat.T, wh_opt)
+    b = timer()
+
+    # create a named tuple of items to return
+    fields = ('elapsed_seconds',
+              'wh_opt',
+              'targets_opt',
+              'g',
+              'ipopt_info')
+    Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
+
+    res = Result(elapsed_seconds=b - a,
+                 wh_opt=wh_opt,
+                 targets_opt=targets_opt,
+                 g=g,
+                 ipopt_info=ipopt_info)
+
+    return res
 
 
-# %% funcions and classes
+# %% functions and classes
 
 def get_ccscale(cc, ccgoal, method='mean'):
     """
@@ -195,7 +222,7 @@ def get_objscale(objgoal, xbase, n, callbacks):
 
 def merge_options(passed_options, default_options):
     """
-
+    Merge options.
 
     Parameters
     ----------
@@ -210,7 +237,7 @@ def merge_options(passed_options, default_options):
         DESCRIPTION.
 
     """
-
+    options = None
     return options
 
 

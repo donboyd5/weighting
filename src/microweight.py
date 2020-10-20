@@ -33,14 +33,20 @@ from timeit import default_timer as timer
 import ipopt  # requires special installation
 
 import src.utilities as ut
+import src.common as common
+
 import src.geoweight_qmatrix as qm
 import src.geoweight_poisson as ps
 import src.reweight_ipopt as rwi
 import src.reweight_empcalib as rwec
-import src.raking as raking
+import src.reweight_raking as rwr
 
 import scipy.optimize as spo
 # from scipy.optimize import least_squares
+
+
+# %% common
+
 
 
 # %% Microweight class
@@ -83,7 +89,7 @@ class Microweight:
                  increment=.001,
                  quiet=True):
         if method == 'ipopt':
-            x, info = rwi.rw_ipopt(self.wh, self.xmat, self.targets,
+            method_result = rwi.rw_ipopt(self.wh, self.xmat, self.targets,
                                    xlb=xlb, xub=xub,
                                    crange=crange,
                                    max_iter=max_iter,
@@ -91,13 +97,36 @@ class Microweight:
                                    objgoal=objgoal,
                                    quiet=quiet)
         elif method == 'empcal':
-            info, x = rwec.gec(self.wh, self.xmat, self.targets,
+            method_result = rwec.gec(self.wh, self.xmat, self.targets,
                                increment=increment)
         elif method == 'rake':
-            x = raking.rake(self.xmat, self.wh, self.targets, max_iter=max_iter)
-            info = None
+            method_result =rwr.rw_rake(self.wh, self.xmat, self.targets, max_iter=max_iter)
+            # x = raking.rake(self.wh, self.xmat, self.targets, max_iter=max_iter)
+            # info = None
 
-        return x, info
+        # calculate sum of squared percentage differences
+        diff = method_result.targets_opt - self.targets
+        sspd = np.square(diff / self.targets * 100).sum()
+
+        # here are the results we want for every method
+        fields = ('method',
+                  'elapsed_seconds',
+                  'sspd',
+                  'wh_opt',
+                  'targets_opt',
+                  'g',
+                  'method_result')
+        ReweightResult = namedtuple('ReweightResult', fields, defaults=(None,) * len(fields))
+
+        rwres = ReweightResult(method=method,
+                               elapsed_seconds=method_result.elapsed_seconds,
+                               sspd=sspd,
+                               wh_opt=method_result.wh_opt,
+                               targets_opt=method_result.targets_opt,
+                               g=method_result.g,
+                               method_result=method_result)
+
+        return rwres
 
     def geoweight(self,
                   method='qmatrix', Q=None, drops=None,
@@ -113,25 +142,40 @@ class Microweight:
             # geotargets must by s x k
 
         if method == 'qmatrix':
-            result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
+            method_result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
                                 Q=None,
                                 method='raking', drops=drops,
                                 maxiter=100)
         elif method == 'qmatrix-ec':
-            result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
+            method_result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
                                 Q=None,
                                 method='raking-ec', drops=drops,
                                 maxiter=100)
         elif method == 'poisson':
-            result = ps.poisson(self.wh, self.xmat, self.geotargets)
+            method_result = ps.poisson(self.wh, self.xmat, self.geotargets)
 
-        # print(result.targets_opt)
-        # self.result = result
-        return result # self.result
-        # print(self.result.iter_opt)
-        # end = timer()
-        # self.elapsed_minutes = (end - start) / 60
-        # self.retrieve_geovalues()
+        # calculate sum of squared percentage differences
+        diff = method_result.geotargets_opt - self.geotargets
+        sspd = np.square(diff / self.geotargets * 100).sum()
+
+        # here are the results we want for every method
+        fields = ('method',
+                  'elapsed_seconds',
+                  'sspd',
+                  'whs_opt',
+                  'geotargets_opt',
+                  'method_result')
+        GeoResult = namedtuple('GeoResult', fields, defaults=(None,) * len(fields))
+
+        geores = GeoResult(method=method,
+                           elapsed_seconds=method_result.elapsed_seconds,
+                           sspd=sspd,
+                           whs_opt=method_result.whs_opt,
+                           geotargets_opt=method_result.geotargets_opt,
+                           method_result=method_result)
+
+        return geores
+
 
     def help():
         print("\nThe microweight class requires the following arguments:",

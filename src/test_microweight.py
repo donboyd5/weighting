@@ -45,58 +45,74 @@ prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets, geotargets=p.geota
 
 
 # %% reweight the problem
-x1, info1 = prob.reweight(method='ipopt', crange=0.001, quiet=False)
-x1, info1 = prob.reweight(method='ipopt', crange=0.001, xlb=0, xub=1e5, quiet=False)
+rw1a = prob.reweight(method='ipopt', crange=0.001, quiet=False)
+rw1a.sspd
+rw1b = prob.reweight(method='ipopt', crange=0.001, xlb=0, xub=1e5, quiet=False)
+rw1b.sspd
 # type(info1)
 # dir(info1)
-list(info1)
-info1['status']
-info1['status_msg']
-info1['obj_val']
-info1['x']
+# list(info1)
+# info1['status']
+# info1['status_msg']
+# info1['obj_val']
+# info1['x']
 
-x2, info2 = prob.reweight(method='empcal', increment=.00001)
-info2
-x2
+rw2 = prob.reweight(method='empcal', increment=.00001)
+rw2.sspd
 
-x3, info3 = prob.reweight(method='rake', max_iter=20)
-info3
-x3
+rw3 = prob.reweight(method='rake', max_iter=20)
+rw3.sspd
 
 ntargets
-targs(x1, p.wh, p.xmat)
-targs(x2, p.wh, p.xmat)
-targs(x3, p.wh, p.xmat)
-
+rw1a.targets_opt
+rw1b.targets_opt
+rw2.targets_opt
+rw3.targets_opt
 
 # sum of squared percentage differences
-sspd(x1, p.wh, p.xmat, ntargets)
-sspd(x2, p.wh, p.xmat, ntargets)
-sspd(x3, p.wh, p.xmat, ntargets)
+rw1a.sspd
+rw1b.sspd
+rw2.sspd
+rw3.sspd
 
-# distribution of x values
-np.quantile(x1, qtiles)
-np.quantile(x2, qtiles)
-np.quantile(x3, qtiles)
+# distribution of g values
+np.quantile(rw1a.g, qtiles)
+np.quantile(rw1b.g, qtiles)
+np.quantile(rw2.g, qtiles)
+np.quantile(rw3.g, qtiles)
 
-x1.sum()
-x2.sum()
-x3.sum()
+rw1a.g.sum()
+rw1b.g.sum()
+rw2.g.sum()
+rw3.g.sum()
 
 
 
 # %% geoweight the problem
 gw1 = prob.geoweight(method='qmatrix')
 # dir(gw1)
+gw1.method
+gw1.elapsed_seconds
 gw1.geotargets_opt
+gw1.whs_opt
+dir(gw1.method_result)
 
 gw2 = prob.geoweight(method='qmatrix-ec')
+gw2.method
 gw2.geotargets_opt
 
 gw3 = prob.geoweight(method='poisson')
+gw3.method
+gw3.elapsed_seconds
 gw3.geotargets_opt
+gw3.whs_opt
+dir(gw3.method_result)
 
 # sum of squared percentage differences
+gw1.sspd
+gw2.sspd
+gw3.sspd
+
 np.square((gw1.geotargets_opt - p.geotargets) / p.geotargets * 100).sum()
 np.square((gw2.geotargets_opt - p.geotargets) / p.geotargets * 100).sum()
 np.square((gw3.geotargets_opt - p.geotargets) / p.geotargets * 100).sum()

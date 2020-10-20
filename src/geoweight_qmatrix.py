@@ -140,17 +140,6 @@ QUADRATIC = ec.Objective.QUADRATIC
 ENTROPY = ec.Objective.ENTROPY
 
 
-# %% named tuples
-# create a named tuple of items to return
-fields = ('elapsed_seconds',
-                        'Q_opt',
-                        'whs_opt',
-                        'geotargets_opt',
-                        'pctdiff',
-                        'iter_opt')
-Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
-
-
 # %% qmatrix - the primary function
 def qmatrix(wh, xmat, geotargets,
             Q=None,
@@ -265,7 +254,8 @@ def qmatrix(wh, xmat, geotargets,
 
             good_cols = good_targets[j, :]
 
-            g = gfn(xmat_wh[:, good_cols], Q[:, j], geotargets[j, good_cols], objective=objective)
+            # g = gfn(xmat_wh[:, good_cols], Q[:, j], geotargets[j, good_cols], objective=objective)
+            g = gfn(Q[:, j], xmat_wh[:, good_cols], geotargets[j, good_cols], objective=objective)
             # print(type(g))
             # if method == 'raking' and g is None:
             #     # try to recover by using the alternate method
@@ -353,31 +343,25 @@ def qmatrix(wh, xmat, geotargets,
     b = timer()
     print('\nElapsed time: {:8.1f} seconds'.format(b - a))
 
+    # create a named tuple of items to return
+    fields = ('elapsed_seconds',
+              'whs_opt',
+              'geotargets_opt',
+              'Q_opt',
+              'iter_opt')
+    Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
+
     res = Result(elapsed_seconds = b - a,
-                 Q_opt = Q_best,
                  whs_opt = whs_opt,
                  geotargets_opt = geotargets_opt,
-                 pctdiff = pctdiff,
+                 Q_opt = Q_best,
                  iter_opt = iter_best)
-
-    # create a dict of items to return
-    # res = {}
-    # res['esecs'] = b - a
-    # res['Q_opt'] = Q_best
-    # res['whs_opt'] = whs_opt
-    # res['targets_opt'] = targets_opt
-    # res['pctdiff'] = pctdiff
-    # res['iter_opt'] = iter_best
-
     return res
 
 
 # %% classes and functions
 
-# class Result:
-#     pass
-# TODO: change order to wh, xmat, but BE CAREFUL
-def gec(xmat, wh, targets,
+def gec(wh, xmat, targets,
         target_weights: np.ndarray = None,
         objective: ec.Objective = ec.Objective.ENTROPY,
         increment: float = 0.001):
