@@ -13,6 +13,13 @@ Functions:
 @author: donboyd5@gmail.com
 """
 
+# TODO:
+    # options function
+    # least-squares reweighting
+    # weight from scratch
+    # fsolve geographic weighting
+
+
 # %% imports
 # needed for ipopt:
 from __future__ import print_function, unicode_literals
