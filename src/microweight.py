@@ -22,31 +22,24 @@ Functions:
 
 # %% imports
 # needed for ipopt:
-from __future__ import print_function, unicode_literals
+# from __future__ import print_function, unicode_literals
 
 import numpy as np
 import pandas as pd
 from collections import namedtuple
-
 from timeit import default_timer as timer
-
-import ipopt  # requires special installation
+# import ipopt  # requires special installation
 
 import src.utilities as ut
-import src.common as common
-
+# import src.common as common
 import src.geoweight_qmatrix as qm
 import src.geoweight_poisson as ps
 import src.reweight_ipopt as rwi
 import src.reweight_empcalib as rwec
 import src.reweight_raking as rwr
 
-import scipy.optimize as spo
+# import scipy.optimize as spo
 # from scipy.optimize import least_squares
-
-
-# %% common
-
 
 
 # %% Microweight class
@@ -81,28 +74,22 @@ class Microweight:
 
     def reweight(self,
                  method='ipopt',
-                 xlb=0.1, xub=100,
-                 crange=.03,
-                 max_iter=100,
-                 ccgoal=1,
-                 objgoal=100,
-                 increment=.001,
-                 quiet=True):
+                 user_options=None,
+                 solver_options=None):
         if method == 'ipopt':
-            method_result = rwi.rw_ipopt(self.wh, self.xmat, self.targets,
-                                   xlb=xlb, xub=xub,
-                                   crange=crange,
-                                   max_iter=max_iter,
-                                   ccgoal=ccgoal,
-                                   objgoal=objgoal,
-                                   quiet=quiet)
+            method_result = rwi.rw_ipopt(
+                self.wh, self.xmat, self.targets,
+                 user_options=user_options,
+                 solver_options=solver_options)
         elif method == 'empcal':
-            method_result = rwec.gec(self.wh, self.xmat, self.targets,
-                               increment=increment)
+            method_result = rwec.gec(
+                self.wh, self.xmat, self.targets,
+                 # no user options for empcal
+                 solver_options=solver_options)
         elif method == 'rake':
-            method_result =rwr.rw_rake(self.wh, self.xmat, self.targets, max_iter=max_iter)
-            # x = raking.rake(self.wh, self.xmat, self.targets, max_iter=max_iter)
-            # info = None
+            method_result =rwr.rw_rake(
+                self.wh, self.xmat, self.targets,
+                user_options=user_options,)
 
         # calculate sum of squared percentage differences
         diff = method_result.targets_opt - self.targets

@@ -45,22 +45,23 @@ prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets, geotargets=p.geota
 
 
 # %% reweight the problem
-rw1a = prob.reweight(method='ipopt', crange=0.001, quiet=False)
+uo = {'crange': 0.001, 'quiet': False}
+rw1a = prob.reweight(method='ipopt', user_options=uo)
+# dir(rw1a)
 rw1a.sspd
-rw1b = prob.reweight(method='ipopt', crange=0.001, xlb=0, xub=1e5, quiet=False)
-rw1b.sspd
-# type(info1)
-# dir(info1)
-# list(info1)
-# info1['status']
-# info1['status_msg']
-# info1['obj_val']
-# info1['x']
 
-rw2 = prob.reweight(method='empcal', increment=.00001)
+uo = {'crange': 0.0001, 'xlb': 0, 'xub':1e5, 'quiet': False}
+rw1b = prob.reweight(method='ipopt', user_options=uo)
+rw1b.sspd
+
+so = {'increment': .00001}
+# so = {'increment': .00001, 'autoscale': False}
+rw2 = prob.reweight(method='empcal', solver_options=so)
+rw2 = prob.reweight(method='empcal')
 rw2.sspd
 
-rw3 = prob.reweight(method='rake', max_iter=20)
+rw3 = prob.reweight(method='rake')
+rw3 = prob.reweight(method='rake', user_options={'maxiter': 20})
 rw3.sspd
 
 ntargets
@@ -68,6 +69,12 @@ rw1a.targets_opt
 rw1b.targets_opt
 rw2.targets_opt
 rw3.targets_opt
+
+# time
+rw1a.elapsed_seconds
+rw1b.elapsed_seconds
+rw2.elapsed_seconds
+rw3.elapsed_seconds
 
 # sum of squared percentage differences
 rw1a.sspd

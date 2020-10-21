@@ -8,9 +8,13 @@ Created on Sun Oct  4 05:02:59 2020
 # %% imports
 import sys
 import pandas as pd
-
+from collections import namedtuple
 
 # %% utility functions
+
+def dict_nt(d):
+    # convert dict to named tuple
+    return namedtuple('ntd', sorted(d))(**d)
 
 
 def getmem(objects=dir()):

@@ -17,6 +17,18 @@ from timeit import default_timer as timer
 # pip install -q git+https://github.com/google/empirical_calibration
 import empirical_calibration as ec
 
+import src.utilities as ut
+
+
+# %% default options
+
+solver_defaults = {
+    'target_weights': None,
+    'objective': 'ENTROPY',
+    'autoscale': True,
+    'increment': 0.001
+    }
+
 
 # %% constants
 
@@ -31,13 +43,22 @@ ENTROPY = ec.Objective.ENTROPY
 
 # %% gec primary function
 def gec(wh, xmat, targets,
-        target_weights: np.ndarray = None,
-        objective: ec.Objective = ec.Objective.ENTROPY,
-        increment: float = 0.001):
+        solver_options=None):
 
     a = timer()
 
-    # ec.Objective.ENTROPY ec.Objective.QUADRATIC
+    # update options with any user-supplied options
+    if solver_options is None:
+        solver_options = solver_defaults
+    else:
+        solver_options = {**solver_defaults, **solver_options}
+
+    if solver_options['objective'] == 'ENTROPY':
+        solver_options['objective'] = ENTROPY
+    elif solver_options['objective'] == 'QUADRATIC':
+        solver_options['objective'] = QUADRATIC
+
+    so = ut.dict_nt(solver_options)
 
     # small_positive = np.nextafter(np.float64(0), np.float64(1))
     wh = np.where(wh == 0, SMALL_POSITIVE, wh)
@@ -52,10 +73,10 @@ def gec(wh, xmat, targets,
         baseline_weights=wh,
         # target_weights=np.array([[.25, .75]]), # target priorities
         # target_weights=target_weights,
-        autoscale=True,  # doesn't always seem to work well
+        autoscale=so.autoscale,  # doesn't always seem to work well
         # note that QUADRATIC weights often can be zero
-        objective=objective,  # ENTROPY or QUADRATIC
-        increment=increment
+        objective=so.objective,  # ENTROPY or QUADRATIC
+        increment=so.increment
     )
     # print(l2_norm)
 

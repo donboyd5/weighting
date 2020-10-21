@@ -8,25 +8,45 @@ Reweight class
 
 # %% imports
 from __future__ import print_function, unicode_literals
-import os
+# import os
 import numpy as np
 from timeit import default_timer as timer
 from collections import namedtuple
 
 import ipopt
 
+import src.utilities as ut
+
 
 # %% constants
+# merge dictionaries
+
+
+# %% default options
+
+user_defaults = {
+    'xlb': 0.1,
+    'xub': 100,
+    'crange': .02,
+    'ccgoal': 1,
+    'objgoal': 100,
+    'quiet': True}
+
+solver_defaults = {
+    'print_level': 5,
+    'file_print_level': 5,
+    'jac_d_constant': 'yes',
+    'hessian_constant': 'yes',
+    'max_iter': 100,
+    'mumps_mem_percent': 100,  # default 1000
+    'linear_solver': 'mumps'
+    }
 
 
 # %% rw_ipopt - the primary function
 def rw_ipopt(wh, xmat, targets,
-             xlb, xub,
-             crange,
-             max_iter,
-             ccgoal,
-             objgoal,
-             quiet):
+             user_options,
+             solver_options):
     r"""
     Build and solve the reweighting NLP.
 
@@ -75,39 +95,41 @@ def rw_ipopt(wh, xmat, targets,
     n = xmat.shape[0]
     m = xmat.shape[1]
 
-    # xlb = 0.1
-    # xub = 100
-    # crange = .03
-    # max_iter = 100
-    # ccgoal = 1
-    # objgoal = 100
-    # quiet = True
+    # update options to override defaults and add any passed options
+    if user_options is None:
+        user_options = user_defaults
+    else:
+        user_options = {**user_defaults, **user_options}
+
+    if solver_options is None:
+        solver_options = solver_defaults
+    else:
+        solver_options = {**solver_defaults, **solver_options}
+
+    # create named tuple from dict to gain dot access to members
+    uo = ut.dict_nt(user_options)
 
     # constraint coefficients (constant)
     cc = (xmat.T * wh).T
 
     # scale constraint coefficients and targets
-    ccscale = get_ccscale(cc, ccgoal=ccgoal, method='mean')
+    ccscale = get_ccscale(cc, ccgoal=uo.ccgoal, method='mean')
     # ccscale = 1
     cc = cc * ccscale  # mult by scale to have avg derivative meet our goal
-    # print(targets)
-    # targets_scaled = targets.copy() * ccscale  # djb do I need to copy?
-    # print(ccscale)
     targets_scaled = targets * ccscale  # djb do I need to copy?
-    # print(targets_scaled)
 
     # IMPORTANT: define callbacks AFTER we have scaled cc and targets
     # because callbacks must be initialized with scaled cc
-    callbacks = Reweight_callbacks(cc, quiet)
+    callbacks = Reweight_callbacks(cc, uo.quiet)
 
     # x vector starting values, and lower and upper bounds
     x0 = np.ones(n)
-    lb = np.full(n, xlb)
-    ub = np.full(n, xub)
+    lb = np.full(n, uo.xlb)
+    ub = np.full(n, uo.xub)
 
     # constraint lower and upper bounds
-    cl = targets_scaled - abs(targets_scaled) * crange
-    cu = targets_scaled + abs(targets_scaled) * crange
+    cl = targets_scaled - abs(targets_scaled) * uo.crange
+    cu = targets_scaled + abs(targets_scaled) * uo.crange
 
     nlp = ipopt.problem(
         n=n,
@@ -120,29 +142,16 @@ def rw_ipopt(wh, xmat, targets,
 
     # objective function scaling
     # djb should I pass n and callbacks???
-    objscale = get_objscale(objgoal=objgoal,
+    objscale = get_objscale(objgoal=uo.objgoal,
                             xbase=1.2,
                             n=n,
                             callbacks=callbacks)
     # print(objscale)
     nlp.addOption('obj_scaling_factor', objscale)  # multiplier
-
-    # define additional options as a dict
-    opts = {
-        'print_level': 5,
-        'file_print_level': 5,
-        'jac_d_constant': 'yes',
-        'hessian_constant': 'yes',
-        'max_iter': max_iter,
-        'mumps_mem_percent': 100,  # default 1000
-        'linear_solver': 'mumps'
-        }
-
-    # TODO: check against already set options, etc. see ipopt_wrapper.py
-    for option, value in opts.items():
+    for option, value in solver_options.items():
         nlp.addOption(option, value)
 
-    if(not quiet):
+    if(not uo.quiet):
         print(f'\n {"":10} Iter {"":25} obj {"":22} infeas')
 
     # solve the problem
