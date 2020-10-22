@@ -55,17 +55,19 @@ def gec(wh, xmat, targets,
 
     # update options with any user-supplied options
     if options is None:
-        options = options_defaults
+        options_all = options_defaults.copy()
     else:
-        options = {**options_defaults, **options}
+        options_all = options_defaults.copy()
+        options_all.update(options)
+        # options_all = {**options_defaults, **options}
 
-    if options['objective'] == 'ENTROPY':
-        options['objective'] = ENTROPY
-    elif options['objective'] == 'QUADRATIC':
-        options['objective'] = QUADRATIC
+    if options_all['objective'] == 'ENTROPY':
+        options_all['objective'] = ENTROPY
+    elif options_all['objective'] == 'QUADRATIC':
+        options_all['objective'] = QUADRATIC
 
     # convert dict to named tuple for ease of use
-    opts = ut.dict_nt(options)
+    opts = ut.dict_nt(options_all)
 
     # small_positive = np.nextafter(np.float64(0), np.float64(1))
     wh = np.where(wh == 0, SMALL_POSITIVE, wh)
@@ -100,6 +102,7 @@ def gec(wh, xmat, targets,
               'wh_opt',
               'targets_opt',
               'g',
+              'opts',
               'l2_norm')
     Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
 
@@ -107,6 +110,7 @@ def gec(wh, xmat, targets,
                  wh_opt=wh_opt,
                  targets_opt=targets_opt,
                  g=g,
+                 opts=opts,
                  l2_norm=l2_norm)
 
     return res
