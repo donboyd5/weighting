@@ -126,7 +126,28 @@ from timeit import default_timer as timer
 # pip install -q git+https://github.com/google/empirical_calibration
 import empirical_calibration as ec
 
+import src.utilities as ut
 import src.raking as raking
+
+
+# %% default options
+
+user_defaults = {
+    'Q': None,
+    'max_iter': 100,
+    'drops': None}
+
+raking_defaults = {
+    'max_rake_iter': 10,
+    'objective': None  # so that we can include objective in call to gfn
+    }
+
+ec_defaults = {
+    'target_weights': None,
+    'objective': 'ENTROPY',
+    'autoscale': True,
+    'increment': 0.001
+    }
 
 
 # %% constants
@@ -142,9 +163,9 @@ ENTROPY = ec.Objective.ENTROPY
 
 # %% qmatrix - the primary function
 def qmatrix(wh, xmat, geotargets,
-            Q=None,
-            method='raking', maxiter=200, drops=None,
-            objective: ec.Objective = ec.Objective.ENTROPY):
+            method='raking',
+            user_options=None,
+            solver_options=None):
     """
 
     Parameters
@@ -182,9 +203,36 @@ def qmatrix(wh, xmat, geotargets,
 
     if method == 'raking':
         gfn = raking.rake
-        objective = None
-    elif method == 'raking-ec':
+        solver_defaults = raking_defaults
+    elif method == 'empcal':
         gfn = gec
+        solver_defaults = ec_defaults
+
+    # update options with any user-supplied options
+    if user_options is None:
+        user_options = user_defaults
+    else:
+        user_options = {**user_defaults, **user_options}
+
+    if solver_options is None:
+        solver_options = solver_defaults
+    else:
+        solver_options = {**solver_defaults, **solver_options}
+
+    if method == 'empcal':
+        if solver_options['objective'] == 'ENTROPY':
+            solver_options['objective'] = ENTROPY
+        elif solver_options['objective'] == 'QUADRATIC':
+            solver_options['objective'] = QUADRATIC
+
+    # create named tuples
+    uo = ut.dict_nt(user_options)
+    so = ut.dict_nt(solver_options)
+
+    # unpack selected user options
+    Q = uo.Q
+    drops = uo.drops
+    max_iter = uo.max_iter
 
     # constants
     # EPS = 1e-5  # acceptable weightsum error (tolerance) - 1e-5 in R code
@@ -226,7 +274,7 @@ def qmatrix(wh, xmat, geotargets,
     good_targets = np.logical_not(drops)
 
     def end_loop(iter, max_targ_abspctdiff):
-        iter_rule = (iter > maxiter)
+        iter_rule = (iter > max_iter)
         target_rule = (max_targ_abspctdiff <= TOL_TARGPCTDIFF)
         no_more = iter_rule or target_rule
         return no_more
@@ -254,9 +302,11 @@ def qmatrix(wh, xmat, geotargets,
 
             good_cols = good_targets[j, :]
 
-            # g = gfn(xmat_wh[:, good_cols], Q[:, j], geotargets[j, good_cols], objective=objective)
-            g = gfn(Q[:, j], xmat_wh[:, good_cols], geotargets[j, good_cols], objective=objective)
-            # print(type(g))
+            g = gfn(Q[:, j],
+                    xmat_wh[:, good_cols],
+                    geotargets[j, good_cols],
+                    objective=so.objective)
+
             # if method == 'raking' and g is None:
             #     # try to recover by using the alternate method
             #     g = gec(xmat_wh[:, good_cols], Q[:, j], geotargets[j, good_cols])
@@ -316,7 +366,7 @@ def qmatrix(wh, xmat, geotargets,
     abswtdiff = np.abs(Q_best.sum(axis=1) - 1)  # sum of weight-shares for each household
     max_weight_absdiff = abswtdiff.max()  # largest sum across all households
 
-    if iter > maxiter:
+    if iter > max_iter:
         print('\nMaximum number of iterations exceeded.\n')
 
     print('\n')
@@ -413,19 +463,18 @@ def get_drops(targets, drop_dict):
 # Q = np.tile(shares, n).reshape((n, m))
 # # Q = np.full((n, m), 1 / m)
 
-# res = qmatrix(p.wh, p.xmat, p.targets, method='raking', maxiter=50)
+# res = qmatrix(p.wh, p.xmat, p.targets, method='raking', max_iter=50)
 # res = qmatrix(p.wh, p.xmat, p.targets,
 #               Q = Q,
-#               method='raking', maxiter=50)
-# # res = qmatrix(Q, p.wh, p.xmat, p.targets, method='raking-ec', maxiter=50)
-# res = qmatrix(p.wh, p.xmat, p.targets, Q=Q, method='raking-ec', objective=QUADRATIC, maxiter=50)
+#               method='raking', max_iter=50)
+# # res = qmatrix(Q, p.wh, p.xmat, p.targets, method='raking-ec', max_iter=50)
+# res = qmatrix(p.wh, p.xmat, p.targets, Q=Q, method='raking-ec', objective=QUADRATIC, max_iter=50)
 # res
 # res._fields
 # res.elapsed_seconds
 # res.iter_opt
-# # res = qmatrix(Q, wh, xmat, targets, method='raking-ec', maxiter=100, drops=drops)  # GOOD
-# res = qmatrix(Q, wh, xmat, targets, method='raking-ec', maxiter=20, drops=drops, objective=QUADRATIC)
-
+# # res = qmatrix(Q, wh, xmat, targets, method='raking-ec', max_iter=100, drops=drops)  # GOOD
+# res = qmatrix(Q, wh, xmat, targets, method='raking-ec', max_iter=20, drops=drops, objective=QUADRATIC)
 
 
 # %% original R code from Toky Randrianasolo 2020-10-01

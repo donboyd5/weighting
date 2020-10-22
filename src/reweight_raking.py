@@ -17,26 +17,32 @@ import src.raking as raking
 
 # %% default options
 user_defaults = {
-    'max_iter': 10
+    'max_rake_iter': 10
     }
+
+solver_defaults = {}
+
+options_defaults = {**solver_defaults, **user_defaults}
 
 
 # %% primary function
 
-def rw_rake(wh, xmat, targets, user_options):
+def rw_rake(wh, xmat, targets, options):
 
     a = timer()
 
-    # update options to override defaults and add any passed options
-    if user_options is None:
-        user_options = user_defaults
+    # update options with any user-supplied options
+    if options is None:
+        options_all = options_defaults.copy()
     else:
-        user_options = {**user_defaults, **user_options}
+        options_all = options_defaults.copy()
+        options_all.update(options)
+        # options_all = {**options_defaults, **options}
 
-    # create named tuple from dict to gain dot access to members
-    uo = ut.dict_nt(user_options)
+    # convert dict to named tuple for ease of use
+    opts = ut.dict_nt(options_all)
 
-    g = raking.rake(wh=wh, xmat=xmat, targets=targets, max_iter=uo.max_iter)
+    g = raking.rake(wh=wh, xmat=xmat, targets=targets, max_iter=opts.max_rake_iter)
 
     wh_opt = g * wh
     targets_opt = np.dot(xmat.T, wh_opt)
@@ -46,13 +52,15 @@ def rw_rake(wh, xmat, targets, user_options):
     fields = ('elapsed_seconds',
               'wh_opt',
               'targets_opt',
-              'g')
+              'g',
+              'opts')
     Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
 
     res = Result(elapsed_seconds=b - a,
                  wh_opt=wh_opt,
                  targets_opt=targets_opt,
-                 g=g)
+                 g=g,
+                 opts=opts)
 
     return res
 

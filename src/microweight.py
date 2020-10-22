@@ -34,9 +34,11 @@ import src.utilities as ut
 # import src.common as common
 import src.geoweight_qmatrix as qm
 import src.geoweight_poisson as ps
-import src.reweight_ipopt as rwi
+import src.reweight_ipopt as rwip
 import src.reweight_empcalib as rwec
-import src.reweight_raking as rwr
+import src.reweight_raking as rwrk
+import src.reweight_leastsquares as rwls
+import src.reweight_minimizeNLP as rwmn
 
 # import scipy.optimize as spo
 # from scipy.optimize import least_squares
@@ -74,26 +76,32 @@ class Microweight:
 
     def reweight(self,
                  method='ipopt',
-                 user_options=None,
-                 solver_options=None):
+                 options=None):
         if method == 'ipopt':
-            method_result = rwi.rw_ipopt(
+            method_result = rwip.rw_ipopt(
                 self.wh, self.xmat, self.targets,
-                 user_options=user_options,
-                 solver_options=solver_options)
+                options=options)
         elif method == 'empcal':
             method_result = rwec.gec(
                 self.wh, self.xmat, self.targets,
-                 # no user options for empcal
-                 solver_options=solver_options)
+                 options=options)
         elif method == 'rake':
-            method_result =rwr.rw_rake(
+            method_result =rwrk.rw_rake(
                 self.wh, self.xmat, self.targets,
-                user_options=user_options,)
+                options=options)
+        elif method == 'lsq':
+            method_result = rwls.rw_lsq(
+                self.wh, self.xmat, self.targets,
+                options=options)
+        elif method == 'minNLP':
+            method_result = rwmn.rw_minNLP(
+                self.wh, self.xmat, self.targets,
+                options=options)
 
         # calculate sum of squared percentage differences
         diff = method_result.targets_opt - self.targets
-        sspd = np.square(diff / self.targets * 100).sum()
+        pdiff = diff / self.targets * 100
+        sspd = np.square(pdiff).sum()
 
         # here are the results we want for every method
         fields = ('method',
@@ -101,6 +109,7 @@ class Microweight:
                   'sspd',
                   'wh_opt',
                   'targets_opt',
+                  'pdiff',
                   'g',
                   'method_result')
         ReweightResult = namedtuple('ReweightResult', fields, defaults=(None,) * len(fields))
@@ -110,34 +119,33 @@ class Microweight:
                                sspd=sspd,
                                wh_opt=method_result.wh_opt,
                                targets_opt=method_result.targets_opt,
+                               pdiff=pdiff,
                                g=method_result.g,
                                method_result=method_result)
 
         return rwres
 
     def geoweight(self,
-                  method='qmatrix', Q=None, drops=None,
+                  method='qmatrix',
+                  user_options=None,
+                  solver_options=None,
+                  Q=None,
+                  drops=None,
                   maxiter=100):
-
-        # start = timer()
-        # methods = ('qmatrix', 'qmatrix-ec', 'poisson')
-        # h = self.xmat.shape[0]
-        # k = self.xmat.shape[1]
-        # s = self.geotargets.shape[0]
 
         # input checks:
             # geotargets must by s x k
 
         if method == 'qmatrix':
             method_result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
-                                Q=None,
-                                method='raking', drops=drops,
-                                maxiter=100)
+                                method='raking',
+                                user_options=user_options,
+                                solver_options=solver_options)
         elif method == 'qmatrix-ec':
             method_result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
-                                Q=None,
-                                method='raking-ec', drops=drops,
-                                maxiter=100)
+                                method='empcal',
+                                user_options=user_options,
+                                solver_options=solver_options)
         elif method == 'poisson':
             method_result = ps.poisson(self.wh, self.xmat, self.geotargets)
 

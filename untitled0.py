@@ -19,6 +19,50 @@ np.inner(p.xmat.T, wh.T)
 %timeit np.dot(p.xmat.T, wh)
 %timeit np.inner(p.xmat.T, wh.T)
 
+context = {**defaults, **user}
+
+user_defaults = {
+    'xlb': 0.1,
+    'xub': 100,
+    'crange': .02,
+    'ccgoal': 1,
+    'objgoal': 100,
+    'quiet': True}
+
+user_updates = {
+    'abc': 10,
+    'ccgoal': 100}
+
+if user_updates['def'] == 10:
+    print("ok")
+
+if user_updates.get('def') == 10:
+    print("ok")
+
+del(user_updates)
+if user_updates is None:
+    print("no")
+
+if 'user_updates' not in locals():
+    print("no")
+
+
+{**user_defaults, **user_updates}
+from collections import namedtuple
+MyTuple = namedtuple('MyTuple', sorted(d))
+my_tuple = MyTuple(**d)
+
+from collections import namedtuple
+def dict_nt(d):
+    # convert dict to named tuple
+    return namedtuple('ntd', sorted(d))(**d)
+
+dict_nt(user_defaults)
+
+
+def convert(dictionary):
+    return namedtuple('GenericDict', dictionary.keys())(**dictionary)
+
 
 (p.xmat * p.wh).T
 

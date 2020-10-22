@@ -15,6 +15,9 @@ conda install /package-path/package-filename.tar.bz2
 
 ?? conda install C:\Users\donbo\anaconda3\pkgs\ipopt-3.11.1-2.tar.bz2
 
+## pytables
+conda install -c anaconda pytables
+
 ## Anaconda location
 C:\Users\donbo\anaconda3
 

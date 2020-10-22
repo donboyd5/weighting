@@ -23,11 +23,17 @@ import src.utilities as ut
 # %% default options
 
 solver_defaults = {
+    'baseline_weights': None,
     'target_weights': None,
     'objective': 'ENTROPY',
     'autoscale': True,
     'increment': 0.001
     }
+
+user_defaults = {
+    }
+
+options_defaults = {**solver_defaults, **user_defaults}
 
 
 # %% constants
@@ -43,25 +49,27 @@ ENTROPY = ec.Objective.ENTROPY
 
 # %% gec primary function
 def gec(wh, xmat, targets,
-        solver_options=None):
+        options=None):
 
     a = timer()
 
     # update options with any user-supplied options
-    if solver_options is None:
-        solver_options = solver_defaults
+    if options is None:
+        options = options_defaults
     else:
-        solver_options = {**solver_defaults, **solver_options}
+        options = {**options_defaults, **options}
 
-    if solver_options['objective'] == 'ENTROPY':
-        solver_options['objective'] = ENTROPY
-    elif solver_options['objective'] == 'QUADRATIC':
-        solver_options['objective'] = QUADRATIC
+    if options['objective'] == 'ENTROPY':
+        options['objective'] = ENTROPY
+    elif options['objective'] == 'QUADRATIC':
+        options['objective'] = QUADRATIC
 
-    so = ut.dict_nt(solver_options)
+    # convert dict to named tuple for ease of use
+    opts = ut.dict_nt(options)
 
     # small_positive = np.nextafter(np.float64(0), np.float64(1))
     wh = np.where(wh == 0, SMALL_POSITIVE, wh)
+    wh = np.full(wh.shape, wh.mean())
 
     pop = wh.sum()
     tmeans = targets / pop
@@ -70,13 +78,13 @@ def gec(wh, xmat, targets,
     ompw, l2_norm = ec.maybe_exact_calibrate(
         covariates=xmat,
         target_covariates=tmeans.reshape((1, -1)),
-        baseline_weights=wh,
+        # baseline_weights=wh,
         # target_weights=np.array([[.25, .75]]), # target priorities
         # target_weights=target_weights,
-        autoscale=so.autoscale,  # doesn't always seem to work well
+        autoscale=opts.autoscale,  # doesn't always seem to work well
         # note that QUADRATIC weights often can be zero
-        objective=so.objective,  # ENTROPY or QUADRATIC
-        increment=so.increment
+        objective=opts.objective,  # ENTROPY or QUADRATIC
+        increment=opts.increment
     )
     # print(l2_norm)
 

@@ -18,10 +18,6 @@ import ipopt
 import src.utilities as ut
 
 
-# %% constants
-# merge dictionaries
-
-
 # %% default options
 
 user_defaults = {
@@ -42,11 +38,11 @@ solver_defaults = {
     'linear_solver': 'mumps'
     }
 
+options_defaults = {**solver_defaults, **user_defaults}
 
 # %% rw_ipopt - the primary function
 def rw_ipopt(wh, xmat, targets,
-             user_options,
-             solver_options):
+             options=None):
     r"""
     Build and solve the reweighting NLP.
 
@@ -95,41 +91,38 @@ def rw_ipopt(wh, xmat, targets,
     n = xmat.shape[0]
     m = xmat.shape[1]
 
-    # update options to override defaults and add any passed options
-    if user_options is None:
-        user_options = user_defaults
+    # update options with any user-supplied options
+    if options is None:
+        options_all = options_defaults.copy()
     else:
-        user_options = {**user_defaults, **user_options}
+        options_all = options_defaults.copy()
+        options_all.update(options)
+        # options_all = {**options_defaults, **options}
 
-    if solver_options is None:
-        solver_options = solver_defaults
-    else:
-        solver_options = {**solver_defaults, **solver_options}
-
-    # create named tuple from dict to gain dot access to members
-    uo = ut.dict_nt(user_options)
+    # convert dict to named tuple for ease of use
+    opts = ut.dict_nt(options_all)
 
     # constraint coefficients (constant)
     cc = (xmat.T * wh).T
 
     # scale constraint coefficients and targets
-    ccscale = get_ccscale(cc, ccgoal=uo.ccgoal, method='mean')
+    ccscale = get_ccscale(cc, ccgoal=opts.ccgoal, method='mean')
     # ccscale = 1
     cc = cc * ccscale  # mult by scale to have avg derivative meet our goal
     targets_scaled = targets * ccscale  # djb do I need to copy?
 
     # IMPORTANT: define callbacks AFTER we have scaled cc and targets
     # because callbacks must be initialized with scaled cc
-    callbacks = Reweight_callbacks(cc, uo.quiet)
+    callbacks = Reweight_callbacks(cc, opts.quiet)
 
     # x vector starting values, and lower and upper bounds
     x0 = np.ones(n)
-    lb = np.full(n, uo.xlb)
-    ub = np.full(n, uo.xub)
+    lb = np.full(n, opts.xlb)
+    ub = np.full(n, opts.xub)
 
     # constraint lower and upper bounds
-    cl = targets_scaled - abs(targets_scaled) * uo.crange
-    cu = targets_scaled + abs(targets_scaled) * uo.crange
+    cl = targets_scaled - abs(targets_scaled) * opts.crange
+    cu = targets_scaled + abs(targets_scaled) * opts.crange
 
     nlp = ipopt.problem(
         n=n,
@@ -140,18 +133,22 @@ def rw_ipopt(wh, xmat, targets,
         cl=cl,
         cu=cu)
 
-    # objective function scaling
+    # objective function scaling - add to options dict
     # djb should I pass n and callbacks???
-    objscale = get_objscale(objgoal=uo.objgoal,
+    objscale = get_objscale(objgoal=opts.objgoal,
                             xbase=1.2,
                             n=n,
                             callbacks=callbacks)
-    # print(objscale)
-    nlp.addOption('obj_scaling_factor', objscale)  # multiplier
+    options_all['obj_scaling_factor'] = objscale
+
+        # create a dict that only has solver options, for passing to ipopt
+    user_keys = user_defaults.keys()
+    solver_options = {key: value for key, value in options_all.items() if key not in user_keys}
+
     for option, value in solver_options.items():
         nlp.addOption(option, value)
 
-    if(not uo.quiet):
+    if(not opts.quiet):
         print(f'\n {"":10} Iter {"":25} obj {"":22} infeas')
 
     # solve the problem
@@ -166,6 +163,7 @@ def rw_ipopt(wh, xmat, targets,
               'wh_opt',
               'targets_opt',
               'g',
+              'opts'','
               'ipopt_info')
     Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
 
@@ -173,6 +171,7 @@ def rw_ipopt(wh, xmat, targets,
                  wh_opt=wh_opt,
                  targets_opt=targets_opt,
                  g=g,
+                 opts=opts,
                  ipopt_info=ipopt_info)
 
     return res
@@ -227,27 +226,6 @@ def get_objscale(objgoal, xbase, n, callbacks):
     objscale = objscale.item()
     # print(objscale)
     return objscale
-
-
-def merge_options(passed_options, default_options):
-    """
-    Merge options.
-
-    Parameters
-    ----------
-    passed_options : dict
-        DESCRIPTION.
-    default_options : dict
-        DESCRIPTION.
-
-    Returns
-    -------
-    options : TYPE
-        DESCRIPTION.
-
-    """
-    options = None
-    return options
 
 
 class Reweight_callbacks(object):
