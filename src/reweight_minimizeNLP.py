@@ -20,6 +20,7 @@ import src.utilities as ut
 # %% default options
 
 solver_defaults = {
+    'max_iter': 100,
     'verbose': 2,
     'gtol': 1e-4,
     'xtol': 1e-4,
@@ -28,7 +29,7 @@ solver_defaults = {
     }
 
 user_defaults = {
-    'max_iter': 100
+    'scaling': True
     }
 
 options_defaults = {**solver_defaults, **user_defaults}
@@ -55,11 +56,15 @@ def rw_minNLP(wh, xmat, targets,
     # convert dict to named tuple for ease of use
     opts = ut.dict_nt(options_all)
 
-    h = wh.size
+    # create a dict that only has solver options, for passing to minimize
+    user_keys = user_defaults.keys()
+    solver_options = {key: value for key, value in options_all.items() if key not in user_keys}
 
     # scale the targets to 100
-    #diff_weights = np.where(targets != 0, 100 / targets, 1)
-    diff_weights = np.ones_like(targets)
+    if opts.scaling is True:
+        diff_weights = np.where(targets != 0, 100 / targets, 1)
+    else:
+        diff_weights = np.ones_like(targets)
 
     b = targets * diff_weights
     b
@@ -89,7 +94,7 @@ def rw_minNLP(wh, xmat, targets,
         # hess='2-point',
         # hess=xm1_sq_hess,
         hessp=xm1_sq_hvp,
-        options=options_all
+        options=solver_options
         )
 
     g = nlp_info.x

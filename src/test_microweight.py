@@ -10,21 +10,13 @@ import numpy as np
 import src.make_test_problems as mtp
 import src.microweight as mw
 
+# print(mw.__doc__)
 
 # %% constants
 qtiles = (0, .01, .1, .25, .5, .75, .9, .99, 1)
 
 
 # %% functions
-# def targs(x, wh, xmat):
-#     return np.dot(xmat.T, wh * x)
-
-
-# def sspd(x, wh, xmat, targets):
-#     #  sum of squared percentage differences
-#     diffs = np.dot(xmat.T, wh * x) - targets
-#     pdiffs = diffs / targets * 100
-#     return np.square(pdiffs).sum()
 
 
 # %% make problem
@@ -49,15 +41,11 @@ prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets, geotargets=p.geota
 
 # %% reweight the problem
 opts = {'crange': 0.001, 'quiet': False}
-opts = {'crange': 0.001, 'xlb':0, 'xub':100, 'quiet': False}
-rw1a = prob.reweight(method='ipopt', options=opts)
+# opts = {'crange': 0.001, 'xlb':0, 'xub':100, 'quiet': False}
+rw1 = prob.reweight(method='ipopt', options=opts)
 # dir(rw1a)
-rw1a.sspd
+rw1.sspd
 
-opts = {'crange': 0.0001, 'xlb': 0, 'xub':1e5, 'quiet': False}
-rw1b = prob.reweight(method='ipopt', options=opts)
-rw1b.sspd
-rw1b.elapsed_seconds
 
 # so = {'increment': .00001, 'autoscale': False}  # best
 opts = {'increment': .001}
@@ -89,55 +77,57 @@ opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'bvls',
         'scaling': False, 'max_iter': 20}
 
 rw4 = prob.reweight(method='lsq')
+rw4 = prob.reweight(method='lsq', options={'scaling': True})
 rw4 = prob.reweight(method='lsq', options=opts)
 rw4.sspd
+rw4.opts
 
 rw5 = prob.reweight(method='minNLP')
+rw5 = prob.reweight(method='minNLP', options={'scaling': False})  # fewer iters
 rw5 = prob.reweight(method='minNLP', options={'xtol': 1e-6})
 rw5.sspd
-
+rw5.opts
 
 ntargets
-rw1a.targets_opt
-rw1b.targets_opt
+rw1.targets_opt
 rw2.targets_opt
 rw3.targets_opt
 rw4.targets_opt
+rw5.targets_opt
 
 # time
-rw1a.elapsed_seconds
-rw1b.elapsed_seconds
+rw1.elapsed_seconds
 rw2.elapsed_seconds
 rw3.elapsed_seconds
 rw4.elapsed_seconds
+rw5.elapsed_seconds
 
 # sum of squared percentage differences
-rw1a.sspd
-rw1b.sspd
+rw1.sspd
 rw2.sspd
 rw3.sspd
 rw4.sspd
+rw5.sspd
 
 # percent differences
-rw1a.pdiff
-rw1b.pdiff
+rw1.pdiff
 rw2.pdiff
 rw3.pdiff
 rw4.pdiff
+rw5.pdiff
 
 # distribution of g values
-np.quantile(rw1a.g, qtiles)
-np.quantile(rw1b.g, qtiles)
+np.quantile(rw1.g, qtiles)
 np.quantile(rw2.g, qtiles)
 np.quantile(rw3.g, qtiles)
 np.quantile(rw4.g, qtiles)
-np.quantile(rwmin.g, qtiles)
+np.quantile(rw5.g, qtiles)
 
-rw1a.g.sum()
-rw1b.g.sum()
+rw1.g.sum()
 rw2.g.sum()
 rw3.g.sum()
 rw4.g.sum()
+rw5.g.sum()
 
 
 

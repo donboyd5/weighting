@@ -111,6 +111,7 @@ class Microweight:
                   'targets_opt',
                   'pdiff',
                   'g',
+                  'opts',
                   'method_result')
         ReweightResult = namedtuple('ReweightResult', fields, defaults=(None,) * len(fields))
 
@@ -121,6 +122,7 @@ class Microweight:
                                targets_opt=method_result.targets_opt,
                                pdiff=pdiff,
                                g=method_result.g,
+                               opts=method_result.opts,
                                method_result=method_result)
 
         return rwres

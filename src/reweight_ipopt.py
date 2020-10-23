@@ -141,7 +141,7 @@ def rw_ipopt(wh, xmat, targets,
                             callbacks=callbacks)
     options_all['obj_scaling_factor'] = objscale
 
-        # create a dict that only has solver options, for passing to ipopt
+    # create a dict that only has solver options, for passing to ipopt
     user_keys = user_defaults.keys()
     solver_options = {key: value for key, value in options_all.items() if key not in user_keys}
 
@@ -163,7 +163,7 @@ def rw_ipopt(wh, xmat, targets,
               'wh_opt',
               'targets_opt',
               'g',
-              'opts'','
+              'opts',
               'ipopt_info')
     Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
 
