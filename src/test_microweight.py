@@ -26,17 +26,112 @@ p = mtp.Problem(h=40, s=2, k=3)
 p = mtp.Problem(h=1000, s=10, k=5)
 p = mtp.Problem(h=5000, s=10, k=5)
 p = mtp.Problem(h=10000, s=10, k=10)
-p = mtp.Problem(h=40000, s=10, k=30)
+p = mtp.Problem(h=30000, s=50, k=20)
+p = mtp.Problem(h=40000, s=30, k=30)
+p = mtp.Problem(h=50000, s=50, k=30)
 p = mtp.Problem(h=100000, s=10, k=5)
-p = mtp.Problem(h=100000, s=10, k=30)
+p = mtp.Problem(h=100000, s=50, k=30)
 
+# %% add noise and set problem up
 np.random.seed(1)
-noise = np.random.normal(0, .0125, p.k)
+noise = np.random.normal(0, .01, p.k)
 noise
 ntargets = p.targets * (1 + noise)
 # ntargets = p.targets
 
-prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets, geotargets=p.geotargets)
+# now add noise to geotargets
+np.random.seed(1)
+gnoise = np.random.normal(0, .01, p.k * p.s)
+gnoise = gnoise.reshape(p.geotargets.shape)
+ngtargets = p.geotargets * (1 + gnoise)
+# ngtargets = p.geotargets
+
+prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets, geotargets=ngtargets)
+
+
+# %% geoweight the problem
+
+uo = {'qmax_iter': 10}
+uo = {'qmax_iter': 1, 'independent': True}
+uo = {'qmax_iter': 10, 'quiet': True}
+uo = {'qmax_iter': 3, 'quiet': True, 'verbose': 2}
+
+# raking options (there aren't really any)
+uo = {'qmax_iter': 10}
+
+# empcal options
+uo = {'qmax_iter': 10, 'objective': 'ENTROPY'}
+uo = {'qmax_iter': 10, 'objective': 'QUADRATIC'}
+uoempcal = uo
+
+# ipopt options
+uo = {'qmax_iter': 10,
+      'quiet': True,
+      'xlb': 0.1,
+      'xub': 100,
+      'crange': .0001
+      }
+
+# lsq options
+uo = {'qmax_iter': 10,
+      'verbose': 0,
+      'xlb': 0.3,
+      'scaling': False,
+      'method': 'bvls',  # bvls (default) or trf - bvls usually faster, better
+      'lsmr_tol': 'auto'  # 'auto'  # 'auto' or None
+      }
+uolsq = uo
+
+gw1 = prob.geoweight(method='qmatrix', options=uo)
+gw2 = prob.geoweight(method='qmatrix-lsq', options=uo)
+gw3 = prob.geoweight(method='qmatrix-ipopt', options=uo)
+gw4 = prob.geoweight(method='qmatrix-ec', options=uo)
+gw5 = prob.geoweight(method='poisson', options=uo)
+
+gw = gw5  # one of the above
+# dir(gw)
+gw.method
+gw.sspd
+gw.elapsed_seconds
+prob.geotargets
+gw.geotargets_opt
+gw.pdiff
+np.round(gw.pdiff, 2)
+gw.whs_opt
+dir(gw.method_result)
+
+
+
+gw.whs_opt
+
+gw.sspd
+
+gw3 = prob.geoweight(method='poisson')
+gw3.method
+gw3.sspd
+gw3.elapsed_seconds
+gw3.geotargets_opt
+gw3.whs_opt
+dir(gw3.method_result)
+
+# sum of squared percentage differences
+gw1.sspd
+gw1a.sspd
+gw1b.sspd
+gw2.sspd
+gw3.sspd
+
+np.square((gw1.geotargets_opt - p.geotargets) / p.geotargets * 100).sum()
+np.square((gw2.geotargets_opt - p.geotargets) / p.geotargets * 100).sum()
+np.square((gw3.geotargets_opt - p.geotargets) / p.geotargets * 100).sum()
+
+
+# %% check
+import src.poisson as ps
+dir(gw3)
+gw1.whs_opt
+gw2.whs_opt
+gw3.whs_opt
 
 
 # %% reweight the problem
@@ -130,54 +225,6 @@ rw4.g.sum()
 rw5.g.sum()
 
 
-
-# %% geoweight the problem
-gw1 = prob.geoweight(method='qmatrix')
-
-uo = {'max_iter': 20}
-gw1 = prob.geoweight(method='qmatrix', user_options=uo)
-
-gw1.method_result.iter_opt
-
-# dir(gw1)
-gw1.method
-gw1.elapsed_seconds
-gw1.geotargets_opt
-gw1.whs_opt
-dir(gw1.method_result)
-
-gw2 = prob.geoweight(method='qmatrix-ec')
-uo = {'max_iter': 20}
-so = {'objective': 'QUADRATIC'}
-gw2 = prob.geoweight(method='qmatrix-ec', user_options=uo)
-gw2 = prob.geoweight(method='qmatrix-ec', solver_options=so)
-gw2.method
-gw2.geotargets_opt
-gw2.sspd
-
-gw3 = prob.geoweight(method='poisson')
-gw3.method
-gw3.elapsed_seconds
-gw3.geotargets_opt
-gw3.whs_opt
-dir(gw3.method_result)
-
-# sum of squared percentage differences
-gw1.sspd
-gw2.sspd
-gw3.sspd
-
-np.square((gw1.geotargets_opt - p.geotargets) / p.geotargets * 100).sum()
-np.square((gw2.geotargets_opt - p.geotargets) / p.geotargets * 100).sum()
-np.square((gw3.geotargets_opt - p.geotargets) / p.geotargets * 100).sum()
-
-
-# %% check
-import src.poisson as ps
-dir(gw3)
-gw1.whs_opt
-gw2.whs_opt
-gw3.whs_opt
 
 
 # %% test linear least squares
@@ -275,6 +322,7 @@ np.square(res.fun).sum()
 np.square(sdiff).sum() / 2
 res.cost
 # np.square(res.fun).sum() / 2
+
 
 
 

@@ -15,7 +15,8 @@ import scipy.optimize as spo
 
 # %% poisson - the primary function
 
-def poisson(wh, xmat, geotargets):
+def poisson(wh, xmat, geotargets, options=None):
+    # TODO: implement options
     a = timer()
     # betavec0 = np.zeros(geotargets.size)
     betavec0 = np.full(geotargets.size, 1e-12) # 1e-13 seems best

@@ -3959,46 +3959,46 @@ src,irsstub,incrange,variable,value,table_description,column_description
 18in14ar.xls,17,"$2,000,000 under $5,000,000",itemded,23427335,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Total itemized deductions
 18in14ar.xls,18,"$5,000,000 under $10,000,000",itemded,14127465,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Total itemized deductions
 18in14ar.xls,19,"$10,000,000 or more",itemded,60936754,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Total itemized deductions
-18in14ar.xls,0,"All returns, total",ED,18664592,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,1,No adjusted gross income,ED,0,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,2,"$1 under $5,000",ED,13165,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,3,"$5,000 under $10,000",ED,17283,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,4,"$10,000 under $15,000",ED,461792,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,5,"$15,000 under $20,000",ED,700366,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,6,"$20,000 under $25,000",ED,627966,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,7,"$25,000 under $30,000",ED,823320,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,8,"$30,000 under $40,000",ED,1344600,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,9,"$40,000 under $50,000",ED,1233536,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,10,"$50,000 under $75,000",ED,2796606,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,11,"$75,000 under $100,000",ED,2243232,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,12,"$100,000 under $200,000",ED,4862158,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,13,"$200,000 under $500,000",ED,2673099,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,14,"$500,000 under $1,000,000",ED,531912,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,15,"$1,000,000 under $1,500,000",ED,141177,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,16,"$1,500,000 under $2,000,000",ED,61432,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,17,"$2,000,000 under $5,000,000",ED,94062,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,18,"$5,000,000 under $10,000,000",ED,24155,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,19,"$10,000,000 or more",ED,14730,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,0,"All returns, total",EE,149950908,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,1,No adjusted gross income,EE,0,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,2,"$1 under $5,000",EE,1957,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,3,"$5,000 under $10,000",EE,3526,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,4,"$10,000 under $15,000",EE,124793,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,5,"$15,000 under $20,000",EE,435247,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,6,"$20,000 under $25,000",EE,617948,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,7,"$25,000 under $30,000",EE,899238,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,8,"$30,000 under $40,000",EE,2191568,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,9,"$40,000 under $50,000",EE,2447694,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,10,"$50,000 under $75,000",EE,7659014,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,11,"$75,000 under $100,000",EE,7471483,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,12,"$100,000 under $200,000",EE,25985353,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,13,"$200,000 under $500,000",EE,34396903,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,14,"$500,000 under $1,000,000",EE,14947541,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,15,"$1,000,000 under $1,500,000",EE,8543282,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,16,"$1,500,000 under $2,000,000",EE,5392744,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,17,"$2,000,000 under $5,000,000",EE,15200596,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,18,"$5,000,000 under $10,000,000",EE,8268076,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,19,"$10,000,000 or more",EE,15363946,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
+18in14ar.xls,0,"All returns, total",nret_qbi,18664592,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,1,No adjusted gross income,nret_qbi,0,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,2,"$1 under $5,000",nret_qbi,13165,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,3,"$5,000 under $10,000",nret_qbi,17283,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,4,"$10,000 under $15,000",nret_qbi,461792,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,5,"$15,000 under $20,000",nret_qbi,700366,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,6,"$20,000 under $25,000",nret_qbi,627966,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,7,"$25,000 under $30,000",nret_qbi,823320,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,8,"$30,000 under $40,000",nret_qbi,1344600,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,9,"$40,000 under $50,000",nret_qbi,1233536,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,10,"$50,000 under $75,000",nret_qbi,2796606,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,11,"$75,000 under $100,000",nret_qbi,2243232,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,12,"$100,000 under $200,000",nret_qbi,4862158,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,13,"$200,000 under $500,000",nret_qbi,2673099,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,14,"$500,000 under $1,000,000",nret_qbi,531912,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,15,"$1,000,000 under $1,500,000",nret_qbi,141177,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,16,"$1,500,000 under $2,000,000",nret_qbi,61432,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,17,"$2,000,000 under $5,000,000",nret_qbi,94062,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,18,"$5,000,000 under $10,000,000",nret_qbi,24155,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,19,"$10,000,000 or more",nret_qbi,14730,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with qualified business income deduction
+18in14ar.xls,0,"All returns, total",qbi,149950908,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,1,No adjusted gross income,qbi,0,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,2,"$1 under $5,000",qbi,1957,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,3,"$5,000 under $10,000",qbi,3526,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,4,"$10,000 under $15,000",qbi,124793,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,5,"$15,000 under $20,000",qbi,435247,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,6,"$20,000 under $25,000",qbi,617948,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,7,"$25,000 under $30,000",qbi,899238,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,8,"$30,000 under $40,000",qbi,2191568,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,9,"$40,000 under $50,000",qbi,2447694,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,10,"$50,000 under $75,000",qbi,7659014,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,11,"$75,000 under $100,000",qbi,7471483,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,12,"$100,000 under $200,000",qbi,25985353,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,13,"$200,000 under $500,000",qbi,34396903,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,14,"$500,000 under $1,000,000",qbi,14947541,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,15,"$1,000,000 under $1,500,000",qbi,8543282,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,16,"$1,500,000 under $2,000,000",qbi,5392744,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,17,"$2,000,000 under $5,000,000",qbi,15200596,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,18,"$5,000,000 under $10,000,000",qbi,8268076,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
+18in14ar.xls,19,"$10,000,000 or more",qbi,15363946,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income", Qualified business income deduction
 18in14ar.xls,0,"All returns, total",EF,15479,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
 18in14ar.xls,1,No adjusted gross income,EF,4289,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
 18in14ar.xls,2,"$1 under $5,000",EF,0,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
@@ -4119,46 +4119,46 @@ src,irsstub,incrange,variable,value,table_description,column_description
 18in14ar.xls,17,"$2,000,000 under $5,000,000",EK,382447835,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
 18in14ar.xls,18,"$5,000,000 under $10,000,000",EK,215846207,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
 18in14ar.xls,19,"$10,000,000 or more",EK,582918123,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,0,"All returns, total",EL,244007,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,1,No adjusted gross income,EL,3438,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,2,"$1 under $5,000",EL,5,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,3,"$5,000 under $10,000",EL,1012,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,4,"$10,000 under $15,000",EL,1197,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,5,"$15,000 under $20,000",EL,86,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,6,"$20,000 under $25,000",EL,999,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,7,"$25,000 under $30,000",EL,1093,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,8,"$30,000 under $40,000",EL,234,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,9,"$40,000 under $50,000",EL,0,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,10,"$50,000 under $75,000",EL,4872,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,11,"$75,000 under $100,000",EL,5816,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,12,"$100,000 under $200,000",EL,31382,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,13,"$200,000 under $500,000",EL,91442,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,14,"$500,000 under $1,000,000",EL,30022,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,15,"$1,000,000 under $1,500,000",EL,22774,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,16,"$1,500,000 under $2,000,000",EL,16429,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,17,"$2,000,000 under $5,000,000",EL,23521,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,18,"$5,000,000 under $10,000,000",EL,5838,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,19,"$10,000,000 or more",EL,3847,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,0,"All returns, total",EM,4022755,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,1,No adjusted gross income,EM,152796,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,2,"$1 under $5,000",EM,153,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,3,"$5,000 under $10,000",EM,689,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,4,"$10,000 under $15,000",EM,2009,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,5,"$15,000 under $20,000",EM,641,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,6,"$20,000 under $25,000",EM,146951,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,7,"$25,000 under $30,000",EM,4434,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,8,"$30,000 under $40,000",EM,4216,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,9,"$40,000 under $50,000",EM,0,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,10,"$50,000 under $75,000",EM,30083,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,11,"$75,000 under $100,000",EM,26112,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,12,"$100,000 under $200,000",EM,159352,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,13,"$200,000 under $500,000",EM,767241,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,14,"$500,000 under $1,000,000",EM,551576,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,15,"$1,000,000 under $1,500,000",EM,379082,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,16,"$1,500,000 under $2,000,000",EM,320631,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,17,"$2,000,000 under $5,000,000",EM,608909,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,18,"$5,000,000 under $10,000,000",EM,259151,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
-18in14ar.xls,19,"$10,000,000 or more",EM,608732,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
+18in14ar.xls,0,"All returns, total",nret_amt,244007,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,1,No adjusted gross income,nret_amt,3438,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,2,"$1 under $5,000",nret_amt,5,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,3,"$5,000 under $10,000",nret_amt,1012,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,4,"$10,000 under $15,000",nret_amt,1197,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,5,"$15,000 under $20,000",nret_amt,86,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,6,"$20,000 under $25,000",nret_amt,999,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,7,"$25,000 under $30,000",nret_amt,1093,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,8,"$30,000 under $40,000",nret_amt,234,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,9,"$40,000 under $50,000",nret_amt,0,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,10,"$50,000 under $75,000",nret_amt,4872,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,11,"$75,000 under $100,000",nret_amt,5816,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,12,"$100,000 under $200,000",nret_amt,31382,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,13,"$200,000 under $500,000",nret_amt,91442,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,14,"$500,000 under $1,000,000",nret_amt,30022,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,15,"$1,000,000 under $1,500,000",nret_amt,22774,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,16,"$1,500,000 under $2,000,000",nret_amt,16429,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,17,"$2,000,000 under $5,000,000",nret_amt,23521,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,18,"$5,000,000 under $10,000,000",nret_amt,5838,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,19,"$10,000,000 or more",nret_amt,3847,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Number of returns with alternative minimum tax
+18in14ar.xls,0,"All returns, total",amt,4022755,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,1,No adjusted gross income,amt,152796,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,2,"$1 under $5,000",amt,153,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,3,"$5,000 under $10,000",amt,689,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,4,"$10,000 under $15,000",amt,2009,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,5,"$15,000 under $20,000",amt,641,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,6,"$20,000 under $25,000",amt,146951,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,7,"$25,000 under $30,000",amt,4434,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,8,"$30,000 under $40,000",amt,4216,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,9,"$40,000 under $50,000",amt,0,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,10,"$50,000 under $75,000",amt,30083,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,11,"$75,000 under $100,000",amt,26112,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,12,"$100,000 under $200,000",amt,159352,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,13,"$200,000 under $500,000",amt,767241,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,14,"$500,000 under $1,000,000",amt,551576,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,15,"$1,000,000 under $1,500,000",amt,379082,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,16,"$1,500,000 under $2,000,000",amt,320631,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,17,"$2,000,000 under $5,000,000",amt,608909,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,18,"$5,000,000 under $10,000,000",amt,259151,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
+18in14ar.xls,19,"$10,000,000 or more",amt,608732,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",Alternative minimum tax
 18in14ar.xls,0,"All returns, total",EN,3206967,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
 18in14ar.xls,1,No adjusted gross income,EN,38973,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",
 18in14ar.xls,2,"$1 under $5,000",EN,53063,"Table 1.4.  All Returns: Sources of Income, Adjustments, and Tax Items, by Size of Adjusted Gross Income",

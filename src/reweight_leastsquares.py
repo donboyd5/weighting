@@ -18,10 +18,10 @@ import src.utilities as ut
 # %% default options
 
 solver_defaults = {
-    'xlb': 0.0,
+    'xlb': 0.01,
     'xub': 100.0,
     'method': 'bvls',  # bvls or trf
-    'tol': None,  # 1e-6
+    'tol': 1e-6,  # 1e-6
     'lsmr_tol': 'auto',  # 'auto',  # None
     'max_iter': 50,
     'verbose': 2
@@ -37,6 +37,12 @@ options_defaults = {**solver_defaults, **user_defaults}
 # %% primary function
 def rw_lsq(wh, xmat, targets,
            options=None):
+    # minimize the sum of squared differences from the targets,
+    # choosing x values that do so, where x is the ratio of new weight
+    # to old weight
+    # with bounds on the x values
+
+    # this appears to be the best of the reweighting approaches
 
     a1 = timer()
 
@@ -58,17 +64,17 @@ def rw_lsq(wh, xmat, targets,
     #   A x multiplication gives calculated targets
     # using sparse matrix As instead of A
 
-    # scale the targets to 100
+    # scale the targets to 100 or something similar
     # TODO: deal with targets that are zero
     if opts.scaling is True:
-        diff_weights = np.where(targets != 0, 100 / targets, 1)
+        scale_vector = np.abs(np.where(targets != 0, 100000.0 / targets, 1))
+        # scale_vector = np.where(targets != 0, 0.1, 1)
     else:
-        diff_weights = np.ones_like(targets)
+        scale_vector = np.ones_like(targets)
 
-    b = targets * diff_weights
-    b
+    b = targets * scale_vector
+    wmat = xmat * scale_vector
 
-    wmat = xmat * diff_weights
     At = np.multiply(wh.reshape(-1, 1), wmat)
     A = At.T
 

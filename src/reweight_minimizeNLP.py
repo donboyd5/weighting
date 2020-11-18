@@ -39,6 +39,10 @@ options_defaults = {**solver_defaults, **user_defaults}
 # %% primary function
 def rw_minNLP(wh, xmat, targets,
               options=None):
+    # minimize the change in the weights, measured by the ratio of new weight
+    # to old weight minus 1, squared, subject to:
+    # linear inequality constraints (the targets) and
+    # bounds on the x variables
 
     a1 = timer()
 

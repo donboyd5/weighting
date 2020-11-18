@@ -6,5 +6,5 @@ save_non_project_files = False
 
 [main]
 version = 0.2.0
-recent_files = ['src\\test_microweight.py', 'src\\reweight_leastsquares.py', 'src\\microweight.py', 'src\\reweight_minimizeNLP.py']
+recent_files = ['src\\test_microweight.py', 'src\\microweight.py', 'src\\geoweight_qmatrix.py', 'src\\reweight_leastsquares.py', 'puf\\puf_geoweight.py', 'src\\make_test_problems.py', 'src\\reweight_ipopt.py']
 

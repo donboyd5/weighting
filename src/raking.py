@@ -15,7 +15,7 @@ import numpy as np
 
 
 # %% primary function
-def rake(wh, xmat, targets, q=1, objective=None, max_iter=10):
+def rake(wh, xmat, targets, q=1, max_iter=10):
     # this is a direct translation of the raking code of the calib function
     # in the R sampling package, as of 10/3/2020
     # wh vector of initial weights (d in R calib)

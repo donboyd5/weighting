@@ -73,6 +73,9 @@ class Microweight:
         self.xmat = xmat
         self.targets = targets
         self.geotargets = geotargets
+        self.targets_init = np.dot(self.xmat.T, self.wh)
+        if self.targets is not None:
+            self.pdiff_init = self.targets_init / self.targets * 100 - 100
 
     def reweight(self,
                  method='ipopt',
@@ -129,11 +132,7 @@ class Microweight:
 
     def geoweight(self,
                   method='qmatrix',
-                  user_options=None,
-                  solver_options=None,
-                  Q=None,
-                  drops=None,
-                  maxiter=100):
+                  options=None):
 
         # input checks:
             # geotargets must by s x k
@@ -141,24 +140,33 @@ class Microweight:
         if method == 'qmatrix':
             method_result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
                                 method='raking',
-                                user_options=user_options,
-                                solver_options=solver_options)
+                                options=options)
         elif method == 'qmatrix-ec':
             method_result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
                                 method='empcal',
-                                user_options=user_options,
-                                solver_options=solver_options)
+                                options=options)
+        elif method == 'qmatrix-ipopt':
+            method_result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
+                                method='ipopt',
+                                options=options)
+        elif method == 'qmatrix-lsq':
+            method_result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
+                                method='least_squares',
+                                options=options)
         elif method == 'poisson':
-            method_result = ps.poisson(self.wh, self.xmat, self.geotargets)
+            method_result = ps.poisson(self.wh, self.xmat, self.geotargets,
+                                options=options)
 
         # calculate sum of squared percentage differences
         diff = method_result.geotargets_opt - self.geotargets
-        sspd = np.square(diff / self.geotargets * 100).sum()
+        pdiff = diff / self.geotargets * 100
+        sspd = np.square(pdiff).sum()
 
         # here are the results we want for every method
         fields = ('method',
                   'elapsed_seconds',
                   'sspd',
+                  'pdiff',
                   'whs_opt',
                   'geotargets_opt',
                   'method_result')
@@ -167,6 +175,7 @@ class Microweight:
         geores = GeoResult(method=method,
                            elapsed_seconds=method_result.elapsed_seconds,
                            sspd=sspd,
+                           pdiff=pdiff,
                            whs_opt=method_result.whs_opt,
                            geotargets_opt=method_result.geotargets_opt,
                            method_result=method_result)
@@ -174,12 +183,3 @@ class Microweight:
         return geores
 
 
-    def help():
-        print("\nThe microweight class requires the following arguments:",
-              "\twh:\t\t\th-length vector of national weights for households",
-              "\txmat:\t\th x k matrix of characteristices (data) for households",
-              "\tgeotargets:\ts x k matrix of targets", sep='\n')
-        print("\nThe goal of the method geoweight is to find state weights" +
-              " that will",
-              "hit the targets while ensuring that each household's state",
-              "weights sum to its national weight.\n", sep='\n')

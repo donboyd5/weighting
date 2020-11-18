@@ -29,7 +29,7 @@ user_defaults = {
     'quiet': True}
 
 solver_defaults = {
-    'print_level': 5,
+    'print_level': 0,
     'file_print_level': 5,
     'jac_d_constant': 'yes',
     'hessian_constant': 'yes',
@@ -39,6 +39,7 @@ solver_defaults = {
     }
 
 options_defaults = {**solver_defaults, **user_defaults}
+
 
 # %% rw_ipopt - the primary function
 def rw_ipopt(wh, xmat, targets,

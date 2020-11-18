@@ -128,25 +128,51 @@ import empirical_calibration as ec
 
 import src.utilities as ut
 import src.raking as raking
+import src.reweight_ipopt as rwip
+import src.reweight_leastsquares as rwls
 
 
-# %% default options
+# %% default options for the user and for each of the possible methods
 
+# user can pass in different values, but these are the only user options
 user_defaults = {
     'Q': None,
-    'max_iter': 100,
-    'drops': None}
+    'qshares': None,
+    'qmax_iter': 100,
+    'drops': None,
+    'independent': False}
 
-raking_defaults = {
-    'max_rake_iter': 10,
-    'objective': None  # so that we can include objective in call to gfn
-    }
-
+# solver options below here - user can pass different value and can also
+# pass additional valid options for a solver
 ec_defaults = {
     'target_weights': None,
     'objective': 'ENTROPY',
-    'autoscale': True,
+    'autoscale': False,
     'increment': 0.001
+    }
+
+# most of the ipopt options below are defined and used in reweight_ipopt code
+# many additional ipopt options are possible
+ipopt_defaults = {
+    'xlb': 0.1,
+    'xub': 100,
+    'crange': .02,
+    'ccgoal': 1,
+    'objgoal': 100,
+    'quiet': False,
+    'max_iter': 100
+    }
+
+lsq_defaults = {
+    'xlb': 0.1,
+    'xub': 100.0,
+    'method': 'bvls',  # bvls or trf
+    'scaling': False,
+    'verbose': 0
+    }
+
+raking_defaults = {
+    'max_rake_iter': 10
     }
 
 
@@ -164,75 +190,82 @@ ENTROPY = ec.Objective.ENTROPY
 # %% qmatrix - the primary function
 def qmatrix(wh, xmat, geotargets,
             method='raking',
-            user_options=None,
-            solver_options=None):
-    """
-
-    Parameters
-    ----------
-    Q : 2d array
-        DESCRIPTION.
-    w : 1d array
-        DESCRIPTION.
-    xmat : TYPE
-        DESCRIPTION.
-        Note: this was Xs in the R code.
-    geotargets : TYPE
-        Note that this was TTT in the R code provided by Toky Randrianasolo.
-
-    Returns
-    -------
-    Q : TYPE
-        DESCRIPTION.
+            options=None):
+    """Docstring.
 
     """
 
     # TODO:
-    #   customize stopping rule based only on max target pct diff
-
-    def print_problem():
-        print(' Number of households:                {:8,}'.format(wh.size))
-        print(' Number of areas:                     {:8,d}'.format(m))
-        print()
-        print(' Number of targets per area:          {:8,d}'.format(nt_per_area))
-        print(' Number of potential targets, total:  {:8,d}'.format(nt_possible))
-        print(' Number of targets dropped:           {:8,d}'.format(nt_dropped))
-        print(' Number of targets used:              {:8,d}'.format(nt_used))
 
     a = timer()
 
+    # define gfn, the function to use in the qmatrix loop
+    #   gfn is passed:
+        #  column of the Q matrix, representing an area
+        #  wh-weighted xmat with good columns only
+        # row of the geotargets matrix, representing an area, good columns only
+        # optional parameter, objective, needed only for empirical calibration
+    #   gfn returns g, ratio of new weights to old weights
+
     if method == 'raking':
-        gfn = raking.rake
+        gfn = g_raking
         solver_defaults = raking_defaults
     elif method == 'empcal':
-        gfn = gec
+        gfn = g_ec
         solver_defaults = ec_defaults
+    elif method == 'ipopt':
+        gfn = g_ipopt
+        solver_defaults = ipopt_defaults
+    elif method == 'least_squares':
+        gfn = g_lsq
+        solver_defaults = lsq_defaults
+
+    options_defaults = {**solver_defaults, **user_defaults}
 
     # update options with any user-supplied options
-    if user_options is None:
-        user_options = user_defaults
+    # copy seemed safer than ** to me but I am not sure why
+    if options is None:
+        options_all = options_defaults.copy()
     else:
-        user_options = {**user_defaults, **user_options}
-
-    if solver_options is None:
-        solver_options = solver_defaults
-    else:
-        solver_options = {**solver_defaults, **solver_options}
+        options_all = options_defaults.copy()
+        options_all.update(options)
+        # options = {**options_defaults, **options}
 
     if method == 'empcal':
-        if solver_options['objective'] == 'ENTROPY':
-            solver_options['objective'] = ENTROPY
-        elif solver_options['objective'] == 'QUADRATIC':
-            solver_options['objective'] = QUADRATIC
+        # replace string name for obective with the corresponding empcal object
+        if options_all['objective'] == 'ENTROPY':
+            options_all['objective'] = ENTROPY
+        elif options_all['objective'] == 'QUADRATIC':
+            options_all['objective'] = QUADRATIC
 
-    # create named tuples
-    uo = ut.dict_nt(user_options)
-    so = ut.dict_nt(solver_options)
+    # create a dict that only has solver options, for passing to gfn
+    user_keys = user_defaults.keys()
+    solver_options = {key: value for key, value in options_all.items() if key not in user_keys}
+
+    # convert options_all dict to named tuple for ease of use
+    # uo = ut.dict_nt(user_options)
+    # so = ut.dict_nt(solver_options)
+
+    opts = ut.dict_nt(options_all)
+
+    # if user_options is None:
+    #     user_options = user_defaults
+    # else:
+    #     user_options = {**user_defaults, **user_options}
+
+    # if solver_options is None:
+    #     solver_options = solver_defaults
+    # else:
+    #     solver_options = {**solver_defaults, **solver_options}
 
     # unpack selected user options
-    Q = uo.Q
-    drops = uo.drops
-    max_iter = uo.max_iter
+    Q = opts.Q
+    drops = opts.drops
+    qmax_iter = opts.qmax_iter
+    # independent means we do one iteration and use UNADJUSTED Q!!!
+    if opts.independent:
+        qmax_iter = 1  # should add warning if independent and qmax_iter !=1
+    print(f'max Q iterations: {qmax_iter}')
 
     # constants
     # EPS = 1e-5  # acceptable weightsum error (tolerance) - 1e-5 in R code
@@ -258,14 +291,14 @@ def qmatrix(wh, xmat, geotargets,
     if Q is None:
         Q = np.full((n, m), 1 / m)
 
-    # compute xmat_wh before loop to(calib calculates it in the loop)
+    # compute xmat_wh before loop (calib calculates it in the loop)
     xmat_wh = xmat * wh  # shape -  n x number of geotargets
 
     # numbers of geotargets
     nt_per_area = geotargets.shape[1]
     nt_possible = nt_per_area * m
     if drops is None:
-        drops= np.zeros(geotargets.shape, dtype = bool)  # all False
+        drops = np.zeros(geotargets.shape, dtype=bool)  # all False
         nt_dropped = 0
     else:
         # nt_dropped = sum([len(x) for x in drops.values()])
@@ -273,19 +306,15 @@ def qmatrix(wh, xmat, geotargets,
     nt_used = nt_possible - nt_dropped
     good_targets = np.logical_not(drops)
 
-    def end_loop(iter, max_targ_abspctdiff):
-        iter_rule = (iter > max_iter)
-        target_rule = (max_targ_abspctdiff <= TOL_TARGPCTDIFF)
-        no_more = iter_rule or target_rule
-        return no_more
 
     # Making a copy of Q is crucial. We don't want to change the
-    # original Q.
-    Q = Q.copy()
+    # original Q. Am I sure of this??
+    Qmat = Q.copy()
     Q_best = Q.copy()
+    Q_unadjusted = Q.copy()  # Q_unadjusted is Q prior to forced summation to 1
 
     print('')
-    print_problem()
+    print_problem(wh, m, nt_per_area, nt_possible, nt_dropped, nt_used)
 
     h1 = "                  max weight      max target       p95 target"
     h2 = "   iteration        diff           pct diff         pct diff"
@@ -293,38 +322,43 @@ def qmatrix(wh, xmat, geotargets,
     print(h1)
     print(h2, '\n')
 
-    while not end_loop(iter, max_targ_abspctdiff):
+    while not end_loop(iter, max_targ_abspctdiff, qmax_iter, TOL_TARGPCTDIFF):
 
         print(' '*3, end='')
         print('{:4d}'.format(iter), end='', flush=True)
 
         for j in range(m):  # j indexes areas
+            # print(f'iter {iter:4d}, area {j:5d}')
 
             good_cols = good_targets[j, :]
 
-            g = gfn(Q[:, j],
+            g = gfn(Qmat[:, j],
                     xmat_wh[:, good_cols],
                     geotargets[j, good_cols],
-                    objective=so.objective)
+                    options=solver_options)
 
             # if method == 'raking' and g is None:
             #     # try to recover by using the alternate method
-            #     g = gec(xmat_wh[:, good_cols], Q[:, j], geotargets[j, good_cols])
+            #     g = g_ec(xmat_wh[:, good_cols], Q[:, j], geotargets[j, good_cols])
             if g is None:
                 g = np.ones(n)
 
             if np.isnan(g).any() or np.isinf(g).any() or g.any() == 0:
+                print('bad g')
                 g = np.ones(g.size)
                 # we'll need to do this one again
             else:
                 pass
                 # print("done with this area")
-            Q[:, j] = Q[:, j] * g.reshape(g.size, )  # end for loop
+            # print(g)
+            Qmat[:, j] = Qmat[:, j] * g.reshape(g.size, )  # end for loop for this area
 
-        # we have completed all areas for this iteration
+        # print(Qmat)
+
+        # when we arrive here we have completed all areas for this iteration
         # calc max weight difference BEFORE recalibrating Q
-        abswtdiff = np.abs(Q.sum(axis=1) - 1)  # sum of weight-shares for each household
-        max_weight_absdiff = abswtdiff.max()  # largest sum across all households
+        abswtdiff = np.abs(Qmat.sum(axis=1) - 1)  # sum of weight-shares for each household
+        max_weight_absdiff = abswtdiff.max()  # largest difference from 1 across all households
         print(' '*11, end='')
         print(f'{max_weight_absdiff:8.4f}', end='')
         if np.isinf(abswtdiff).any():
@@ -334,10 +368,14 @@ def qmatrix(wh, xmat, geotargets,
             print("Existence of infinite coefficients --> non-convergence.")
 
         #print("Weight sums max percent difference: {}".format(maxadiff))  # ediff
-        Q = Q / Q.sum(axis=1)[:, None]  # Recalibrate Q. Note None so that we have proper broadcasting
+        # if iter == 1:
+        # Q_unadjusted = Qmat.copy()  # save for possible postprocessing
+        if not opts.independent:  # update matrix to force summation to 1, if NOT independent
+            Qmat = Qmat / Qmat.sum(axis=1)[:, None]  # Recalibrate Q. Note None so that we have proper broadcasting
 
         # calculate geotargets pct diff AFTER recalibrating Q
-        whs = np.multiply(Q, wh.reshape((-1, 1)))  # faster
+        # this is simply for interim reporting
+        whs = np.multiply(Qmat, wh.reshape((-1, 1)))  # faster
         diff = np.dot(whs.T, xmat) - geotargets
         abspctdiff = np.abs(diff / geotargets * 100)
         max_targ_abspctdiff = abspctdiff[good_targets].max()
@@ -350,13 +388,15 @@ def qmatrix(wh, xmat, geotargets,
 
         # final processing before next iteration
         if max_targ_abspctdiff < max_diff_best:
-            Q_best = Q.copy()
+            Q_best = Qmat.copy()
             max_diff_best = max_targ_abspctdiff.copy()
             iter_best = iter
         iter = iter + 1
         # end while loop
 
+    # WE ARE NOW DONE WITH ALL LOOPING AND WILL POST-PROCESS RESULTS
     # post-processing after exiting while loop, using Q_best, not Q
+    # Q_best = Q_unadjusted  # djb!!
     whs_opt = np.multiply(Q_best, wh.reshape((-1, 1)))  # faster
     geotargets_opt = np.dot(whs_opt.T, xmat)
     diff = geotargets_opt - geotargets
@@ -364,13 +404,13 @@ def qmatrix(wh, xmat, geotargets,
     abspctdiff = np.abs(pctdiff)
     # calculate weight difference AFTER final calibration
     abswtdiff = np.abs(Q_best.sum(axis=1) - 1)  # sum of weight-shares for each household
-    max_weight_absdiff = abswtdiff.max()  # largest sum across all households
+    max_weight_absdiff = abswtdiff.max()  # largest diff from 1 across all households
 
-    if iter > max_iter:
+    if iter > qmax_iter:
         print('\nMaximum number of iterations exceeded.\n')
 
     print('\n')
-    print_problem()
+    print_problem(wh, m, nt_per_area, nt_possible, nt_dropped, nt_used)
 
     print(f'\nPost-calibration max abs diff between sum of household weights and 1, across households: {max_weight_absdiff:9.5f}')
     print()
@@ -382,12 +422,15 @@ def qmatrix(wh, xmat, geotargets,
     p99m = np.quantile(abspctdiff[good_targets], (.99))
     p95a = np.quantile(abspctdiff, (.95))
     p95m = np.quantile(abspctdiff[good_targets], (.95))
+    sspd = np.square(pctdiff).sum()
     print('Results for calculated targets versus desired targets:')
     print( '                                                              good             all\n')
     print(f'    Max abs percent difference                           {p100m:9.3f} %     {p100a:9.3f} %')
     print(f'    p99 of abs percent difference                        {p99m:9.3f} %     {p99a:9.3f} %')
     print(f'    p95 of abs percent difference                        {p95m:9.3f} %     {p95a:9.3f} %')
-    print(f'\nNumber of iterations:                       {iter - 1:5d}')
+    print('\n')
+    print(f'Sum of squared percentage differences:      {sspd:9.3g}')
+    print(f'Number of iterations:                       {iter - 1:5d}')
     print(f'Best target difference found at iteration:  {iter_best:5d}')
 
     b = timer()
@@ -396,25 +439,41 @@ def qmatrix(wh, xmat, geotargets,
     # create a named tuple of items to return
     fields = ('elapsed_seconds',
               'whs_opt',
+              'geotargets',
               'geotargets_opt',
               'Q_opt',
+              'Q_unadjusted',
               'iter_opt')
     Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
 
     res = Result(elapsed_seconds = b - a,
                  whs_opt = whs_opt,
+                 geotargets = geotargets,
                  geotargets_opt = geotargets_opt,
                  Q_opt = Q_best,
+                 Q_unadjusted = Q_unadjusted,
                  iter_opt = iter_best)
     return res
 
 
 # %% classes and functions
 
-def gec(wh, xmat, targets,
-        target_weights: np.ndarray = None,
-        objective: ec.Objective = ec.Objective.ENTROPY,
-        increment: float = 0.001):
+def end_loop(iter, max_targ_abspctdiff, qmax_iter, TOL_TARGPCTDIFF):
+    # define stopping criteria
+    iter_rule = (iter > qmax_iter)
+    target_rule = (max_targ_abspctdiff <= TOL_TARGPCTDIFF)
+    no_more = iter_rule or target_rule
+    return no_more
+
+
+def g_ec(wh, xmat, targets, options):
+         # options
+         # target_weights: np.ndarray = None,
+         # objective: ec.Objective = ec.Objective.ENTROPY,
+         # increment: float = 0.001):
+
+    # this is a wrapper to get g, the ratio of new weights to old weights,
+    # for the empirical calibration function
 
     # small_positive = np.nextafter(np.float64(0), np.float64(1))
     wh = np.where(wh == 0, SMALL_POSITIVE, wh)
@@ -428,11 +487,11 @@ def gec(wh, xmat, targets,
         target_covariates=tmeans.reshape((1, -1)),
         baseline_weights=wh,
         # target_weights=np.array([[.25, .75]]), # target priorities
-        target_weights=target_weights,
-        autoscale=True,  # doesn't always seem to work well
+        target_weights=options['target_weights'],  # target priorities???
+        autoscale=options['autoscale'],  # doesn't always seem to work well
         # note that QUADRATIC weights often can be zero
-        objective=objective,  # ENTROPY or QUADRATIC
-        increment=increment
+        objective=options['objective'],  # ENTROPY or QUADRATIC
+        increment=options['increment']
     )
     # print(l2_norm)
 
@@ -443,12 +502,42 @@ def gec(wh, xmat, targets,
     return g
 
 
+def g_ipopt(wh, xmat, targets, options):
+    # this is a wrapper to get g, the ratio of new weights to old weights,
+    # for ipopt
+    res = rwip.rw_ipopt(wh, xmat, targets, options=options)
+    return res.g
+
+
+def g_lsq(wh, xmat, targets, options):
+    # this is a wrapper to get g, the ratio of new weights to old weights,
+    # for the least_squares function
+    res = rwls.rw_lsq(wh, xmat, targets, options=options)
+    return res.g
+
+
+def g_raking(wh, xmat, targets, options):
+    # this is a wrapper to get g, the ratio of new weights to old weights,
+    # for the raking function
+    return raking.rake(wh, xmat, targets)
+
+
 def get_drops(targets, drop_dict):
     drops = np.zeros(targets.shape, dtype=bool) # start with all values False
     if drop_dict is not None:
         for row, cols in drop_dict.items():
             drops[row, cols] = True
     return drops
+
+
+def print_problem(wh, m, nt_per_area, nt_possible, nt_dropped, nt_used):
+    print(' Number of households:                {:8,}'.format(wh.size))
+    print(' Number of areas:                     {:8,d}'.format(m))
+    print()
+    print(' Number of targets per area:          {:8,d}'.format(nt_per_area))
+    print(' Number of potential targets, total:  {:8,d}'.format(nt_possible))
+    print(' Number of targets dropped:           {:8,d}'.format(nt_dropped))
+    print(' Number of targets used:              {:8,d}'.format(nt_used))
 
 
 # %% examples - uncomment code below to run

@@ -15,8 +15,31 @@ conda install /package-path/package-filename.tar.bz2
 
 ?? conda install C:\Users\donbo\anaconda3\pkgs\ipopt-3.11.1-2.tar.bz2
 
+# Max's package
+!pip install git+http://github.com/pslmodels/microdf.git
+
+# to use pytables, I THINK (11-3-2020) the best way is to simply do
+conda install spyder-notebook -c spyder-ide
+which I believe installs pytables also
+I have tried, in addition, things below but I am not sure they are needed
+
 ## pytables
-conda install -c anaconda pytables
+conda install -c main pytables # did not work
+conda install -c conda-forge pytables  # this version worked
+conda install -c anaconda pytables # this did not work
+
+## notebook for use with Spyder
+conda update spyder  # or
+
+conda install spyder
+conda install numpy scipy pandas matplotlib sympy cython
+conda install spyder-notebook -c spyder-ide
+
+conda install traitlets=4  # this seems (?) to be key to getting pytables and noteboook to be installed together, maybe because of ipopt?
+
+https://ianlondon.github.io/blog/render_html_in_ipython_notebook/#:~:text=Let's%20take%20advantage%20of%20some,content%20directly%20in%20the%20notebook.
+https://stackoverflow.com/questions/47075946/replicate-jupyter-html-output-using-ipython-and-spyder-instead#:~:text=(Spyder%20maintainer%20here)%20The%20Spyder,doesn't%20work%20on%20it.
+
 
 ## Anaconda location
 C:\Users\donbo\anaconda3
