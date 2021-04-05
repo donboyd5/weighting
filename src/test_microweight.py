@@ -71,6 +71,7 @@ uo = {'qmax_iter': 10,
       'xub': 100,
       'crange': .0001
       }
+uoipopt = uo
 
 # lsq options
 uo = {'qmax_iter': 10,
@@ -88,7 +89,7 @@ gw3 = prob.geoweight(method='qmatrix-ipopt', options=uo)
 gw4 = prob.geoweight(method='qmatrix-ec', options=uo)
 gw5 = prob.geoweight(method='poisson', options=uo)
 
-gw = gw5  # one of the above
+gw = gw1  # one of the above
 # dir(gw)
 gw.method
 gw.sspd
