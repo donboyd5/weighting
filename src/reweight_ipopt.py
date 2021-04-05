@@ -13,7 +13,7 @@ import numpy as np
 from timeit import default_timer as timer
 from collections import namedtuple
 
-import ipopt
+import cyipopt
 
 import src.utilities as ut
 
@@ -35,7 +35,7 @@ solver_defaults = {
     'hessian_constant': 'yes',
     'max_iter': 100,
     'mumps_mem_percent': 100,  # default 1000
-    'linear_solver': 'mumps'
+    'linear_solver': 'ma57'
     }
 
 options_defaults = {**solver_defaults, **user_defaults}
@@ -125,7 +125,7 @@ def rw_ipopt(wh, xmat, targets,
     cl = targets_scaled - abs(targets_scaled) * opts.crange
     cu = targets_scaled + abs(targets_scaled) * opts.crange
 
-    nlp = ipopt.problem(
+    nlp = cyipopt.Problem(
         n=n,
         m=m,
         problem_obj=callbacks,
@@ -147,7 +147,7 @@ def rw_ipopt(wh, xmat, targets,
     solver_options = {key: value for key, value in options_all.items() if key not in user_keys}
 
     for option, value in solver_options.items():
-        nlp.addOption(option, value)
+        nlp.add_option(option, value)
 
     if(not opts.quiet):
         print(f'\n {"":10} Iter {"":25} obj {"":22} infeas')
@@ -419,123 +419,123 @@ class Reweight_callbacks(object):
             print(f'{"":10} {iter_count:5d} {"":15} {obj_value:13.7e} {"":15} {inf_pr:13.7e}')
 
 
-class Reweight_oldclass(ipopt.problem):
-    """
-    Class for reweighting microdata file.
+# class Reweight_oldclass(ipopt.problem):
+#     """
+#     Class for reweighting microdata file.
 
-    More documentation here.
-    """
+#     More documentation here.
+#     """
 
-    def __init__(self, wh, xmat, targets):
-        """Define values needed on initialization."""
-        self._wh = wh
-        # self._wh = np.array(wh)
-        self._xmat = xmat
-        self._targets = targets  # length must be _m, flatten if needed
-        self._n = xmat.shape[0]
-        self._m = xmat.shape[1]
+#     def __init__(self, wh, xmat, targets):
+#         """Define values needed on initialization."""
+#         self._wh = wh
+#         # self._wh = np.array(wh)
+#         self._xmat = xmat
+#         self._targets = targets  # length must be _m, flatten if needed
+#         self._n = xmat.shape[0]
+#         self._m = xmat.shape[1]
 
-    def reweight(self,
-                 xlb=0.1,
-                 xub=100,
-                 crange=.03,
-                 max_iter=100,
-                 ccgoal=1,
-                 objgoal=100,
-                 quiet=True):
-        r"""
-        Build and solve the reweighting NLP.
+#     def reweight(self,
+#                  xlb=0.1,
+#                  xub=100,
+#                  crange=.03,
+#                  max_iter=100,
+#                  ccgoal=1,
+#                  objgoal=100,
+#                  quiet=True):
+#         r"""
+#         Build and solve the reweighting NLP.
 
-        Good general settings seem to be:
-            get_ccscale - use ccgoal=1, method='mean'
-            get_objscale - use xbase=1.2, objgoal=100
-            no other options set, besides obvious ones
+#         Good general settings seem to be:
+#             get_ccscale - use ccgoal=1, method='mean'
+#             get_objscale - use xbase=1.2, objgoal=100
+#             no other options set, besides obvious ones
 
-        Important resources:
-            https://pythonhosted.org/ipopt/reference.html#reference
-            https://coin-or.github.io/Ipopt/OPTIONS.html
-            ..\cyipopt\ipopt\ipopt_wrapper.py to see code from cyipopt author
+#         Important resources:
+#             https://pythonhosted.org/ipopt/reference.html#reference
+#             https://coin-or.github.io/Ipopt/OPTIONS.html
+#             ..\cyipopt\ipopt\ipopt_wrapper.py to see code from cyipopt author
 
-        Returns
-        -------
-        x : TYPE
-            DESCRIPTION.
-        info : TYPE
-            DESCRIPTION.
+#         Returns
+#         -------
+#         x : TYPE
+#             DESCRIPTION.
+#         info : TYPE
+#             DESCRIPTION.
 
-        """
-        # constraint coefficients (constant)
-        # cc = self._xmat * self._wh[:, None]
-        # cc = self._xmat * self._wh
-        cc = (self._xmat.T * self._wh).T
+#         """
+#         # constraint coefficients (constant)
+#         # cc = self._xmat * self._wh[:, None]
+#         # cc = self._xmat * self._wh
+#         cc = (self._xmat.T * self._wh).T
 
-        # scale constraint coefficients and targets
-        ccscale = self.get_ccscale(cc, ccgoal=ccgoal, method='mean')
-        # print(ccscale)
-        # ccscale = 1
-        cc = cc * ccscale  # mult by scale to have avg derivative meet our goal
-        targets = self._targets * ccscale
+#         # scale constraint coefficients and targets
+#         ccscale = self.get_ccscale(cc, ccgoal=ccgoal, method='mean')
+#         # print(ccscale)
+#         # ccscale = 1
+#         cc = cc * ccscale  # mult by scale to have avg derivative meet our goal
+#         targets = self._targets * ccscale
 
-        # IMPORTANT: define callbacks AFTER we have scaled cc and targets
-        # because callbacks must be initialized with scaled cc
-        callbacks = Reweight_callbacks(cc, quiet)
+#         # IMPORTANT: define callbacks AFTER we have scaled cc and targets
+#         # because callbacks must be initialized with scaled cc
+#         callbacks = Reweight_callbacks(cc, quiet)
 
-        # x vector starting values, and lower and upper bounds
-        x0 = np.ones(self._n)
-        lb = np.full(self._n, xlb)
-        ub = np.full(self._n, xub)
+#         # x vector starting values, and lower and upper bounds
+#         x0 = np.ones(self._n)
+#         lb = np.full(self._n, xlb)
+#         ub = np.full(self._n, xub)
 
-        # constraint lower and upper bounds
-        cl = targets - abs(targets) * crange
-        cu = targets + abs(targets) * crange
+#         # constraint lower and upper bounds
+#         cl = targets - abs(targets) * crange
+#         cu = targets + abs(targets) * crange
 
-        nlp = ipopt.problem(
-            n=self._n,
-            m=self._m,
-            problem_obj=self.callbacks,
-            lb=lb,
-            ub=ub,
-            cl=cl,
-            cu=cu)
+#         nlp = ipopt.problem(
+#             n=self._n,
+#             m=self._m,
+#             problem_obj=self.callbacks,
+#             lb=lb,
+#             ub=ub,
+#             cl=cl,
+#             cu=cu)
 
-        # objective function scaling
-        objscale = self.get_objscale(objgoal=objgoal, xbase=1.2)
-        # print(objscale)
-        nlp.addOption('obj_scaling_factor', objscale)  # multiplier
+#         # objective function scaling
+#         objscale = self.get_objscale(objgoal=objgoal, xbase=1.2)
+#         # print(objscale)
+#         nlp.addOption('obj_scaling_factor', objscale)  # multiplier
 
-        # define additional options as a dict
-        opts = {
-            'print_level': 5,
-            'file_print_level': 5,
-            'jac_d_constant': 'yes',
-            'hessian_constant': 'yes',
-            'max_iter': max_iter,
-            'mumps_mem_percent': 100,  # default 1000
-            'linear_solver': 'mumps',
-            }
+#         # define additional options as a dict
+#         opts = {
+#             'print_level': 5,
+#             'file_print_level': 5,
+#             'jac_d_constant': 'yes',
+#             'hessian_constant': 'yes',
+#             'max_iter': max_iter,
+#             'mumps_mem_percent': 100,  # default 1000
+#             'linear_solver': 'mumps',
+#             }
 
-        # TODO: check against already set options, etc. see ipopt_wrapper.py
-        for option, value in opts.items():
-            nlp.addOption(option, value)
+#         # TODO: check against already set options, etc. see ipopt_wrapper.py
+#         for option, value in opts.items():
+#             nlp.addOption(option, value)
 
-        # outfile = 'test4.out'
-        # if os.path.exists(outfile):
-        #     os.remove(outfile)
-        # nlp.addOption('output_file', outfile)
-        # nlp.addOption('derivative_test', 'first-order')  # second-order
+#         # outfile = 'test4.out'
+#         # if os.path.exists(outfile):
+#         #     os.remove(outfile)
+#         # nlp.addOption('output_file', outfile)
+#         # nlp.addOption('derivative_test', 'first-order')  # second-order
 
-        # nlp_scaling_method: default gradient-based
-        # equilibration-based needs MC19
-        # nlp.addOption('nlp_scaling_method', 'equilibration-based')
-        # nlp.addOption('nlp_scaling_max_gradient', 1e-4)  # 100 default
-        # nlp.addOption('mu_strategy', 'adaptive')  # not good
-        # nlp.addOption('mehrotra_algorithm', 'yes')  # not good
-        # nlp.addOption('mumps_mem_percent', 100)  # default 1000
-        # nlp.addOption('mumps_pivtol', 1e-4)  # default 1e-6; 1e-2 is SLOW
-        # nlp.addOption('mumps_scaling', 8)  # 77 default
+#         # nlp_scaling_method: default gradient-based
+#         # equilibration-based needs MC19
+#         # nlp.addOption('nlp_scaling_method', 'equilibration-based')
+#         # nlp.addOption('nlp_scaling_max_gradient', 1e-4)  # 100 default
+#         # nlp.addOption('mu_strategy', 'adaptive')  # not good
+#         # nlp.addOption('mehrotra_algorithm', 'yes')  # not good
+#         # nlp.addOption('mumps_mem_percent', 100)  # default 1000
+#         # nlp.addOption('mumps_pivtol', 1e-4)  # default 1e-6; 1e-2 is SLOW
+#         # nlp.addOption('mumps_scaling', 8)  # 77 default
 
-        x, info = nlp.solve(x0)
-        return x, info
+#         x, info = nlp.solve(x0)
+#         return x, info
 
     def get_ccscale(cc, ccgoal, method='mean'):
         """

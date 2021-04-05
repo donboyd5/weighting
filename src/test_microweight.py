@@ -57,39 +57,38 @@ uo = {'qmax_iter': 10, 'quiet': True}
 uo = {'qmax_iter': 3, 'quiet': True, 'verbose': 2}
 
 # raking options (there aren't really any)
-uo = {'qmax_iter': 10}
+uoqr = {'qmax_iter': 10}
 
 # empcal options
-uo = {'qmax_iter': 10, 'objective': 'ENTROPY'}
-uo = {'qmax_iter': 10, 'objective': 'QUADRATIC'}
-uoempcal = uo
+uoempcal = {'qmax_iter': 10, 'objective': 'ENTROPY'}
+uoempcal = {'qmax_iter': 10, 'objective': 'QUADRATIC'}
 
 # ipopt options
-uo = {'qmax_iter': 10,
+uoipopt = {'qmax_iter': 30,
       'quiet': True,
-      'xlb': 0.1,
-      'xub': 100,
-      'crange': .0001
+      'xlb': 0.001,
+      'xub': 1000,
+      'crange': .000001,
+      'linear_solver': 'ma57'
       }
-uoipopt = uo
+
 
 # lsq options
-uo = {'qmax_iter': 10,
+uolsq = {'qmax_iter': 10,
       'verbose': 0,
       'xlb': 0.3,
       'scaling': False,
       'method': 'bvls',  # bvls (default) or trf - bvls usually faster, better
       'lsmr_tol': 'auto'  # 'auto'  # 'auto' or None
       }
-uolsq = uo
 
-gw1 = prob.geoweight(method='qmatrix', options=uo)
-gw2 = prob.geoweight(method='qmatrix-lsq', options=uo)
-gw3 = prob.geoweight(method='qmatrix-ipopt', options=uo)
-gw4 = prob.geoweight(method='qmatrix-ec', options=uo)
+gw1 = prob.geoweight(method='qmatrix', options=uoqr)
+gw2 = prob.geoweight(method='qmatrix-lsq', options=uolsq)
+gw3 = prob.geoweight(method='qmatrix-ipopt', options=uoipopt)
+gw4 = prob.geoweight(method='qmatrix-ec', options=uoempcal)
 gw5 = prob.geoweight(method='poisson', options=uo)
 
-gw = gw1  # one of the above
+gw = gw5  # one of the above
 # dir(gw)
 gw.method
 gw.sspd
