@@ -1,3 +1,5 @@
+.spyproject/
+__pychache__
 ignore/
 puf/ignore/
 puf/downloads/
