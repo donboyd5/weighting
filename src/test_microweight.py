@@ -106,6 +106,7 @@ gw3 = prob.geoweight(method='qmatrix-ipopt', options=uoipopt)
 gw4 = prob.geoweight(method='qmatrix-ec', options=uoempcal)
 gw5 = prob.geoweight(method='poisson', options=uo)
 
+
 gw = gw5  # one of the above
 # dir(gw)
 gw.method
