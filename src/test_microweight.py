@@ -7,8 +7,16 @@ Created on Mon Oct 19 11:22:13 2020
 
 # %% imports
 import numpy as np
+
+import scipy
+from scipy.optimize import lsq_linear
+from numpy.random import seed
+from timeit import default_timer as timer
+
 import src.make_test_problems as mtp
 import src.microweight as mw
+
+# import src.poisson as ps
 
 # print(mw.__doc__)
 
@@ -17,6 +25,10 @@ qtiles = (0, .01, .1, .25, .5, .75, .9, .99, 1)
 
 
 # %% functions
+def targs(targvec, div=50, seed=seed(1234)):
+    r = np.random.randn(targvec.size) / 50  # random normal
+    targets = (targvec * (1 + r)).flatten()
+    return targets
 
 
 # %% make problem
@@ -31,8 +43,13 @@ p = mtp.Problem(h=40000, s=30, k=30)
 p = mtp.Problem(h=50000, s=50, k=30)
 p = mtp.Problem(h=100000, s=10, k=5)
 p = mtp.Problem(h=100000, s=50, k=30)
+p = mtp.Problem(h=1000000, s=50, k=30)
 
 # %% add noise and set problem up
+p.h
+p.s
+p.k
+
 np.random.seed(1)
 noise = np.random.normal(0, .01, p.k)
 noise
@@ -76,7 +93,8 @@ uoipopt = {'qmax_iter': 30,
 # lsq options
 uolsq = {'qmax_iter': 10,
       'verbose': 0,
-      'xlb': 0.3,
+      'xlb': 0.001,
+      'xub': 1000,
       'scaling': False,
       'method': 'bvls',  # bvls (default) or trf - bvls usually faster, better
       'lsmr_tol': 'auto'  # 'auto'  # 'auto' or None
@@ -99,7 +117,7 @@ gw.pdiff
 np.round(gw.pdiff, 2)
 gw.whs_opt
 dir(gw.method_result)
-
+np.max(np.abs(gw.pdiff))
 
 
 gw.whs_opt
@@ -127,7 +145,7 @@ np.square((gw3.geotargets_opt - p.geotargets) / p.geotargets * 100).sum()
 
 
 # %% check
-import src.poisson as ps
+
 dir(gw3)
 gw1.whs_opt
 gw2.whs_opt
@@ -230,30 +248,82 @@ rw5.g.sum()
 # %% test linear least squares
 # here we test ability to hit national (not state) targets, creating
 # weights that minimize sum of squared differences from targets
-import scipy
-from scipy.optimize import lsq_linear
-from numpy.random import seed
-from timeit import default_timer as timer
 
+
+# %% ..test problem definition
 p = mtp.Problem(h=10, s=1, k=2)
+p = mtp.Problem(h=10, s=1, k=3)
 p = mtp.Problem(h=100, s=1, k=4)
 p = mtp.Problem(h=3000, s=1, k=10)
 p = mtp.Problem(h=30000, s=1, k=20)
+p = mtp.Problem(h=30000, s=1, k=50)
 p = mtp.Problem(h=300000, s=1, k=30)
 p = mtp.Problem(h=500000, s=1, k=50)
 
-seed(1)
+p.h
+p.s
+p.k
+p.xmat.shape
+
+
+
+# %% ..add noise
+seed(1234)
 r = np.random.randn(p.targets.size) / 50  # random normal
 q = [0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1]
 np.quantile(r, q)
 targets = (p.targets * (1 + r)).flatten()
 
-# interlude ----
+
+init_pdiff = p.targets / targets * 100 - 100
+np.round(init_pdiff, 1)
+
 prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=targets)
 
-uo = {'crange': 0.0001, 'quiet': False}
-so = {'max_iter': 200}
-rw1a = prob.reweight(method='ipopt', user_options=uo, solver_options=so)
+
+# interlude ----
+# scale = 1e6
+# prob = mw.Microweight(wh=p.wh, xmat=p.xmat / scale, targets=targets / scale)
+
+scale = np.abs(targets / 100)
+targets / scale
+prob2 = mw.Microweight(wh=p.wh, xmat=np.divide(p.xmat, scale), targets=targets / scale)
+
+# %% ..solve
+ipo = {'crange': 0.0001, 'quiet': False}
+lso = {'max_iter': 200, 'method': 'trf'}
+
+lso2 = {'max_iter': 2000, 'method': 'trf', 'scaling': True, 
+        'xlb': 0.001, 'xub': 1000, 'tol': 1e-8}
+
+lso3 = {'max_iter': 2000, 'method': 'bvls', 'scaling': False, 
+        'xlb': 0.001, 'xub': 1000, 'tol': 1e-8}
+
+# rw_ls = prob.reweight(method='lsq')
+rw_ls = prob.reweight(method='lsq', options=lso)
+
+rw_ls2 = prob.reweight(method='lsq', options=lso2)
+rw_ls3 = prob2.reweight(method='lsq', options=lso3)
+# dir(rw_ls)
+rw_ls2.pdiff
+
+np.round(rw_ls2.pdiff, 1)
+np.round(init_pdiff, 1)
+
+np.round(rw_ls2.pdiff - init_pdiff, 1)
+np.round(np.abs(rw_ls2.pdiff) - np.abs(init_pdiff), 1)
+
+np.sum(np.square(init_pdiff))
+rw_ls.sspd
+rw_ls2.sspd
+rw_ls3.sspd
+
+
+targets
+rw_ls2.targets_opt
+
+# opts = {'crange': 0.001, 'xlb':0, 'xub':100, 'quiet': False}
+rw_ip = prob.reweight(method='ipopt', options=ipo)
 # dir(rw1a)
 rw1a.sspd
 dir(rw1a)
@@ -324,5 +394,113 @@ res.cost
 # np.square(res.fun).sum() / 2
 
 
+# %% by hand
+p.wh
+p.xmat
+targets
 
+p.xmat.shape
+
+init_targs = np.dot(p.wh.T, p.xmat)
+init_targs / targets * 100 - 100
+
+# sum of squared diffs
+ssd = np.square(init_targs - targets).sum()
+ssd / 2 / 1e6
+
+# targets * scale_vector
+#    wmat = xmat * scale_vector
+
+At = np.multiply(p.wh.reshape(-1, 1), p.xmat)
+A = p.xmat.T
+
+s = 10
+lb = p.wh / s
+ub = p.wh * s
+
+lsq_info = lsq_linear(p.xmat.T, targets, bounds=(lb, ub),
+                      method='bvls',
+                      lsq_solver='exact',
+                      tol=1e-18,
+                      lsmr_tol=1e-10,
+                      max_iter=200,
+                      verbose=2)
+lsq_info.success
+lsq_info.x
+lsq_info.x / p.wh
+
+end_targs = np.dot(lsq_info.x.T, p.xmat)
+end_targs / targets * 100 - 100
+
+lsq_info.fun
+end_targs - targets
+
+# sum of squared diffs
+ssd = np.square(init_targs - targets).sum()
+ssd / 2 / 1e6
+
+
+
+np.square(end_targs - targets).sum() / 2 / 1e6
+init_pdiff = (init_targs - targets) / targets * 100
+end_pdiff = (end_targs - targets) / targets * 100
+init_pdiff
+end_pdiff
+np.square(init_pdiff).sum()
+np.square(end_pdiff).sum()
+
+
+# %% incorporate weights
+
+p = mtp.Problem(h=100, s=1, k=4)
+p = mtp.Problem(h=1000, s=1, k=10)
+p = mtp.Problem(h=10000, s=1, k=20)
+
+# stack a matrix like a with column of 1s
+targets = targs(p.targets)
+targets.shape
+At = np.concatenate((p.xmat, np.identity(p.wh.size)), axis=1)
+A = At.T
+As = scipy.sparse.coo_matrix(A) # sparse matrices not allowed with bvls
+b = np.concatenate((targets, p.wh))
+At.shape
+b.shape
+
+lb = np.concatenate(([0, 0], p.wh * .8))
+ub = np.concatenate(([np.Inf, np.Inf], p.wh * 1.2))
+lb.shape
+b.shape
+ub.shape
+
+np.dot(p.wh.T, At) - b
+A.shape
+At.shape
+b.shape
+
+lb = p.wh * .75
+ub = p.wh * 1.25
+
+# bvls is very fast but can't use sparse matrices'
+
+res = lsq_linear(A, b, bounds=(lb, ub),
+                 method='bvls',
+                 tol=1e-8,
+                 # lsmr_tol='auto',
+                 max_iter=100, verbose=2)
+
+ress = lsq_linear(As, b, bounds=(lb, ub),
+                 method='trf',
+                 tol=1e-8,
+                 # lsmr_tol='auto',
+                 max_iter=100, verbose=2)
+
+p.xmat.shape
+res.x
+p.wh
+np.round(res.x / p.wh * 100 - 100, 1)
+res.fun
+res.fun / b * 100
+
+res.fun[0:10] / b[0:10] * 100
+res.fun[11:20] / b[11:20] * 100
 

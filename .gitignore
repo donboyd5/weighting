@@ -1,8 +1,5 @@
 .spyproject/
-<<<<<<< HEAD
-=======
-__pychache__
->>>>>>> fix_ipopt
+src/__pycache__/
 ignore/
 puf/ignore/
 puf/downloads/

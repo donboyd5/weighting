@@ -35,7 +35,7 @@ solver_defaults = {
     'hessian_constant': 'yes',
     'max_iter': 100,
     'mumps_mem_percent': 100,  # default 1000
-    'linear_solver': 'ma57'
+    'linear_solver': 'ma97'
     }
 
 options_defaults = {**solver_defaults, **user_defaults}

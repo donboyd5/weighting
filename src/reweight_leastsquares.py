@@ -67,7 +67,7 @@ def rw_lsq(wh, xmat, targets,
     # scale the targets to 100 or something similar
     # TODO: deal with targets that are zero
     if opts.scaling is True:
-        scale_vector = np.abs(np.where(targets != 0, 100000.0 / targets, 1))
+        scale_vector = np.abs(np.where(targets != 0, 1000.0 / targets, 1))
         # scale_vector = np.where(targets != 0, 0.1, 1)
     else:
         scale_vector = np.ones_like(targets)

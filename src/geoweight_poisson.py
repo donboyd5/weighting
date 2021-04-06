@@ -19,13 +19,16 @@ def poisson(wh, xmat, geotargets, options=None):
     # TODO: implement options
     a = timer()
     # betavec0 = np.zeros(geotargets.size)
-    betavec0 = np.full(geotargets.size, 1e-12) # 1e-13 seems best
+    betavec0 = np.full(geotargets.size, 0.1) # 1e-13 or 1e-12 seems best
     dw = get_diff_weights(geotargets)
     spo_result = spo.least_squares(
         fun=targets_diff,
         x0=betavec0,
         method='trf', jac='2-point', verbose=2,
-        ftol=1e-10, xtol=1e-10,
+        ftol=1e-7, xtol=1e-7, 
+        x_scale='jac',
+        loss='soft_l1',  # linear, soft_l1, huber, cauchy, arctan, 
+        max_nfev=100,
         args=(wh, xmat, geotargets, dw))
 
     # get return values
