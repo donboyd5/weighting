@@ -8,7 +8,8 @@ Reweight class
 
 # %% imports
 from __future__ import print_function, unicode_literals
-# import os
+import os
+
 import numpy as np
 from timeit import default_timer as timer
 from collections import namedtuple
@@ -34,7 +35,7 @@ solver_defaults = {
     'jac_d_constant': 'yes',
     'hessian_constant': 'yes',
     'max_iter': 100,
-    # 'mumps_mem_percent': 100,  # default 1000
+    'mumps_mem_percent': 100,  # default 1000
     'linear_solver': 'ma57'
 }
 
@@ -108,7 +109,7 @@ def rw_ipopt(wh, xmat, targets,
 
     # scale constraint coefficients and targets
     ccscale = get_ccscale(cc, ccgoal=opts.ccgoal, method='mean')
-    # ccscale = 1
+    ccscale = 1
     cc = cc * ccscale  # mult by scale to have avg derivative meet our goal
     targets_scaled = targets * ccscale  # djb do I need to copy?
 
@@ -140,7 +141,7 @@ def rw_ipopt(wh, xmat, targets,
                             xbase=1.2,
                             n=n,
                             callbacks=callbacks)
-    options_all['obj_scaling_factor'] = objscale
+    # options_all['obj_scaling_factor'] = objscale
 
     # create a dict that only has solver options, for passing to ipopt
     user_keys = user_defaults.keys()
@@ -149,8 +150,17 @@ def rw_ipopt(wh, xmat, targets,
     for option, value in solver_options.items():
         nlp.add_option(option, value)
 
+    outfile = '/home/donboyd/Documents/test4.out'
+    # if os.path.exists(outfile):
+    #    os.remove(outfile)
+    print(outfile)
+    print(f'\n {"":10}')
+
+    nlp.addOption('output_file', outfile)
+    nlp.addOption('derivative_test', 'first-order')  # second-order
+
     if(not opts.quiet):
-        print(f'\n {"":10} Iter {"":25} obj {"":22} infeas')
+        print(f'\n {"":10} Iter {"":25} obj23 {"":22} infeas')
 
     # solve the problem
     g, ipopt_info = nlp.solve(x0)

@@ -47,10 +47,12 @@ def targs(targvec, div=50, seed=seed(1234)):
 
 # %% make problem
 # p = mtp.Problem(h=1000, s=10, k=5, xsd=.1, ssd=.5)
-p = mtp.Problem(h=10, s=2, k=2)
-p = mtp.Problem(h=40, s=2, k=3)
+p = mtp.Problem(h=10, s=1, k=2)
+p = mtp.Problem(h=40, s=1, k=3)
 p = mtp.Problem(h=1000, s=1, k=10)
 p = mtp.Problem(h=10000, s=1, k=30)
+p = mtp.Problem(h=20000, s=1, k=30)
+p = mtp.Problem(h=200000, s=1, k=30)
 
 
 # %% add noise to targets
@@ -160,13 +162,20 @@ np.square((targets_opt - targets) / targets * 100).sum()
 prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets)
 opts = {'xlb': 1e-4, 'xub': 1e4,
         'crange': 0.001,
-        'objgoal': 1000, 'ccgoal': 10000,
-        'max_iter': 100,
-        'linear_solver': 'ma57', 'quiet': False}
+        'print_level': 0,
+        'file_print_level': 5,
+        'derivative_test': 'first-order',
+        'objgoal': 1, 'ccgoal': 1,
+        'max_iter': 10,
+        'linear_solver': 'ma27', 'quiet': False}
 opts
 # opts = {'crange': 0.001, 'xlb':0, 'xub':100, 'quiet': False}
 rw1 = prob.reweight(method='ipopt', options=opts)
 # dir(rw1)
+init_vals = np.dot(p.xmat.T, p.wh)
 rw1.elapsed_seconds
 rw1.sspd
 np.round(rw1.pdiff, 2)
+np.round((init_vals - ntargets) / ntargets * 100, 2)
+
+np.square((rw1.targets_opt - ntargets) / ntargets * 100).sum()
