@@ -1,11 +1,13 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Oct 19 11:22:13 2020
 
-@author: donbo
-"""
+
+# # -*- coding: utf-8 -*-
+
 
 # %% imports
+# for checking:
+# import sys; print(sys.executable)
+# print(sys.path)
+
 import numpy as np
 
 import scipy
@@ -51,6 +53,7 @@ p.s
 p.k
 
 np.random.seed(1)
+targs(p.targets)
 noise = np.random.normal(0, .01, p.k)
 noise
 ntargets = p.targets * (1 + noise)
@@ -82,29 +85,36 @@ uoempcal = {'qmax_iter': 10, 'objective': 'QUADRATIC'}
 
 # ipopt options
 uoipopt = {'qmax_iter': 30,
-      'quiet': True,
-      'xlb': 0.001,
-      'xub': 1000,
-      'crange': .000001,
-      'linear_solver': 'ma57'
-      }
+           'quiet': True,
+           'xlb': 0.001,
+           'xub': 1000,
+           'crange': .000001,
+           'linear_solver': 'ma57'
+           }
 
 
 # lsq options
 uolsq = {'qmax_iter': 10,
-      'verbose': 0,
-      'xlb': 0.001,
-      'xub': 1000,
-      'scaling': False,
-      'method': 'bvls',  # bvls (default) or trf - bvls usually faster, better
-      'lsmr_tol': 'auto'  # 'auto'  # 'auto' or None
-      }
+         'verbose': 0,
+         'xlb': 0.001,
+         'xub': 1000,
+         'scaling': False,
+         # bvls (default) or trf - bvls usually faster, better
+         'method': 'bvls',
+         'lsmr_tol': 'auto'  # 'auto'  # 'auto' or None
+         }
 
 gw1 = prob.geoweight(method='qmatrix', options=uoqr)
 gw2 = prob.geoweight(method='qmatrix-lsq', options=uolsq)
 gw3 = prob.geoweight(method='qmatrix-ipopt', options=uoipopt)
 gw4 = prob.geoweight(method='qmatrix-ec', options=uoempcal)
 gw5 = prob.geoweight(method='poisson', options=uo)
+
+
+gw1.sspd
+gw2.sspd
+gw3.sspd
+gw5.sspd
 
 
 gw = gw5  # one of the above
@@ -177,7 +187,7 @@ rw3.sspd
 opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'trf', 'max_iter': 20}
 opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'trf', 'scaling': True, 'max_iter': 50}
 opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'trf',
-        'lsmr_tol': 1e-6,'scaling': True, 'max_iter': 20}
+        'lsmr_tol': 1e-6, 'scaling': True, 'max_iter': 20}
 
 opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'bvls', 'max_iter': 20}
 opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'bvls', 'scaling': True, 'max_iter': 200}
@@ -244,8 +254,6 @@ rw4.g.sum()
 rw5.g.sum()
 
 
-
-
 # %% test linear least squares
 # here we test ability to hit national (not state) targets, creating
 # weights that minimize sum of squared differences from targets
@@ -265,7 +273,6 @@ p.h
 p.s
 p.k
 p.xmat.shape
-
 
 
 # %% ..add noise
@@ -294,10 +301,10 @@ prob2 = mw.Microweight(wh=p.wh, xmat=np.divide(p.xmat, scale), targets=targets /
 ipo = {'crange': 0.0001, 'quiet': False}
 lso = {'max_iter': 200, 'method': 'trf'}
 
-lso2 = {'max_iter': 2000, 'method': 'trf', 'scaling': True, 
+lso2 = {'max_iter': 2000, 'method': 'trf', 'scaling': True,
         'xlb': 0.001, 'xub': 1000, 'tol': 1e-8}
 
-lso3 = {'max_iter': 2000, 'method': 'bvls', 'scaling': False, 
+lso3 = {'max_iter': 2000, 'method': 'bvls', 'scaling': False,
         'xlb': 0.001, 'xub': 1000, 'tol': 1e-8}
 
 # rw_ls = prob.reweight(method='lsq')
@@ -346,7 +353,7 @@ rw2.elapsed_seconds
 # using sparse matrix As instead of A
 
 diff_weights = np.where(targets != 0, 100 / targets, 1)
-diff_weights =np.ones_like(targets)
+diff_weights = np.ones_like(targets)
 
 b = targets * diff_weights
 b
@@ -441,7 +448,6 @@ ssd = np.square(init_targs - targets).sum()
 ssd / 2 / 1e6
 
 
-
 np.square(end_targs - targets).sum() / 2 / 1e6
 init_pdiff = (init_targs - targets) / targets * 100
 end_pdiff = (end_targs - targets) / targets * 100
@@ -462,7 +468,7 @@ targets = targs(p.targets)
 targets.shape
 At = np.concatenate((p.xmat, np.identity(p.wh.size)), axis=1)
 A = At.T
-As = scipy.sparse.coo_matrix(A) # sparse matrices not allowed with bvls
+As = scipy.sparse.coo_matrix(A)  # sparse matrices not allowed with bvls
 b = np.concatenate((targets, p.wh))
 At.shape
 b.shape
@@ -490,10 +496,10 @@ res = lsq_linear(A, b, bounds=(lb, ub),
                  max_iter=100, verbose=2)
 
 ress = lsq_linear(As, b, bounds=(lb, ub),
-                 method='trf',
-                 tol=1e-8,
-                 # lsmr_tol='auto',
-                 max_iter=100, verbose=2)
+                  method='trf',
+                  tol=1e-8,
+                  # lsmr_tol='auto',
+                  max_iter=100, verbose=2)
 
 p.xmat.shape
 res.x
@@ -504,4 +510,3 @@ res.fun / b * 100
 
 res.fun[0:10] / b[0:10] * 100
 res.fun[11:20] / b[11:20] * 100
-

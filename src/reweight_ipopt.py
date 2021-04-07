@@ -35,8 +35,8 @@ solver_defaults = {
     'hessian_constant': 'yes',
     'max_iter': 100,
     'mumps_mem_percent': 100,  # default 1000
-    'linear_solver': 'ma97'
-    }
+    'linear_solver': 'ma57'
+}
 
 options_defaults = {**solver_defaults, **user_defaults}
 
@@ -379,7 +379,7 @@ class Reweight_callbacks(object):
             alpha_du,
             alpha_pr,
             ls_trials
-            ):
+    ):
         """
         Print intermediate results after each iteration.
 
@@ -537,6 +537,7 @@ class Reweight_callbacks(object):
 #         x, info = nlp.solve(x0)
 #         return x, info
 
+
     def get_ccscale(cc, ccgoal, method='mean'):
         """
         Create multiplicative scaling vector ccscale.
@@ -583,5 +584,3 @@ class Reweight_callbacks(object):
         objscale = objscale.item()
         # print(objscale)
         return objscale
-
-

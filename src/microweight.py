@@ -14,10 +14,10 @@ Functions:
 """
 
 # TODO:
-    # options function
-    # least-squares reweighting
-    # weight from scratch
-    # fsolve geographic weighting
+# options function
+# least-squares reweighting
+# weight from scratch
+# fsolve geographic weighting
 
 
 # %% imports
@@ -87,9 +87,9 @@ class Microweight:
         elif method == 'empcal':
             method_result = rwec.gec(
                 self.wh, self.xmat, self.targets,
-                 options=options)
+                options=options)
         elif method == 'rake':
-            method_result =rwrk.rw_rake(
+            method_result = rwrk.rw_rake(
                 self.wh, self.xmat, self.targets,
                 options=options)
         elif method == 'lsq':
@@ -135,27 +135,27 @@ class Microweight:
                   options=None):
 
         # input checks:
-            # geotargets must by s x k
+        # geotargets must by s x k
 
         if method == 'qmatrix':
             method_result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
-                                method='raking',
-                                options=options)
+                                       method='raking',
+                                       options=options)
         elif method == 'qmatrix-ec':
             method_result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
-                                method='empcal',
-                                options=options)
+                                       method='empcal',
+                                       options=options)
         elif method == 'qmatrix-ipopt':
             method_result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
-                                method='ipopt',
-                                options=options)
+                                       method='ipopt',
+                                       options=options)
         elif method == 'qmatrix-lsq':
             method_result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
-                                method='least_squares',
-                                options=options)
+                                       method='least_squares',
+                                       options=options)
         elif method == 'poisson':
             method_result = ps.poisson(self.wh, self.xmat, self.geotargets,
-                                options=options)
+                                       options=options)
 
         # calculate sum of squared percentage differences
         diff = method_result.geotargets_opt - self.geotargets
@@ -181,5 +181,3 @@ class Microweight:
                            method_result=method_result)
 
         return geores
-
-
