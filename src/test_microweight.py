@@ -21,6 +21,7 @@ import src.microweight as mw
 # import src.poisson as ps
 
 # print(mw.__doc__)
+# print('hello')
 
 # %% constants
 qtiles = (0, .01, .1, .25, .5, .75, .9, .99, 1)

@@ -34,7 +34,7 @@ solver_defaults = {
     'jac_d_constant': 'yes',
     'hessian_constant': 'yes',
     'max_iter': 100,
-    'mumps_mem_percent': 100,  # default 1000
+    # 'mumps_mem_percent': 100,  # default 1000
     'linear_solver': 'ma57'
 }
 
