@@ -4,8 +4,16 @@ Created on Wed Oct  7 16:45:46 2020
 
 @author: donbo
 """
+from time import sleep
+from tqdm import tqdm
+import os
 import sys
 import time
+
+from plotly import offline
+offline.init_notebook_mode()
+
+offline.iplot([{"y": [1, 2, 1]}])
 
 # best so far
 for i in range(300):
@@ -16,9 +24,11 @@ for i in range(300):
 
 #    print('Downloading File FooFile.txt [%d%%]'%i, end="\r")
 
+
 def f():
-     print('xy', end='')
-     print('\bz')
+    print('xy', end='')
+    print('\bz')
+
 
 f()
 
@@ -36,18 +46,21 @@ for i in range(300):
     val = l(10/3)
     print('\rProgress: ', val, end='\r', flush=True)
 
+
 def progbar(curr, total, full_progbar):
     frac = curr/total
     filled_progbar = round(frac*full_progbar)
-    print('\r', '#'*filled_progbar + '-'*(full_progbar-filled_progbar), '[{:>7.2%}]'.format(frac), end='')
+    print('\r', '#'*filled_progbar + '-'*(full_progbar -
+                                          filled_progbar), '[{:>7.2%}]'.format(frac), end='')
     sys.stdout.flush()
+
 
 n = 1000
 for i in range(n+1):
     progbar(i, n, 20)
 print()
 
-numbers  = [1e9, 23.2300, 0.1233, 1.0000, 1.0, 4.2230, 9887.2000]
+numbers = [1e9, 23.2300, 0.1233, 1.0000, 1.0, 4.2230, 9887.2000]
 for x in numbers:
     print('{:<8.4g}'.format(round(x, 2)))
 
@@ -93,23 +106,20 @@ for i in range(1000):
     print('\b\b\b\b', val, end='', flush=True)
 
 
-import sys
-import time
 for i in range(10):
     print("Loading" + "." * i)
-    sys.stdout.write("\033[F") # Cursor up one line
+    sys.stdout.write("\033[F")  # Cursor up one line
     time.sleep(1)
-Also sometimes useful (for example if you print something shorter than before):
+Also sometimes useful(for example if you print something shorter than before):
 
-sys.stdout.write("\033[K") # Clear to the end of line
-
-
+sys.stdout.write("\033[K")  # Clear to the end of line
 
 
 def process(data):
     size_str = str(data)
     sys.stdout.write('Progress: %s\r' % size_str)
     sys.stdout.flush()
+
 
 for i in range(30):
     time.sleep(0.1)
@@ -120,35 +130,31 @@ while True:
     print(time.ctime(), end="\r", flush=True)
     time.sleep(1)
 
-import os
-import time
 while True:
-    print(time.ctime(), end ='\r', flush=True)
+    print(time.ctime(), end='\r', flush=True)
     time.sleep(1)
     os.system('cls')
 
 
-from tqdm import tqdm
 for i in tqdm(range(100)):
     time.sleep(1)
 
-from time import sleep
 text = ""
 for char in tqdm(["a", "b", "c", "d", "e", "f", "g"]):
     sleep(0.75)
     text = text + char
 
-print("line1", end = "\r")
+print("line1", end="\r")
 print("line2")
 
 for i in range(100):
     time.sleep(0.1)
-    print('Downloading File FooFile.txt [%d%%]\r'%i, end="")
+    print('Downloading File FooFile.txt [%d%%]\r' % i, end="")
 
 
 for i in range(20):
     time.sleep(0.1)
-    sys.stdout.write("Download progress: %d%%   \r" % (i) )
+    sys.stdout.write("Download progress: %d%%   \r" % (i))
     sys.stdout.flush()
 
     print(os.path.getsize(file_name)/1024+'KB / '+size+' KB downloaded!', end='\r')
