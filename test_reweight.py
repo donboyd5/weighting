@@ -49,7 +49,6 @@ def targs(targvec, div=50, seed=seed(1234)):
     targets = (targvec * (1 + r)).flatten()
     return targets
 
-
 def f(g):
     return np.round(np.quantile(g, qtiles), 4)
 
@@ -58,7 +57,7 @@ def f(g):
 # p = mtp.Problem(h=1000, s=10, k=5, xsd=.1, ssd=.5)
 # p = mtp.Problem(h=10, s=1, k=2)
 # p = mtp.Problem(h=40, s=1, k=3)
-p = mtp.Problem(h=1000, s=1, k=10)
+# p = mtp.Problem(h=1000, s=1, k=10)
 # p = mtp.Problem(h=10000, s=1, k=30)
 p = mtp.Problem(h=20000, s=1, k=30)
 # p = mtp.Problem(h=100000, s=1, k=50)
@@ -80,12 +79,12 @@ init_pdiff = (init_targs - ntargets) / ntargets * 100
 init_sspd = np.square(init_pdiff).sum()
 
 
-# %% set problem
+# %% create problem object
 p.h
 p.k
 prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets)
 
-# %% default options
+# %% define default options
 
 user_defaults = {
     'xlb': 0.1,
@@ -108,7 +107,7 @@ solver_defaults = {
 options_defaults = {**solver_defaults, **user_defaults}
 
 
-# %% reweight the problem
+# %% reweight the problem with ipopt
 
 optip = {'xlb': .1, 'xub': 10,
          'crange': 0.025,
@@ -121,7 +120,7 @@ optip = {'xlb': .1, 'xub': 10,
 
 
 opts = {'crange': 0.001, 'xlb':0, 'xub':100, 'quiet': False}
-rw1 = prob.reweight(method='ipopt', options=opts)
+rw1 = prob.reweight(method='ipopt', options=optip)
 # dir(rw1)
 rw1.elapsed_seconds
 
@@ -136,7 +135,7 @@ qtiles
 f(rw1.g)
 
 
-# %% lsq method
+# %% reweight with lsq method
 
 
 optlsq = {
@@ -162,12 +161,12 @@ np.round(rw2.pdiff, 2)
 
 
 
-# %% empcal method
+# %% reweight with empcal method
 rw3 = prob.reweight(method='empcal')
 rw3.sspd
 f(rw3.g)
 
-# %% rake method
+# %% reweight with rake method
 rw4 = prob.reweight(method='rake')
 rw4.sspd
 f(rw4.g)
@@ -177,8 +176,7 @@ rw5.sspd
 f(rw5.g)
 
 
-# %% get problem info
-# run ipopt by hand
+# %% start of section to run ipopt manually
 # rwip.rw_ipopt(self.wh, self.xmat, self.targets, options=options)
 # get variables from p
 
@@ -189,7 +187,7 @@ wh = p.wh
 targets = ntargets
 
 
-# %% next steps
+# %% setup for ipopt
 n = xmat.shape[0]
 m = xmat.shape[1]
 

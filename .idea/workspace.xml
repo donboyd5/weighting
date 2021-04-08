@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="20081797-a9b3-4ed2-b75f-eb70c9684735" name="Default Changelist" comment="WIP">
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/weighting.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/weighting.iml" afterDir="false" />
+    <list default="true" id="20081797-a9b3-4ed2-b75f-eb70c9684735" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/test_reweight.py" beforeDir="false" afterPath="$PROJECT_DIR$/test_reweight.py" afterDir="false" />
     </list>
@@ -102,7 +99,7 @@
       <workItem from="1605135507196" duration="267000" />
       <workItem from="1605347714050" duration="675000" />
       <workItem from="1605352656390" duration="15000" />
-      <workItem from="1617883249663" duration="5457000" />
+      <workItem from="1617883249663" duration="7643000" />
     </task>
     <task id="LOCAL-00001" summary="WIP">
       <created>1617886390729</created>
@@ -111,7 +108,14 @@
       <option name="project" value="LOCAL" />
       <updated>1617886390729</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="WIP">
+      <created>1617888852504</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1617888852504</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
