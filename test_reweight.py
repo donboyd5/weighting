@@ -34,6 +34,7 @@ import src.utilities as ut
 
 # print(mw.__doc__)
 
+
 # %% constants
 qtiles = (0, .01, .1, .25, .5, .75, .9, .99, 1)
 
@@ -45,22 +46,27 @@ def targs(targvec, div=50, seed=seed(1234)):
     return targets
 
 
+def f(g):
+    return np.round(np.quantile(g, qtiles), 4)
+
+
 # %% make problem
 # p = mtp.Problem(h=1000, s=10, k=5, xsd=.1, ssd=.5)
 p = mtp.Problem(h=10, s=1, k=2)
-p = mtp.Problem(h=40, s=1, k=3)
-p = mtp.Problem(h=1000, s=1, k=10)
-p = mtp.Problem(h=10000, s=1, k=30)
-p = mtp.Problem(h=20000, s=1, k=30)
-p = mtp.Problem(h=200000, s=1, k=30)
+# p = mtp.Problem(h=40, s=1, k=3)
+# p = mtp.Problem(h=1000, s=1, k=10)
+# p = mtp.Problem(h=10000, s=1, k=30)
+# p = mtp.Problem(h=20000, s=1, k=30)
+# p = mtp.Problem(h=200000, s=1, k=30)
 
 
 # %% add noise to targets
 np.random.seed(1)
 targs(p.targets)
-noise = np.random.normal(0, .03, p.k)
+noise = np.random.normal(0, .05, p.k)
 noise
 ntargets = p.targets * (1 + noise)
+init_vals = np.dot(p.xmat.T, p.wh)
 
 
 # %% default options
@@ -84,6 +90,65 @@ solver_defaults = {
 }
 
 options_defaults = {**solver_defaults, **user_defaults}
+
+
+# %% reweight the problem
+prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets)
+optip = {'xlb': .2, 'xub': 1.8,
+         'crange': 0.001,
+         'print_level': 0,
+         'file_print_level': 5,
+         # 'derivative_test': 'first-order',
+         'objgoal': 1, 'ccgoal': 1,
+         'max_iter': 200,
+         'linear_solver': 'ma57', 'quiet': False}
+# opts
+# opts = {'crange': 0.001, 'xlb':0, 'xub':100, 'quiet': False}
+rw1 = prob.reweight(method='ipopt', options=optip)
+# dir(rw1)
+rw1.elapsed_seconds
+
+np.square((init_vals - ntargets) / ntargets * 100).sum()
+rw1.sspd
+
+
+np.round((init_vals - ntargets) / ntargets * 100, 2)
+np.round(rw1.pdiff, 2)
+
+qtiles
+f(rw1.g)
+
+
+# %% alternative methods
+
+optlsq = {
+    'xlb': 0.2,
+    'xub': 1.8,
+    'method': 'bvls',  # bvls or trf
+    'tol': 1e-8,  # 1e-6
+    'lsmr_tol': 'auto',  # 'auto',  # None
+    'max_iter': 500,
+    'verbose': 2,
+    'scaling': True
+}
+
+rw2 = prob.reweight(method='lsq', options=optlsq)
+rw2.elapsed_seconds
+rw2.sspd
+f(rw2.g)
+
+
+rw3 = prob.reweight(method='empcal')
+rw3.sspd
+f(rw3.g)
+
+rw4 = prob.reweight(method='rake')
+rw4.sspd
+f(rw4.g)
+
+rw5 = prob.reweight(method='minNLP')
+rw5.sspd
+f(rw5.g)
 
 
 # %% get problem info
@@ -156,26 +221,3 @@ targets_opt
 ntargets
 
 np.square((targets_opt - targets) / targets * 100).sum()
-
-
-# %% reweight the problem
-prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets)
-opts = {'xlb': 1e-4, 'xub': 1e4,
-        'crange': 0.001,
-        'print_level': 0,
-        'file_print_level': 5,
-        'derivative_test': 'first-order',
-        'objgoal': 1, 'ccgoal': 1,
-        'max_iter': 10,
-        'linear_solver': 'ma27', 'quiet': False}
-opts
-# opts = {'crange': 0.001, 'xlb':0, 'xub':100, 'quiet': False}
-rw1 = prob.reweight(method='ipopt', options=opts)
-# dir(rw1)
-init_vals = np.dot(p.xmat.T, p.wh)
-rw1.elapsed_seconds
-rw1.sspd
-np.round(rw1.pdiff, 2)
-np.round((init_vals - ntargets) / ntargets * 100, 2)
-
-np.square((rw1.targets_opt - ntargets) / ntargets * 100).sum()

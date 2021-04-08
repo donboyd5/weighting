@@ -150,17 +150,16 @@ def rw_ipopt(wh, xmat, targets,
     for option, value in solver_options.items():
         nlp.add_option(option, value)
 
-    outfile = '/home/donboyd/Documents/test4.out'
-    # if os.path.exists(outfile):
-    #    os.remove(outfile)
-    print(outfile)
-    print(f'\n {"":10}')
+    outfile = '/home/donboyd/Documents/test.out'
+    if os.path.exists(outfile):
+        os.remove(outfile)
+    # print(outfile)
 
     nlp.addOption('output_file', outfile)
-    nlp.addOption('derivative_test', 'first-order')  # second-order
+    # nlp.addOption('derivative_test', 'first-order')  # second-order
 
     if(not opts.quiet):
-        print(f'\n {"":10} Iter {"":25} obj23 {"":22} infeas')
+        print(f'\n {"":10} Iter {"":25} obj {"":22} infeas')
 
     # solve the problem
     g, ipopt_info = nlp.solve(x0)

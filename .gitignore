@@ -5,3 +5,4 @@ puf/ignore/
 puf/downloads/
 *.out
 *.h5
+*.pyc
