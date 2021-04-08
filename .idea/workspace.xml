@@ -1,21 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="20081797-a9b3-4ed2-b75f-eb70c9684735" name="Default Changelist" comment="">
+    <list default="true" id="20081797-a9b3-4ed2-b75f-eb70c9684735" name="Default Changelist" comment="WIP">
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/weighting.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/weighting.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.spyproject/config/backups/workspace.ini.bak" beforeDir="false" afterPath="$PROJECT_DIR$/.spyproject/config/backups/workspace.ini.bak" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.spyproject/config/workspace.ini" beforeDir="false" afterPath="$PROJECT_DIR$/.spyproject/config/workspace.ini" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mynotes/python_notes.txt" beforeDir="false" afterPath="$PROJECT_DIR$/mynotes/python_notes.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/puf/data/targets2018.csv" beforeDir="false" afterPath="$PROJECT_DIR$/puf/data/targets2018.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/geoweight_qmatrix.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/geoweight_qmatrix.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/microweight.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/microweight.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/raking.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/raking.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/reweight_ipopt.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/reweight_ipopt.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/reweight_leastsquares.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/reweight_leastsquares.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/reweight_minimizeNLP.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/reweight_minimizeNLP.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/test_microweight.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/test_microweight.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test_reweight.py" beforeDir="false" afterPath="$PROJECT_DIR$/test_reweight.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -25,6 +16,14 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitSEFilterConfiguration">
+    <file-type-list>
+      <filtered-out-file-type name="LOCAL_BRANCH" />
+      <filtered-out-file-type name="REMOTE_BRANCH" />
+      <filtered-out-file-type name="TAG" />
+      <filtered-out-file-type name="COMMIT_BY_MESSAGE" />
+    </file-type-list>
+  </component>
   <component name="JupyterTrust" id="99670bbd-3e16-4e96-bc0c-830d8677da29" />
   <component name="ProjectId" id="1kAFUESnbBguTdYRVSHTxO7fXGj" />
   <component name="ProjectViewState">
@@ -33,13 +32,16 @@
   </component>
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="node.js.detected.package.eslint" value="true" />
     <property name="node.js.detected.package.tslint" value="true" />
     <property name="node.js.path.for.package.eslint" value="project" />
     <property name="node.js.path.for.package.tslint" value="project" />
     <property name="node.js.selected.package.eslint" value="(autodetect)" />
     <property name="node.js.selected.package.tslint" value="(autodetect)" />
+    <property name="settings.editor.selected.configurable" value="preferences.keymap" />
   </component>
   <component name="RunManager">
     <configuration default="true" type="PythonConfigurationType" factoryName="Python">
@@ -64,6 +66,30 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="test_reweight" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="weighting" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/test_reweight.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.test_reweight" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
@@ -76,10 +102,34 @@
       <workItem from="1605135507196" duration="267000" />
       <workItem from="1605347714050" duration="675000" />
       <workItem from="1605352656390" duration="15000" />
+      <workItem from="1617883249663" duration="5457000" />
     </task>
+    <task id="LOCAL-00001" summary="WIP">
+      <created>1617886390729</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1617886390729</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="WIP" />
+    <option name="LAST_COMMIT_MESSAGE" value="WIP" />
   </component>
 </project>

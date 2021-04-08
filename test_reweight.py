@@ -60,10 +60,10 @@ def f(g):
 # p = mtp.Problem(h=40, s=1, k=3)
 p = mtp.Problem(h=1000, s=1, k=10)
 # p = mtp.Problem(h=10000, s=1, k=30)
-# p = mtp.Problem(h=20000, s=1, k=30)
-p = mtp.Problem(h=100000, s=1, k=50)
+p = mtp.Problem(h=20000, s=1, k=30)
+# p = mtp.Problem(h=100000, s=1, k=50)
 # p = mtp.Problem(h=200000, s=1, k=30)
-p = mtp.Problem(h=500000, s=1, k=100)
+# p = mtp.Problem(h=500000, s=1, k=100)
 
 
 # %% add noise to targets
@@ -137,6 +137,7 @@ f(rw1.g)
 
 
 # %% lsq method
+
 
 optlsq = {
     'xlb': 0.1,
