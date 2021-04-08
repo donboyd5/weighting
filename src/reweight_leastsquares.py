@@ -75,26 +75,24 @@ def rw_lsq(wh, xmat, targets,
     b = targets * scale_vector
     wmat = xmat * scale_vector
 
-    At = np.multiply(wh.reshape(-1, 1), wmat)
-    A = At.T
+    A = np.multiply(wh.reshape(-1, 1), wmat)
+    A = A.T
 
-    if opts.method != 'bvls':
-        As = scipy.sparse.coo_matrix(A)
-    else:
-        # sparse matrices not allowed with bvls
-        As = A
+    if opts.method != 'bvls': # sparse matrices not allowed with bvls
+        A = scipy.sparse.coo_matrix(A)
+        A = A.tocsr()  # is this most efficient? lot of memory
 
     lb = np.full(h, opts.xlb)
     ub = np.full(h, opts.xub)
 
     if opts.tol is None:
-        lsq_info = lsq_linear(As, b, bounds=(lb, ub),
+        lsq_info = lsq_linear(A, b, bounds=(lb, ub),
                          method=opts.method,
                          lsmr_tol=opts.lsmr_tol,
                          max_iter=opts.max_iter,
                          verbose=opts.verbose)
     else:
-        lsq_info = lsq_linear(As, b, bounds=(lb, ub),
+        lsq_info = lsq_linear(A, b, bounds=(lb, ub),
                          method=opts.method,
                          tol=opts.tol,  # tol=1e-6,
                          lsmr_tol=opts.lsmr_tol,

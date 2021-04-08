@@ -109,7 +109,7 @@ def rw_ipopt(wh, xmat, targets,
 
     # scale constraint coefficients and targets
     ccscale = get_ccscale(cc, ccgoal=opts.ccgoal, method='mean')
-    ccscale = 1
+    # ccscale = 1
     cc = cc * ccscale  # mult by scale to have avg derivative meet our goal
     targets_scaled = targets * ccscale  # djb do I need to copy?
 

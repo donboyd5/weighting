@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = empty-project-type
-recent_files = ['../../../.config/spyder-py3/temp.py', '../../../../../tmp/kite_tutorial.py', 'src/test_microweight.py']
+recent_files = ['test_reweight.py', 'src/reweight_ipopt.py', 'src/reweight_leastsquares.py']
 
 [main]
 version = 0.2.0

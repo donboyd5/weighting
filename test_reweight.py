@@ -11,6 +11,8 @@ Created on Wed Apr  7 07:54:35 2021
 # import sys; print(sys.executable)
 # print(sys.path)
 
+from __future__ import print_function, unicode_literals
+# import importlib
 import numpy as np
 
 import scipy
@@ -21,7 +23,6 @@ from timeit import default_timer as timer
 import src.make_test_problems as mtp
 import src.microweight as mw
 
-from __future__ import print_function, unicode_literals
 from collections import namedtuple
 
 import cyipopt
@@ -29,6 +30,9 @@ import src.reweight_ipopt as rwip
 import src.microweight as mw
 
 import src.utilities as ut
+
+# importlib.reload(src.reweight_ipopt)  # ensure reload upon changes
+# importlib.reload(mw)
 
 # import src.poisson as ps
 
@@ -52,22 +56,34 @@ def f(g):
 
 # %% make problem
 # p = mtp.Problem(h=1000, s=10, k=5, xsd=.1, ssd=.5)
-p = mtp.Problem(h=10, s=1, k=2)
+# p = mtp.Problem(h=10, s=1, k=2)
 # p = mtp.Problem(h=40, s=1, k=3)
-# p = mtp.Problem(h=1000, s=1, k=10)
+p = mtp.Problem(h=1000, s=1, k=10)
 # p = mtp.Problem(h=10000, s=1, k=30)
 # p = mtp.Problem(h=20000, s=1, k=30)
+p = mtp.Problem(h=100000, s=1, k=50)
 # p = mtp.Problem(h=200000, s=1, k=30)
+p = mtp.Problem(h=500000, s=1, k=100)
 
 
 # %% add noise to targets
 np.random.seed(1)
 targs(p.targets)
 noise = np.random.normal(0, .05, p.k)
-noise
+noise * 100
 ntargets = p.targets * (1 + noise)
-init_vals = np.dot(p.xmat.T, p.wh)
+init_targs = np.dot(p.xmat.T, p.wh)
 
+init_pdiff = (init_targs - ntargets) / ntargets * 100
+# equivalently: 1 / (1 + noise) * 100 - 100
+
+init_sspd = np.square(init_pdiff).sum()
+
+
+# %% set problem
+p.h
+p.k
+prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets)
 
 # %% default options
 
@@ -93,55 +109,64 @@ options_defaults = {**solver_defaults, **user_defaults}
 
 
 # %% reweight the problem
-prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets)
-optip = {'xlb': .2, 'xub': 1.8,
-         'crange': 0.001,
+
+optip = {'xlb': .1, 'xub': 10,
+         'crange': 0.025,
          'print_level': 0,
          'file_print_level': 5,
          # 'derivative_test': 'first-order',
          'objgoal': 1, 'ccgoal': 1,
-         'max_iter': 200,
+         'max_iter': 100,
          'linear_solver': 'ma57', 'quiet': False}
-# opts
-# opts = {'crange': 0.001, 'xlb':0, 'xub':100, 'quiet': False}
-rw1 = prob.reweight(method='ipopt', options=optip)
+
+
+opts = {'crange': 0.001, 'xlb':0, 'xub':100, 'quiet': False}
+rw1 = prob.reweight(method='ipopt', options=opts)
 # dir(rw1)
 rw1.elapsed_seconds
 
-np.square((init_vals - ntargets) / ntargets * 100).sum()
+
 rw1.sspd
 
 
-np.round((init_vals - ntargets) / ntargets * 100, 2)
+np.round(init_pdiff, 2)
 np.round(rw1.pdiff, 2)
 
 qtiles
 f(rw1.g)
 
 
-# %% alternative methods
+# %% lsq method
 
 optlsq = {
-    'xlb': 0.2,
-    'xub': 1.8,
-    'method': 'bvls',  # bvls or trf
-    'tol': 1e-8,  # 1e-6
-    'lsmr_tol': 'auto',  # 'auto',  # None
-    'max_iter': 500,
+    'xlb': 0.1,
+    'xub': 10,
+    # bvls or trf; trf seems more robust
+    # bvls does not allow sparse matrices
+    # so trf seems better choice in general
+    'method': 'trf',  
+    'tol': 1e-6,  # 1e-6
+    'lsmr_tol': 'auto', # 'auto',  # 'auto',  # None
+    'max_iter': 50,
     'verbose': 2,
-    'scaling': True
-}
+    'scaling': True}
 
 rw2 = prob.reweight(method='lsq', options=optlsq)
 rw2.elapsed_seconds
 rw2.sspd
 f(rw2.g)
 
+np.round(init_pdiff, 2)
+np.round(rw2.pdiff, 2)
 
+
+
+# %% empcal method
 rw3 = prob.reweight(method='empcal')
 rw3.sspd
 f(rw3.g)
 
+# %% rake method
 rw4 = prob.reweight(method='rake')
 rw4.sspd
 f(rw4.g)
