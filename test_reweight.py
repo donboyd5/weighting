@@ -19,14 +19,14 @@ from scipy.optimize import lsq_linear
 from numpy.random import seed
 from timeit import default_timer as timer
 
+import cyipopt  # so we can access ipopt directly
+
 import src.make_test_problems as mtp
 import src.microweight as mw
 
-from collections import namedtuple
+import src.reweight_ipopt as rwip # to access reweight directly
 
-import cyipopt
-import src.reweight_ipopt as rwip
-import src.microweight as mw
+from collections import namedtuple
 
 import src.utilities as ut
 
@@ -54,9 +54,9 @@ def f(g):
 # p = mtp.Problem(h=1000, s=10, k=5, xsd=.1, ssd=.5)
 # p = mtp.Problem(h=10, s=1, k=2)
 # p = mtp.Problem(h=40, s=1, k=3)
-# p = mtp.Problem(h=1000, s=1, k=10)
+p = mtp.Problem(h=1000, s=1, k=10)
 # p = mtp.Problem(h=10000, s=1, k=30)
-p = mtp.Problem(h=20000, s=1, k=30)
+# p = mtp.Problem(h=20000, s=1, k=30)
 # p = mtp.Problem(h=100000, s=1, k=50)
 # p = mtp.Problem(h=200000, s=1, k=30)
 # p = mtp.Problem(h=500000, s=1, k=100)
@@ -98,7 +98,7 @@ solver_defaults = {
     'hessian_constant': 'yes',
     'max_iter': 100,
     'mumps_mem_percent': 100,  # default 1000
-    'linear_solver': 'ma57'
+    'linear_solver': 'ma86'
 }
 
 options_defaults = {**solver_defaults, **user_defaults}
@@ -107,13 +107,27 @@ options_defaults = {**solver_defaults, **user_defaults}
 # %% reweight with ipopt
 
 optip = {'xlb': .1, 'xub': 10,
-         'crange': 0.025,
+         'crange': 0.02,
          'print_level': 0,
          'file_print_level': 5,
          # 'derivative_test': 'first-order',
-         'objgoal': 1, 'ccgoal': 1,
+         'ccgoal': 100,
+         'objgoal': 1,
          'max_iter': 100,
-         'linear_solver': 'ma57', 'quiet': False}
+         'linear_solver': 'ma57',  # ma27, ma77, ma57, ma86 work, not ma97
+         'mumps_mem_percent': 100,  # default 1000
+         'quiet': False}
+
+
+# using coinhsl-2019.05.21
+# # checking: coinhsl-2015.06.23
+# ma57 gives:
+#  Input Error: Incorrect initial partitioning scheme.
+
+# ma97 repeatedly gives:
+#  Intel MKL ERROR: Parameter 4 was incorrect on entry to DGEMM
+# Process finished with exit code 139 (interrupted by signal 11: SIGSEGV)
+
 
 
 opts = {'crange': 0.001, 'xlb':0, 'xub':100, 'quiet': False}
@@ -133,7 +147,6 @@ f(rw1.g)
 
 
 # %% reweight with lsq method
-
 
 optlsq = {
     'xlb': 0.1,

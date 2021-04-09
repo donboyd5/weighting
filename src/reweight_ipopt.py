@@ -155,8 +155,8 @@ def rw_ipopt(wh, xmat, targets,
         os.remove(outfile)
     # print(outfile)
 
-    nlp.addOption('output_file', outfile)
-    # nlp.addOption('derivative_test', 'first-order')  # second-order
+    nlp.add_option('output_file', outfile)
+    # nlp.add_option('derivative_test', 'first-order')  # second-order
 
     if(not opts.quiet):
         print(f'\n {"":10} Iter {"":25} obj {"":22} infeas')
