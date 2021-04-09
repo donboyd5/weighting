@@ -3,6 +3,7 @@ src/__pycache__/
 ignore/
 puf/ignore/
 puf/downloads/
+
 *.out
 *.h5
 *.pyc
