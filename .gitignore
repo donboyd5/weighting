@@ -7,4 +7,5 @@ puf/downloads/
 *.h5
 *.pyc
 *.xml
+*.txt
 ma77*
