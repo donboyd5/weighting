@@ -24,7 +24,7 @@ import cyipopt  # so we can access ipopt directly
 import src.make_test_problems as mtp
 import src.microweight as mw
 
-import src.reweight_ipopt as rwip # to access reweight directly
+import src.reweight_ipopt as rwip  # to access reweight directly
 
 from collections import namedtuple
 
@@ -46,6 +46,7 @@ def targs(targvec, div=50, seed=seed(1234)):
     targets = (targvec * (1 + r)).flatten()
     return targets
 
+
 def f(g):
     return np.round(np.quantile(g, qtiles), 4)
 
@@ -54,8 +55,8 @@ def f(g):
 # p = mtp.Problem(h=1000, s=10, k=5, xsd=.1, ssd=.5)
 # p = mtp.Problem(h=10, s=1, k=2)
 # p = mtp.Problem(h=40, s=1, k=3)
-p = mtp.Problem(h=1000, s=1, k=10)
-# p = mtp.Problem(h=10000, s=1, k=30)
+# p = mtp.Problem(h=1000, s=1, k=10)
+p = mtp.Problem(h=10000, s=1, k=30)
 # p = mtp.Problem(h=20000, s=1, k=30)
 # p = mtp.Problem(h=100000, s=1, k=50)
 # p = mtp.Problem(h=200000, s=1, k=30)
@@ -129,8 +130,7 @@ optip = {'xlb': .1, 'xub': 10,
 # Process finished with exit code 139 (interrupted by signal 11: SIGSEGV)
 
 
-
-opts = {'crange': 0.001, 'xlb':0, 'xub':100, 'quiet': False}
+opts = {'crange': 0.001, 'xlb': 0, 'xub': 100, 'quiet': False}
 rw1 = prob.reweight(method='ipopt', options=optip)
 # dir(rw1)
 rw1.elapsed_seconds
@@ -154,9 +154,9 @@ optlsq = {
     # bvls or trf; trf seems more robust
     # bvls does not allow sparse matrices
     # so trf seems better choice in general
-    'method': 'trf',  
+    'method': 'trf',
     'tol': 1e-6,  # 1e-6
-    'lsmr_tol': 'auto', # 'auto',  # 'auto',  # None
+    'lsmr_tol': 'auto',  # 'auto',  # 'auto',  # None
     'max_iter': 50,
     'verbose': 2,
     'scaling': True}
@@ -168,7 +168,6 @@ f(rw2.g)
 
 np.round(init_pdiff, 2)
 np.round(rw2.pdiff, 2)
-
 
 
 # %% reweight with empcal method
