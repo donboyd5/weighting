@@ -33,7 +33,8 @@ ijnz[1] # col indexes of nz elements
 ijnz[2] # nz elements
 
 # next, review what ipopt needs for the triplet format
-
+# here's what i think
+ijnz
 
 
 
