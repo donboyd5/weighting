@@ -25,11 +25,21 @@ ijnz
 type(ijnz)
 dir(ijnz)
 
+# ijnz is a tuple with indexes and values of nonzero elements
+# it has 3 elements, each of which is an array
+ijnz[0] # row indexes of nz elements
+ijnz[1] # col indexes of nz elements
+ijnz[2] # nz elements
+
+# next, review what ipopt needs for the triplet format
+
+
+
 
 A = csr_matrix([[1, 2, 0], [0, 0, 3], [4, 0, 5]])
 v = np.array([1, 0, -1])
 A.dot(v)
-array([ 1, -3, -1], dtype=int64)
+# array([ 1, -3, -1], dtype=int64)
 
 
 rows = 1000
