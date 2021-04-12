@@ -14,6 +14,7 @@ from numpy.random import rand
 A = np.matrix([[1, 2, 0], [0, 0, 3], [4, 0, 5]])
 A
 
+
 print(csc_matrix(A))
 print(csr_matrix(A))
 print(coo_matrix(A))
