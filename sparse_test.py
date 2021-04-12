@@ -40,6 +40,10 @@ ijnz
 # and some more changes
 # I'll commit test3 to reweight_sparse here
 
+# here come some more changes
+# I'll try visual merge of reweight_sparse into master
+# with commit test4
+
 
 
 A = csr_matrix([[1, 2, 0], [0, 0, 3], [4, 0, 5]])
