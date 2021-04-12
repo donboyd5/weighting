@@ -36,6 +36,10 @@ ijnz[2] # nz elements
 # here's what i think
 ijnz
 
+# now we make some more changes
+# and some more changes
+# I'll commit test3 to reweight_sparse here
+
 
 
 A = csr_matrix([[1, 2, 0], [0, 0, 3], [4, 0, 5]])
