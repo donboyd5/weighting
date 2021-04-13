@@ -1,0 +1,200 @@
+Index: test_reweight.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\"\"\"\nCreated on Wed Apr  7 07:54:35 2021\n\n@author: donboyd\n\"\"\"\n\n# %% imports\n# for checking:\n# import sys; print(sys.executable)\n# print(sys.path)\nfrom __future__ import print_function, unicode_literals\n# import importlib\nimport numpy as np\n\nimport scipy\nfrom scipy.optimize import lsq_linear\nfrom numpy.random import seed\nfrom timeit import default_timer as timer\n\nimport src.make_test_problems as mtp\nimport src.microweight as mw\n\nfrom collections import namedtuple\n\nimport cyipopt\nimport src.reweight_ipopt as rwip\nimport src.microweight as mw\n\nimport src.utilities as ut\n\n# importlib.reload(src.reweight_ipopt)  # ensure reload upon changes\n# importlib.reload(mw)\n# import src.poisson as ps\n# print(mw.__doc__)\n\n\n# %% constants\nqtiles = (0, .01, .1, .25, .5, .75, .9, .99, 1)\n\n\n# %% functions\ndef targs(targvec, div=50, seed=seed(1234)):\n    r = np.random.randn(targvec.size) / 50  # random normal\n    targets = (targvec * (1 + r)).flatten()\n    return targets\n\ndef f(g):\n    return np.round(np.quantile(g, qtiles), 4)\n\n\n# %% make problem of a desired size\n# p = mtp.Problem(h=1000, s=10, k=5, xsd=.1, ssd=.5)\n# p = mtp.Problem(h=10, s=1, k=2)\n# p = mtp.Problem(h=40, s=1, k=3)\n# p = mtp.Problem(h=1000, s=1, k=10)\n# p = mtp.Problem(h=10000, s=1, k=30)\np = mtp.Problem(h=20000, s=1, k=30)\n# p = mtp.Problem(h=100000, s=1, k=50)\n# p = mtp.Problem(h=200000, s=1, k=30)\n# p = mtp.Problem(h=500000, s=1, k=100)\n\n\n# %% add noise to targets\nnp.random.seed(1)\ntargs(p.targets)\nnoise = np.random.normal(0, .05, p.k)\nnoise * 100\nntargets = p.targets * (1 + noise)\ninit_targs = np.dot(p.xmat.T, p.wh)\n\ninit_pdiff = (init_targs - ntargets) / ntargets * 100\n# equivalently: 1 / (1 + noise) * 100 - 100\n\ninit_sspd = np.square(init_pdiff).sum()\n\n\n# %% create problem object\np.h\np.k\nprob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets)\n\n# %% define default options\n\nuser_defaults = {\n    'xlb': 0.1,\n    'xub': 100,\n    'crange': .02,\n    'ccgoal': 1,\n    'objgoal': 100,\n    'quiet': True}\n\nsolver_defaults = {\n    'print_level': 0,\n    'file_print_level': 5,\n    'jac_d_constant': 'yes',\n    'hessian_constant': 'yes',\n    'max_iter': 100,\n    'mumps_mem_percent': 100,  # default 1000\n    'linear_solver': 'ma57'\n}\n\noptions_defaults = {**solver_defaults, **user_defaults}\n\n\n# %% reweight with ipopt\n\noptip = {'xlb': .1, 'xub': 10,\n         'crange': 0.025,\n         'print_level': 0,\n         'file_print_level': 5,\n         # 'derivative_test': 'first-order',\n         'objgoal': 1, 'ccgoal': 1,\n         'max_iter': 100,\n         'linear_solver': 'ma57', 'quiet': False}\n\n\nopts = {'crange': 0.001, 'xlb':0, 'xub':100, 'quiet': False}\nrw1 = prob.reweight(method='ipopt', options=optip)\n# dir(rw1)\nrw1.elapsed_seconds\n\n\nrw1.sspd\n\n\nnp.round(init_pdiff, 2)\nnp.round(rw1.pdiff, 2)\n\nqtiles\nf(rw1.g)\n\n\n# %% reweight with lsq method\n\n\noptlsq = {\n    'xlb': 0.1,\n    'xub': 10,\n    # bvls or trf; trf seems more robust\n    # bvls does not allow sparse matrices\n    # so trf seems better choice in general\n    'method': 'trf',  \n    'tol': 1e-6,  # 1e-6\n    'lsmr_tol': 'auto', # 'auto',  # 'auto',  # None\n    'max_iter': 50,\n    'verbose': 2,\n    'scaling': True}\n\nrw2 = prob.reweight(method='lsq', options=optlsq)\nrw2.elapsed_seconds\nrw2.sspd\nf(rw2.g)\n\nnp.round(init_pdiff, 2)\nnp.round(rw2.pdiff, 2)\n\n\n\n# %% reweight with empcal method\nrw3 = prob.reweight(method='empcal')\nrw3.sspd\nf(rw3.g)\n\n# %% reweight with rake method\nrw4 = prob.reweight(method='rake')\nrw4.sspd\nf(rw4.g)\n\nrw5 = prob.reweight(method='minNLP')\nrw5.sspd\nf(rw5.g)\n\n\n# %% start of section to run ipopt manually\n# rwip.rw_ipopt(self.wh, self.xmat, self.targets, options=options)\n# get variables from p\n\n# set options using reweight_ipopt\n\nxmat = p.xmat\nwh = p.wh\ntargets = ntargets\n\n\n# %% setup for ipopt\nn = xmat.shape[0]\nm = xmat.shape[1]\n\n# update options with any user-supplied options\noptions_all = options_defaults\noptions_all = options_defaults.copy()\n\n# convert dict to named tuple for ease of use\nopts = ut.dict_nt(options_all)\n\n# constraint coefficients (constant)\ncc = (xmat.T * wh).T\ncc.shape\n\n# scale constraint coefficients and targets\n# ccscale = get_ccscale(cc, ccgoal=opts.ccgoal, method='mean')\nccscale = 1\ncc = cc * ccscale  # mult by scale to have avg derivative meet our goal\ntargets_scaled = targets * ccscale  # djb do I need to copy?\n\ncallbacks = rwip.Reweight_callbacks(cc, opts.quiet)\n\n# x vector starting values, and lower and upper bounds\nx0 = np.ones(n)\nlb = np.full(n, opts.xlb)\nub = np.full(n, opts.xub)\n\n# constraint lower and upper bounds\ncl = targets_scaled - abs(targets_scaled) * opts.crange\ncu = targets_scaled + abs(targets_scaled) * opts.crange\n\nnlp = cyipopt.Problem(\n    n=n,\n    m=m,\n    problem_obj=callbacks,\n    lb=lb,\n    ub=ub,\n    cl=cl,\n    cu=cu)\n\n# solve the problem\ng, ipopt_info = nlp.solve(x0)\ndir(ipopt_info)\n\nwh_opt = g * wh\n\nwh\nwh_opt\n\ntargets_opt = np.dot(xmat.T, wh_opt)\n\ntargets\ntargets_opt\n\nntargets\n\nnp.square((targets_opt - targets) / targets * 100).sum()\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/test_reweight.py b/test_reweight.py
+--- a/test_reweight.py	(revision 4c4c749820bb8510dd6ccab9287af99ca0418311)
++++ b/test_reweight.py	(date 1617999254687)
+@@ -19,15 +19,15 @@
+ from numpy.random import seed
+ from timeit import default_timer as timer
+ 
++import cyipopt  # so we can access ipopt directly
++
+ import src.make_test_problems as mtp
+ import src.microweight as mw
+ 
++import src.reweight_ipopt as rwip # to access reweight directly
++
+ from collections import namedtuple
+ 
+-import cyipopt
+-import src.reweight_ipopt as rwip
+-import src.microweight as mw
+-
+ import src.utilities as ut
+ 
+ # importlib.reload(src.reweight_ipopt)  # ensure reload upon changes
+@@ -56,8 +56,8 @@
+ # p = mtp.Problem(h=40, s=1, k=3)
+ # p = mtp.Problem(h=1000, s=1, k=10)
+ # p = mtp.Problem(h=10000, s=1, k=30)
+-p = mtp.Problem(h=20000, s=1, k=30)
+-# p = mtp.Problem(h=100000, s=1, k=50)
++# p = mtp.Problem(h=20000, s=1, k=30)
++p = mtp.Problem(h=100000, s=1, k=50)
+ # p = mtp.Problem(h=200000, s=1, k=30)
+ # p = mtp.Problem(h=500000, s=1, k=100)
+ 
+@@ -98,7 +98,7 @@
+     'hessian_constant': 'yes',
+     'max_iter': 100,
+     'mumps_mem_percent': 100,  # default 1000
+-    'linear_solver': 'ma57'
++    'linear_solver': 'ma86'
+ }
+ 
+ options_defaults = {**solver_defaults, **user_defaults}
+@@ -113,7 +113,20 @@
+          # 'derivative_test': 'first-order',
+          'objgoal': 1, 'ccgoal': 1,
+          'max_iter': 100,
+-         'linear_solver': 'ma57', 'quiet': False}
++         'linear_solver': 'ma77',  # ma27, ma77, ma86 work, not ma57 or ma97
++         'mumps_mem_percent': 100,  # default 1000
++         'quiet': False}
++
++
++# using coinhsl-2019.05.21
++# # checking: coinhsl-2015.06.23
++# ma57 gives:
++#  Input Error: Incorrect initial partitioning scheme.
++
++# ma97 repeatedly gives:
++#  Intel MKL ERROR: Parameter 4 was incorrect on entry to DGEMM
++# Process finished with exit code 139 (interrupted by signal 11: SIGSEGV)
++
+ 
+ 
+ opts = {'crange': 0.001, 'xlb':0, 'xub':100, 'quiet': False}
+Index: src/reweight_ipopt.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+># -*- coding: utf-8 -*-\n\"\"\"\nReweight class\n  https://pythonhosted.org/ipopt/reference.html#reference\n\n@author: donbo\n\"\"\"\n\n# %% imports\nfrom __future__ import print_function, unicode_literals\nimport os\n\nimport numpy as np\nfrom timeit import default_timer as timer\nfrom collections import namedtuple\n\nimport cyipopt\n\nimport src.utilities as ut\n\n\n# %% default options\n\nuser_defaults = {\n    'xlb': 0.1,\n    'xub': 100,\n    'crange': .02,\n    'ccgoal': 1,\n    'objgoal': 100,\n    'quiet': True}\n\nsolver_defaults = {\n    'print_level': 0,\n    'file_print_level': 5,\n    'jac_d_constant': 'yes',\n    'hessian_constant': 'yes',\n    'max_iter': 100,\n    'mumps_mem_percent': 100,  # default 1000\n    'linear_solver': 'ma57'\n}\n\noptions_defaults = {**solver_defaults, **user_defaults}\n\n\n# %% rw_ipopt - the primary function\ndef rw_ipopt(wh, xmat, targets,\n             options=None):\n    r\"\"\"\n    Build and solve the reweighting NLP.\n\n    Good general settings seem to be:\n        get_ccscale - use ccgoal=1, method='mean'\n        get_objscale - use xbase=1.2, objgoal=100\n        no other options set, besides obvious ones\n\n    Important resources:\n        https://pythonhosted.org/ipopt/reference.html#reference\n        https://coin-or.github.io/Ipopt/OPTIONS.html\n        ..\\cyipopt\\ipopt\\ipopt_wrapper.py to see code from cyipopt author\n\n    Parameters\n    ----------\n    wh : float\n        DESCRIPTION.\n    xmat : ndarray\n        DESCRIPTION.\n    targets : ndarray\n        DESCRIPTION.\n    xlb : TYPE, optional\n        DESCRIPTION. The default is 0.1.\n    xub : TYPE, optional\n        DESCRIPTION. The default is 100.\n    crange : TYPE, optional\n        DESCRIPTION. The default is .03.\n    max_iter : TYPE, optional\n        DESCRIPTION. The default is 100.\n    ccgoal : TYPE, optional\n        DESCRIPTION. The default is 1.\n    objgoal : TYPE, optional\n        DESCRIPTION. The default is 100.\n    quiet : TYPE, optional\n        DESCRIPTION. The default is True.\n\n    Returns\n    -------\n    x : TYPE\n        DESCRIPTION.\n    info : TYPE\n        DESCRIPTION.\n\n    \"\"\"\n    a = timer()\n    n = xmat.shape[0]\n    m = xmat.shape[1]\n\n    # update options with any user-supplied options\n    if options is None:\n        options_all = options_defaults.copy()\n    else:\n        options_all = options_defaults.copy()\n        options_all.update(options)\n        # options_all = {**options_defaults, **options}\n\n    # convert dict to named tuple for ease of use\n    opts = ut.dict_nt(options_all)\n\n    # constraint coefficients (constant)\n    cc = (xmat.T * wh).T\n\n    # scale constraint coefficients and targets\n    ccscale = get_ccscale(cc, ccgoal=opts.ccgoal, method='mean')\n    # ccscale = 1\n    cc = cc * ccscale  # mult by scale to have avg derivative meet our goal\n    targets_scaled = targets * ccscale  # djb do I need to copy?\n\n    # IMPORTANT: define callbacks AFTER we have scaled cc and targets\n    # because callbacks must be initialized with scaled cc\n    callbacks = Reweight_callbacks(cc, opts.quiet)\n\n    # x vector starting values, and lower and upper bounds\n    x0 = np.ones(n)\n    lb = np.full(n, opts.xlb)\n    ub = np.full(n, opts.xub)\n\n    # constraint lower and upper bounds\n    cl = targets_scaled - abs(targets_scaled) * opts.crange\n    cu = targets_scaled + abs(targets_scaled) * opts.crange\n\n    nlp = cyipopt.Problem(\n        n=n,\n        m=m,\n        problem_obj=callbacks,\n        lb=lb,\n        ub=ub,\n        cl=cl,\n        cu=cu)\n\n    # objective function scaling - add to options dict\n    # djb should I pass n and callbacks???\n    objscale = get_objscale(objgoal=opts.objgoal,\n                            xbase=1.2,\n                            n=n,\n                            callbacks=callbacks)\n    # options_all['obj_scaling_factor'] = objscale\n\n    # create a dict that only has solver options, for passing to ipopt\n    user_keys = user_defaults.keys()\n    solver_options = {key: value for key, value in options_all.items() if key not in user_keys}\n\n    for option, value in solver_options.items():\n        nlp.add_option(option, value)\n\n    outfile = '/home/donboyd/Documents/test.out'\n    if os.path.exists(outfile):\n        os.remove(outfile)\n    # print(outfile)\n\n    nlp.addOption('output_file', outfile)\n    # nlp.addOption('derivative_test', 'first-order')  # second-order\n\n    if(not opts.quiet):\n        print(f'\\n {\"\":10} Iter {\"\":25} obj {\"\":22} infeas')\n\n    # solve the problem\n    g, ipopt_info = nlp.solve(x0)\n\n    wh_opt = g * wh\n    targets_opt = np.dot(xmat.T, wh_opt)\n    b = timer()\n\n    # create a named tuple of items to return\n    fields = ('elapsed_seconds',\n              'wh_opt',\n              'targets_opt',\n              'g',\n              'opts',\n              'ipopt_info')\n    Result = namedtuple('Result', fields, defaults=(None,) * len(fields))\n\n    res = Result(elapsed_seconds=b - a,\n                 wh_opt=wh_opt,\n                 targets_opt=targets_opt,\n                 g=g,\n                 opts=opts,\n                 ipopt_info=ipopt_info)\n\n    return res\n\n\n# %% functions and classes\n\ndef get_ccscale(cc, ccgoal, method='mean'):\n    \"\"\"\n    Create multiplicative scaling vector ccscale.\n\n    For scaling the constraint coefficients and the targets.\n\n    Parameters\n    ----------\n    ccgoal : TYPE\n        DESCRIPTION.\n    method : TYPE, optional\n        DESCRIPTION. The default is 'mean'.\n\n    Returns\n    -------\n    ccscale vector.\n\n    \"\"\"\n    # use mean or median as the denominator\n    if(method == 'mean'):\n        denom = cc.sum(axis=0) / cc.shape[0]\n    elif(method == 'median'):\n        denom = np.median(cc, axis=0)\n\n    ccscale = np.absolute(ccgoal / denom)\n    # ccscale = ccscale / ccscale\n    return ccscale\n\n\ndef get_objscale(objgoal, xbase, n, callbacks):\n    \"\"\"\n    Calculate objective scaling factor.\n\n    Returns\n    -------\n    objscale : TYPE\n        DESCRIPTION.\n\n    \"\"\"\n    xbase = np.full(n, xbase)\n    objbase = callbacks.objective(xbase)\n    objscale = objgoal / objbase\n    # convert to python float from Numpy float as that is what\n    # cyipopt requires\n    objscale = objscale.item()\n    # print(objscale)\n    return objscale\n\n\nclass Reweight_callbacks(object):\n    \"\"\"\n    Functions needed for ipopt must be in this class.\n\n    Must have:\n        objective\n        constraints\n        gradient\n        jacobian\n        jacobianstructure\n        hessian\n        hessianstructure\n        intermediate\n\n    Note that we only put 1 blank line between functions within a class\n    \"\"\"\n\n    def __init__(self, cc, quiet):\n        self._cc = cc\n        self._n = cc.shape[0]\n        self._m = cc.shape[1]\n        self._quiet = quiet\n\n    def objective(self, x):\n        \"\"\"Calculate objective function.\"\"\"\n        return np.sum((x - 1)**2)\n\n    def constraints(self, x):\n        \"\"\"\n        Calculate constraints for a given set of x values.\n\n        Parameters\n        ----------\n        x : TYPE\n            DESCRIPTION.\n\n        Returns\n        -------\n        TYPE\n            DESCRIPTION.\n\n        \"\"\"\n        return np.dot(x, self._cc)\n\n    def gradient(self, x):\n        \"\"\"Calculate gradient of objective function.\"\"\"\n        return 2 * x - 2\n\n    def jacobian(self, x):\n        \"\"\"\n        Calculate nonzero elements of Jacobian, return in sparse format.\n\n        Parameters\n        ----------\n        x : TYPE\n            DESCRIPTION.\n\n        Returns\n        -------\n        TYPE\n            DESCRIPTION.\n\n        \"\"\"\n        row, col = self.jacobianstructure()\n        return self._cc.T[row, col]\n\n    def jacobianstructure(self):\n        \"\"\"\n        Define sparse structure of Jacobian.\n\n        Returns\n        -------\n        TYPE\n            DESCRIPTION.\n\n        \"\"\"\n        return np.nonzero(self._cc.T)\n\n    def hessian(self, x, lagrange, obj_factor):\n        \"\"\"\n        Calculate the Hessian matrix in sparse form.\n\n        In this problem the Hessian is a constant 2 (2nd derivative of\n        objective) with nothing added for the constraints, multiplied by the\n        internal Ipopt variable obj_factor. Ipopt also requires that its\n        internal variable lagrange be passed to this function, although it\n        is not needed in this problem.\n\n\n        Parameters\n        ----------\n        x : TYPE\n            DESCRIPTION.\n        lagrange : TYPE\n            DESCRIPTION.\n        obj_factor : TYPE\n            DESCRIPTION.\n\n        Returns\n        -------\n        H : TYPE\n            DESCRIPTION.\n\n        \"\"\"\n        H = np.full(self._n, 2) * obj_factor\n        return H\n\n    def hessianstructure(self):\n        \"\"\"\n        Row and column indexes of nonzero elements of hessian.\n\n        A tuple of two arrays: one for row indexes and one for column indexes.\n        In this problem the hessian has nonzero elements only on the diagonal\n        so this returns an array of row indexes of arange(0, n) where n is\n        the number of rows (and columns) in the square hessian matrix, and\n        the same array for the column index column indexes.\n\n        These indexes must correspond to the order of the elements returned\n        from the hessian function. That requirement is enforced in that\n        function.\n\n        Note: The cyipopt default hessian structure is a lower triangular\n        matrix, so if that is what the hessian function produces, this\n        function is not needed.\n\n        Returns\n        -------\n        hstruct : tuple:\n            First array has row indexes of nonzero elements of the hessian\n            matrix.\n            Second array has column indexes for these elements.\n\n        \"\"\"\n        hidx = np.arange(0, self._n, dtype='int64')\n        hstruct = (hidx, hidx)\n        return hstruct\n\n    def intermediate(\n            self,\n            alg_mod,\n            iter_count,\n            obj_value,\n            inf_pr,\n            inf_du,\n            mu,\n            d_norm,\n            regularization_size,\n            alpha_du,\n            alpha_pr,\n            ls_trials\n    ):\n        \"\"\"\n        Print intermediate results after each iteration.\n\n        Parameters\n        ----------\n        alg_mod : TYPE\n            DESCRIPTION.\n        iter_count : TYPE\n            DESCRIPTION.\n        obj_value : TYPE\n            DESCRIPTION.\n        inf_pr : TYPE\n            DESCRIPTION.\n        inf_du : TYPE\n            DESCRIPTION.\n        mu : TYPE\n            DESCRIPTION.\n        d_norm : TYPE\n            DESCRIPTION.\n        regularization_size : TYPE\n            DESCRIPTION.\n        alpha_du : TYPE\n            DESCRIPTION.\n        alpha_pr : TYPE\n            DESCRIPTION.\n        ls_trials : TYPE\n            DESCRIPTION.\n\n        Returns\n        -------\n        None.\n\n        \"\"\"\n        # print(\"Objective value at iteration #%d is - %g\"\n        #     % (iter_count, obj_value))\n        if(not self._quiet):\n            print(f'{\"\":10} {iter_count:5d} {\"\":15} {obj_value:13.7e} {\"\":15} {inf_pr:13.7e}')\n\n\n# class Reweight_oldclass(ipopt.problem):\n#     \"\"\"\n#     Class for reweighting microdata file.\n\n#     More documentation here.\n#     \"\"\"\n\n#     def __init__(self, wh, xmat, targets):\n#         \"\"\"Define values needed on initialization.\"\"\"\n#         self._wh = wh\n#         # self._wh = np.array(wh)\n#         self._xmat = xmat\n#         self._targets = targets  # length must be _m, flatten if needed\n#         self._n = xmat.shape[0]\n#         self._m = xmat.shape[1]\n\n#     def reweight(self,\n#                  xlb=0.1,\n#                  xub=100,\n#                  crange=.03,\n#                  max_iter=100,\n#                  ccgoal=1,\n#                  objgoal=100,\n#                  quiet=True):\n#         r\"\"\"\n#         Build and solve the reweighting NLP.\n\n#         Good general settings seem to be:\n#             get_ccscale - use ccgoal=1, method='mean'\n#             get_objscale - use xbase=1.2, objgoal=100\n#             no other options set, besides obvious ones\n\n#         Important resources:\n#             https://pythonhosted.org/ipopt/reference.html#reference\n#             https://coin-or.github.io/Ipopt/OPTIONS.html\n#             ..\\cyipopt\\ipopt\\ipopt_wrapper.py to see code from cyipopt author\n\n#         Returns\n#         -------\n#         x : TYPE\n#             DESCRIPTION.\n#         info : TYPE\n#             DESCRIPTION.\n\n#         \"\"\"\n#         # constraint coefficients (constant)\n#         # cc = self._xmat * self._wh[:, None]\n#         # cc = self._xmat * self._wh\n#         cc = (self._xmat.T * self._wh).T\n\n#         # scale constraint coefficients and targets\n#         ccscale = self.get_ccscale(cc, ccgoal=ccgoal, method='mean')\n#         # print(ccscale)\n#         # ccscale = 1\n#         cc = cc * ccscale  # mult by scale to have avg derivative meet our goal\n#         targets = self._targets * ccscale\n\n#         # IMPORTANT: define callbacks AFTER we have scaled cc and targets\n#         # because callbacks must be initialized with scaled cc\n#         callbacks = Reweight_callbacks(cc, quiet)\n\n#         # x vector starting values, and lower and upper bounds\n#         x0 = np.ones(self._n)\n#         lb = np.full(self._n, xlb)\n#         ub = np.full(self._n, xub)\n\n#         # constraint lower and upper bounds\n#         cl = targets - abs(targets) * crange\n#         cu = targets + abs(targets) * crange\n\n#         nlp = ipopt.problem(\n#             n=self._n,\n#             m=self._m,\n#             problem_obj=self.callbacks,\n#             lb=lb,\n#             ub=ub,\n#             cl=cl,\n#             cu=cu)\n\n#         # objective function scaling\n#         objscale = self.get_objscale(objgoal=objgoal, xbase=1.2)\n#         # print(objscale)\n#         nlp.addOption('obj_scaling_factor', objscale)  # multiplier\n\n#         # define additional options as a dict\n#         opts = {\n#             'print_level': 5,\n#             'file_print_level': 5,\n#             'jac_d_constant': 'yes',\n#             'hessian_constant': 'yes',\n#             'max_iter': max_iter,\n#             'mumps_mem_percent': 100,  # default 1000\n#             'linear_solver': 'mumps',\n#             }\n\n#         # TODO: check against already set options, etc. see ipopt_wrapper.py\n#         for option, value in opts.items():\n#             nlp.addOption(option, value)\n\n#         # outfile = 'test4.out'\n#         # if os.path.exists(outfile):\n#         #     os.remove(outfile)\n#         # nlp.addOption('output_file', outfile)\n#         # nlp.addOption('derivative_test', 'first-order')  # second-order\n\n#         # nlp_scaling_method: default gradient-based\n#         # equilibration-based needs MC19\n#         # nlp.addOption('nlp_scaling_method', 'equilibration-based')\n#         # nlp.addOption('nlp_scaling_max_gradient', 1e-4)  # 100 default\n#         # nlp.addOption('mu_strategy', 'adaptive')  # not good\n#         # nlp.addOption('mehrotra_algorithm', 'yes')  # not good\n#         # nlp.addOption('mumps_mem_percent', 100)  # default 1000\n#         # nlp.addOption('mumps_pivtol', 1e-4)  # default 1e-6; 1e-2 is SLOW\n#         # nlp.addOption('mumps_scaling', 8)  # 77 default\n\n#         x, info = nlp.solve(x0)\n#         return x, info\n\n\n    def get_ccscale(cc, ccgoal, method='mean'):\n        \"\"\"\n        Create multiplicative scaling vector ccscale.\n\n        For scaling the constraint coefficients and the targets.\n\n        Parameters\n        ----------\n        ccgoal : TYPE\n            DESCRIPTION.\n        method : TYPE, optional\n            DESCRIPTION. The default is 'mean'.\n\n        Returns\n        -------\n        ccscale vector.\n\n        \"\"\"\n        # use mean or median as the denominator\n        if(method == 'mean'):\n            denom = cc.sum(axis=0) / cc.shape[0]\n        elif(method == 'median'):\n            denom = np.median(cc, axis=0)\n\n        ccscale = np.absolute(ccgoal / denom)\n        # ccscale = ccscale / ccscale\n        return ccscale\n\n    def get_objscale(objgoal, xbase):\n        \"\"\"\n        Calculate objective scaling factor.\n\n        Returns\n        -------\n        objscale : TYPE\n            DESCRIPTION.\n\n        \"\"\"\n        xbase = np.full(n, xbase)\n        objbase = callbacks.objective(xbase)\n        objscale = objgoal / objbase\n        # convert to python float from Numpy float as that is what\n        # cyipopt requires\n        objscale = objscale.item()\n        # print(objscale)\n        return objscale\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/reweight_ipopt.py b/src/reweight_ipopt.py
+--- a/src/reweight_ipopt.py	(revision 4c4c749820bb8510dd6ccab9287af99ca0418311)
++++ b/src/reweight_ipopt.py	(date 1617971436481)
+@@ -155,8 +155,8 @@
+         os.remove(outfile)
+     # print(outfile)
+ 
+-    nlp.addOption('output_file', outfile)
+-    # nlp.addOption('derivative_test', 'first-order')  # second-order
++    nlp.add_option('output_file', outfile)
++    # nlp.add_option('derivative_test', 'first-order')  # second-order
+ 
+     if(not opts.quiet):
+         print(f'\n {"":10} Iter {"":25} obj {"":22} infeas')
+Index: .spyproject/config/backups/workspace.ini.bak
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>[workspace]\nrestore_data_on_startup = True\nsave_data_on_exit = True\nsave_history = True\nsave_non_project_files = False\nproject_type = empty-project-type\nrecent_files = ['test_reweight.py', 'src/reweight_ipopt.py', 'src/reweight_leastsquares.py']\n\n[main]\nversion = 0.2.0\nrecent_files = []\n\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.spyproject/config/backups/workspace.ini.bak b/.spyproject/config/backups/workspace.ini.bak
+--- a/.spyproject/config/backups/workspace.ini.bak	(revision 4c4c749820bb8510dd6ccab9287af99ca0418311)
++++ b/.spyproject/config/backups/workspace.ini.bak	(date 1617974047889)
+@@ -4,7 +4,7 @@
+ save_history = True
+ save_non_project_files = False
+ project_type = empty-project-type
+-recent_files = ['test_reweight.py', 'src/reweight_ipopt.py', 'src/reweight_leastsquares.py']
++recent_files = ['test_reweight.py', 'src/reweight_ipopt.py', 'src/reweight_empcalib.py']
+ 
+ [main]
+ version = 0.2.0
+Index: .idea/workspace.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project version=\"4\">\n  <component name=\"ChangeListManager\">\n    <list default=\"true\" id=\"20081797-a9b3-4ed2-b75f-eb70c9684735\" name=\"Default Changelist\" comment=\"\">\n      <change beforePath=\"$PROJECT_DIR$/.idea/workspace.xml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/workspace.xml\" afterDir=\"false\" />\n      <change beforePath=\"$PROJECT_DIR$/test_reweight.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/test_reweight.py\" afterDir=\"false\" />\n    </list>\n    <option name=\"SHOW_DIALOG\" value=\"false\" />\n    <option name=\"HIGHLIGHT_CONFLICTS\" value=\"true\" />\n    <option name=\"HIGHLIGHT_NON_ACTIVE_CHANGELIST\" value=\"false\" />\n    <option name=\"LAST_RESOLUTION\" value=\"IGNORE\" />\n  </component>\n  <component name=\"Git.Settings\">\n    <option name=\"RECENT_GIT_ROOT_PATH\" value=\"$PROJECT_DIR$\" />\n  </component>\n  <component name=\"GitSEFilterConfiguration\">\n    <file-type-list>\n      <filtered-out-file-type name=\"LOCAL_BRANCH\" />\n      <filtered-out-file-type name=\"REMOTE_BRANCH\" />\n      <filtered-out-file-type name=\"TAG\" />\n      <filtered-out-file-type name=\"COMMIT_BY_MESSAGE\" />\n    </file-type-list>\n  </component>\n  <component name=\"JupyterTrust\" id=\"99670bbd-3e16-4e96-bc0c-830d8677da29\" />\n  <component name=\"ProjectId\" id=\"1kAFUESnbBguTdYRVSHTxO7fXGj\" />\n  <component name=\"ProjectViewState\">\n    <option name=\"hideEmptyMiddlePackages\" value=\"true\" />\n    <option name=\"showLibraryContents\" value=\"true\" />\n  </component>\n  <component name=\"PropertiesComponent\">\n    <property name=\"RunOnceActivity.OpenProjectViewOnStart\" value=\"true\" />\n    <property name=\"RunOnceActivity.ShowReadmeOnStart\" value=\"true\" />\n    <property name=\"WebServerToolWindowFactoryState\" value=\"false\" />\n    <property name=\"last_opened_file_path\" value=\"$PROJECT_DIR$\" />\n    <property name=\"node.js.detected.package.eslint\" value=\"true\" />\n    <property name=\"node.js.detected.package.tslint\" value=\"true\" />\n    <property name=\"node.js.path.for.package.eslint\" value=\"project\" />\n    <property name=\"node.js.path.for.package.tslint\" value=\"project\" />\n    <property name=\"node.js.selected.package.eslint\" value=\"(autodetect)\" />\n    <property name=\"node.js.selected.package.tslint\" value=\"(autodetect)\" />\n    <property name=\"settings.editor.selected.configurable\" value=\"editor.preferences.gutterIcons\" />\n  </component>\n  <component name=\"RunManager\">\n    <configuration default=\"true\" type=\"PythonConfigurationType\" factoryName=\"Python\">\n      <module name=\"weighting\" />\n      <option name=\"INTERPRETER_OPTIONS\" value=\"\" />\n      <option name=\"PARENT_ENVS\" value=\"true\" />\n      <envs>\n        <env name=\"PYTHONUNBUFFERED\" value=\"1\" />\n      </envs>\n      <option name=\"SDK_HOME\" value=\"\" />\n      <option name=\"WORKING_DIRECTORY\" value=\"\" />\n      <option name=\"IS_MODULE_SDK\" value=\"false\" />\n      <option name=\"ADD_CONTENT_ROOTS\" value=\"true\" />\n      <option name=\"ADD_SOURCE_ROOTS\" value=\"true\" />\n      <EXTENSION ID=\"PythonCoverageRunConfigurationExtension\" runner=\"coverage.py\" />\n      <option name=\"SCRIPT_NAME\" value=\"\" />\n      <option name=\"PARAMETERS\" value=\"\" />\n      <option name=\"SHOW_COMMAND_LINE\" value=\"true\" />\n      <option name=\"EMULATE_TERMINAL\" value=\"false\" />\n      <option name=\"MODULE_MODE\" value=\"false\" />\n      <option name=\"REDIRECT_INPUT\" value=\"false\" />\n      <option name=\"INPUT_FILE\" value=\"\" />\n      <method v=\"2\" />\n    </configuration>\n    <configuration name=\"test_reweight\" type=\"PythonConfigurationType\" factoryName=\"Python\" temporary=\"true\" nameIsGenerated=\"true\">\n      <module name=\"weighting\" />\n      <option name=\"INTERPRETER_OPTIONS\" value=\"\" />\n      <option name=\"PARENT_ENVS\" value=\"true\" />\n      <envs>\n        <env name=\"PYTHONUNBUFFERED\" value=\"1\" />\n      </envs>\n      <option name=\"SDK_HOME\" value=\"\" />\n      <option name=\"WORKING_DIRECTORY\" value=\"$PROJECT_DIR$\" />\n      <option name=\"IS_MODULE_SDK\" value=\"true\" />\n      <option name=\"ADD_CONTENT_ROOTS\" value=\"true\" />\n      <option name=\"ADD_SOURCE_ROOTS\" value=\"true\" />\n      <EXTENSION ID=\"PythonCoverageRunConfigurationExtension\" runner=\"coverage.py\" />\n      <option name=\"SCRIPT_NAME\" value=\"$PROJECT_DIR$/test_reweight.py\" />\n      <option name=\"PARAMETERS\" value=\"\" />\n      <option name=\"SHOW_COMMAND_LINE\" value=\"true\" />\n      <option name=\"EMULATE_TERMINAL\" value=\"false\" />\n      <option name=\"MODULE_MODE\" value=\"false\" />\n      <option name=\"REDIRECT_INPUT\" value=\"false\" />\n      <option name=\"INPUT_FILE\" value=\"\" />\n      <method v=\"2\" />\n    </configuration>\n    <recent_temporary>\n      <list>\n        <item itemvalue=\"Python.test_reweight\" />\n      </list>\n    </recent_temporary>\n  </component>\n  <component name=\"SpellCheckerSettings\" RuntimeDictionaries=\"0\" Folders=\"0\" CustomDictionaries=\"0\" DefaultDictionary=\"application-level\" UseSingleDictionary=\"true\" transferred=\"true\" />\n  <component name=\"TaskManager\">\n    <task active=\"true\" id=\"Default\" summary=\"Default task\">\n      <changelist id=\"20081797-a9b3-4ed2-b75f-eb70c9684735\" name=\"Default Changelist\" comment=\"\" />\n      <created>1605135505961</created>\n      <option name=\"number\" value=\"Default\" />\n      <option name=\"presentableId\" value=\"Default\" />\n      <updated>1605135505961</updated>\n      <workItem from=\"1605135507196\" duration=\"267000\" />\n      <workItem from=\"1605347714050\" duration=\"675000\" />\n      <workItem from=\"1605352656390\" duration=\"15000\" />\n      <workItem from=\"1617883249663\" duration=\"8339000\" />\n      <workItem from=\"1617891624739\" duration=\"15000\" />\n      <workItem from=\"1617891650583\" duration=\"473000\" />\n      <workItem from=\"1617892136209\" duration=\"906000\" />\n    </task>\n    <task id=\"LOCAL-00001\" summary=\"WIP\">\n      <created>1617886390729</created>\n      <option name=\"number\" value=\"00001\" />\n      <option name=\"presentableId\" value=\"LOCAL-00001\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1617886390729</updated>\n    </task>\n    <task id=\"LOCAL-00002\" summary=\"WIP\">\n      <created>1617888852504</created>\n      <option name=\"number\" value=\"00002\" />\n      <option name=\"presentableId\" value=\"LOCAL-00002\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1617888852504</updated>\n    </task>\n    <task id=\"LOCAL-00003\" summary=\"WIP\">\n      <created>1617890942616</created>\n      <option name=\"number\" value=\"00003\" />\n      <option name=\"presentableId\" value=\"LOCAL-00003\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1617890942616</updated>\n    </task>\n    <option name=\"localTasksCounter\" value=\"4\" />\n    <servers />\n  </component>\n  <component name=\"TypeScriptGeneratedFilesManager\">\n    <option name=\"version\" value=\"3\" />\n  </component>\n  <component name=\"Vcs.Log.Tabs.Properties\">\n    <option name=\"TAB_STATES\">\n      <map>\n        <entry key=\"MAIN\">\n          <value>\n            <State />\n          </value>\n        </entry>\n      </map>\n    </option>\n    <option name=\"oldMeFiltersMigrated\" value=\"true\" />\n  </component>\n  <component name=\"VcsManagerConfiguration\">\n    <MESSAGE value=\"WIP\" />\n    <option name=\"LAST_COMMIT_MESSAGE\" value=\"WIP\" />\n  </component>\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/workspace.xml b/.idea/workspace.xml
+--- a/.idea/workspace.xml	(revision 4c4c749820bb8510dd6ccab9287af99ca0418311)
++++ b/.idea/workspace.xml	(date 1618000957523)
+@@ -3,6 +3,9 @@
+   <component name="ChangeListManager">
+     <list default="true" id="20081797-a9b3-4ed2-b75f-eb70c9684735" name="Default Changelist" comment="">
+       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/.spyproject/config/backups/workspace.ini.bak" beforeDir="false" afterPath="$PROJECT_DIR$/.spyproject/config/backups/workspace.ini.bak" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/.spyproject/config/workspace.ini" beforeDir="false" afterPath="$PROJECT_DIR$/.spyproject/config/workspace.ini" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/src/reweight_ipopt.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/reweight_ipopt.py" afterDir="false" />
+       <change beforePath="$PROJECT_DIR$/test_reweight.py" beforeDir="false" afterPath="$PROJECT_DIR$/test_reweight.py" afterDir="false" />
+     </list>
+     <option name="SHOW_DIALOG" value="false" />
+@@ -38,7 +41,7 @@
+     <property name="node.js.path.for.package.tslint" value="project" />
+     <property name="node.js.selected.package.eslint" value="(autodetect)" />
+     <property name="node.js.selected.package.tslint" value="(autodetect)" />
+-    <property name="settings.editor.selected.configurable" value="editor.preferences.gutterIcons" />
++    <property name="settings.editor.selected.configurable" value="editor.preferences.folding" />
+   </component>
+   <component name="RunManager">
+     <configuration default="true" type="PythonConfigurationType" factoryName="Python">
+@@ -105,7 +108,22 @@
+       <workItem from="1617883249663" duration="8339000" />
+       <workItem from="1617891624739" duration="15000" />
+       <workItem from="1617891650583" duration="473000" />
+-      <workItem from="1617892136209" duration="906000" />
++      <workItem from="1617892136209" duration="1341000" />
++      <workItem from="1617893487525" duration="316000" />
++      <workItem from="1617893817674" duration="150000" />
++      <workItem from="1617895325628" duration="599000" />
++      <workItem from="1617901149382" duration="553000" />
++      <workItem from="1617974322027" duration="205000" />
++      <workItem from="1617974565754" duration="1227000" />
++      <workItem from="1617976150697" duration="290000" />
++      <workItem from="1617977463106" duration="985000" />
++      <workItem from="1617983990613" duration="87000" />
++      <workItem from="1617984326503" duration="304000" />
++      <workItem from="1617984643566" duration="646000" />
++      <workItem from="1617986791347" duration="351000" />
++      <workItem from="1617988780042" duration="115000" />
++      <workItem from="1617996346947" duration="545000" />
++      <workItem from="1617996929301" duration="1737000" />
+     </task>
+     <task id="LOCAL-00001" summary="WIP">
+       <created>1617886390729</created>
+@@ -128,7 +146,14 @@
+       <option name="project" value="LOCAL" />
+       <updated>1617890942616</updated>
+     </task>
+-    <option name="localTasksCounter" value="4" />
++    <task id="LOCAL-00004" summary="WIP">
++      <created>1617893223092</created>
++      <option name="number" value="00004" />
++      <option name="presentableId" value="LOCAL-00004" />
++      <option name="project" value="LOCAL" />
++      <updated>1617893223092</updated>
++    </task>
++    <option name="localTasksCounter" value="5" />
+     <servers />
+   </component>
+   <component name="TypeScriptGeneratedFilesManager">
+Index: .spyproject/config/workspace.ini
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>[workspace]\nrestore_data_on_startup = True\nsave_data_on_exit = True\nsave_history = True\nsave_non_project_files = False\nproject_type = empty-project-type\nrecent_files = ['test_reweight.py', 'src/reweight_ipopt.py']\n\n[main]\nversion = 0.2.0\nrecent_files = []\n\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.spyproject/config/workspace.ini b/.spyproject/config/workspace.ini
+--- a/.spyproject/config/workspace.ini	(revision 4c4c749820bb8510dd6ccab9287af99ca0418311)
++++ b/.spyproject/config/workspace.ini	(date 1617974094173)
+@@ -4,7 +4,7 @@
+ save_history = True
+ save_non_project_files = False
+ project_type = empty-project-type
+-recent_files = ['test_reweight.py', 'src/reweight_ipopt.py']
++recent_files = ['test_reweight.py', 'src/reweight_ipopt.py', 'src/reweight_empcalib.py']
+ 
+ [main]
+ version = 0.2.0
