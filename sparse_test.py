@@ -1,3 +1,82 @@
+
+# %% try to set a small problem up for ipopt that is in sparse form
+# we need the jacobian structure
+# right now that is np.nonzero(cc.T)
+
+import numpy as np
+import scipy.sparse as sps
+import src.make_test_problems as mtp
+
+p = mtp.Problem(h=20, s=1, k=3)
+
+n = p.h  # n number variables
+m = p.k  # m number constraints
+
+xmat = p.xmat.copy()
+wh = p.wh.copy()
+
+# randomly set some elements of xmat to zero
+pctzero = .2
+indices = np.random.choice(np.arange(xmat.size), replace=False, size=int(xmat.size * pctzero))
+xmat[np.unravel_index(indices, xmat.shape)] = 0 
+
+p.xmat
+xmat
+
+#  constraint coefficients (constant)
+cc = (xmat.T * wh).T
+
+# how big could cc be?
+# standard reweight:
+# 40k variables, 40 targets, 1.6 million, maybe 80% nonzero
+
+# state weights:
+# 40k records
+# 50 states
+# 40 targets
+# 2 million variables
+# 2k constraints for states
+# 40k adding up constraints
+# 42k total constraints
+# so 42k x 2m = 84e9 constraint coefficients
+# but max nonzero constraint coefficients are:
+# (a) for state-specific constraints:
+#  2k constraints x 1 /50 x 2 m variables = 80e6
+# (b) for adding-up constraints:
+#  40k constraints x 50 states for each = 2e6
+# for max nonzero constraint coefficients of 82e6
+
+# for jacobian, we want the nonzero elements of the cc transpose
+cc.T
+np.nonzero(cc.T)
+sps.find(cc.T)
+
+%timeit np.nonzero(cc.T)  # 2.24us
+%timeit sps.find(cc.T)  # 52.5us
+
+
+# ijnz is a tuple with indexes and values of nonzero elements
+# it has 3 elements, each of which is an array
+ijnz = sps.find(cc.T)
+ijnz[0] # row indexes of nz elements
+ijnz[1] # col indexes of nz elements
+ijnz[2] # nz elements
+
+
+# what we need for ipopt:
+
+
+
+
+
+# define options (add_option)
+
+
+
+
+
+
+# %% earlier play
 # Construct a 1000x1000 lil_matrix and add some values to it:
 
 import numpy as np
@@ -33,22 +112,7 @@ ijnz[1] # col indexes of nz elements
 ijnz[2] # nz elements
 
 # next, review what ipopt needs for the triplet format
-# here's what i think
 ijnz
-
-# now we make some more changes
-# and some more changes
-# I'll commit test3 to reweight_sparse here
-
-# here come some more changes
-# I'll try visual merge of reweight_sparse into master
-# with commit test4
-
-# change mroe
-# change more
-# commit test5
-
-
 
 A = csr_matrix([[1, 2, 0], [0, 0, 3], [4, 0, 5]])
 v = np.array([1, 0, -1])
