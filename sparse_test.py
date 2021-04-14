@@ -45,6 +45,10 @@ cc = (xmat.T * wh).T
 # (b) for adding-up constraints:
 #  40k constraints x 50 states for each = 2e6
 # for max nonzero constraint coefficients of 82e6
+recs = 40e3; states = 50; targs = 40  # 82e6
+recs = 20e3; states = 50; targs = 25  # 26e6
+maxnzcc = (states * targs * recs + states * recs) / 1e6
+maxnzcc
 
 # for jacobian, we want the nonzero elements of the cc transpose
 cc.T
@@ -62,6 +66,9 @@ ijnz[0] # row indexes of nz elements
 ijnz[1] # col indexes of nz elements
 ijnz[2] # nz elements
 
+# %% manual setup for ipopt
+
+
 
 # what we need for ipopt:
 
@@ -73,6 +80,17 @@ ijnz[2] # nz elements
 
 
 
+
+
+# %% scratch
+# https://cyipopt.readthedocs.io/en/stable/tutorial.html#tutorial
+# https://cyipopt.readthedocs.io/en/stable/reference.html
+
+
+np.nonzero(np.tril(np.ones((4, 4))))
+
+x = [1, 2, 3, 4]
+np.concatenate((np.prod(x)/x, 2*x))
 
 
 

@@ -59,12 +59,12 @@ p = mtp.Problem(h=40, s=1, k=3)
 p = mtp.Problem(h=10000, s=1, k=30)
 # p = mtp.Problem(h=20000, s=1, k=30)
 # p = mtp.Problem(h=100000, s=1, k=50)
-# p = mtp.Problem(h=200000, s=1, k=30)
-# p = mtp.Problem(h=500000, s=1, k=100)
+# p = mtp.Problem(h=200000, s=1, k=50)
+p = mtp.Problem(h=500000, s=1, k=100)
 
 
 # %% investigate sparse matrices]
-A = p.xmat
+# A = p.xmat
 
 
 
@@ -112,16 +112,22 @@ options_defaults = {**solver_defaults, **user_defaults}
 
 # %% reweight with ipopt
 
+# free -m in terminal to see memory usage
+# printenv OMP_NUM_THREADS
+# in bash export OMP_NUM_THREADS= <number of threads to use>
+
+
 optip = {'xlb': .1, 'xub': 10,
          'crange': 0.02,
          'print_level': 0,
-         'file_print_level': 5,
+         'file_print_level': 6,
          # 'derivative_test': 'first-order',
          'ccgoal': 100,
          'objgoal': 1,
-         'max_iter': 1000,
-         'linear_solver': 'ma57',  # ma27, ma77, ma57, ma86 work, not ma97
-         # 'ma97_order': 'metis',
+         'max_iter': 5,
+         'linear_solver': 'ma97',  # ma27, ma77, ma57, ma86 work, not ma97
+         # 'ma86_order': 'metis',
+         'ma97_order': 'metis',
          # 'mumps_mem_percent': 100,  # default 1000
          'quiet': False}
 
