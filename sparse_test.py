@@ -34,8 +34,8 @@ importlib.reload(mw)
 
 
 # %% create data
-p = mtp.Problem(h=30, s=1, k=3)
-# p = mtp.Problem(h=200000, s=1, k=30)
+# p = mtp.Problem(h=30, s=1, k=3)
+p = mtp.Problem(h=100000, s=1, k=30)
 
 n = p.h  # n number variables
 m = p.k  # m number constraints
@@ -65,7 +65,7 @@ np.round(noise * 100, 2)
 
 init_vals = np.dot(x0, cc)
 targets = init_vals * (1 + noise)
-np.dot(xmat.T, wh)
+# np.dot(xmat.T, wh)
 
 init_pdiff = (init_vals - targets) / targets * 100
 # equivalently: 100 / (1 + noise) - 100
@@ -203,25 +203,47 @@ g
 # }
 
 
-# %% options
-optip = {'xlb': .1, 'xub': 10,
+# %% set up problem
+prob = mw.Microweight(wh=wh, xmat=xmat, targets=targets)
+
+
+# %% base options
+opt_base = {'xlb': .1, 'xub': 10,
          'crange': 0.005,
          'print_level': 0,
          'file_print_level': 5,
+         'output_file': '/home/donboyd/Documents/tests.out',
          'max_iter': 100,
-         'linear_solver': 'ma86',  # ma27, ma77, ma57, ma86 work, not ma97
+         'linear_solver': 'ma57',  # ma27, ma77, ma57, ma86 work, not ma97
          'quiet': False}
 
 
-# %% test the new sparse version
-prob = mw.Microweight(wh=wh, xmat=xmat, targets=targets)
+# %% sparse version
+opt_sparse = opt_base.copy()
+opt_sparse.update({'output_file': '/home/donboyd/Documents/test_sparse.out'})
+rw1s = prob.reweight(method='ipopt_sparse', options=opt_sparse)  
 
-rw1a = prob.reweight(method='ipopt', options=optip)  
-rw1a.elapsed_seconds
-rw1a.sspd
-rw1a.pdiff
-# print(sps.csc_matrix(xmat))
+# %%  dense version
+opt_dense = opt_base.copy()
+opt_dense.update({'output_file': '/home/donboyd/Documents/test_dense.out'})
+rw1d = prob.reweight(method='ipopt', options=opt_dense)
 
+# %% compare sparse and dense
+
+rw1s.elapsed_seconds
+rw1d.elapsed_seconds
+
+rw1s.sspd
+rw1d.sspd
+
+np.round(rw1s.pdiff, 2)
+np.round(rw1d.pdiff, 2)
+
+rw1s.targets_opt
+rw1d.targets_opt
+
+rw1s.wh_opt
+rw1d.wh_opt
 
 # %% examine
 
@@ -348,6 +370,77 @@ print(A[0:3, 0:15])
 A = A.tocsr()
 b = rand(1000)
 x = spsolve(A, b)
+
+# %% sparse type check
+pp = mtp.Problem(h=40, s=1, k=4)
+pp.xmat
+type(pp.xmat)
+pp.xmat.shape # h, k
+
+xmcsr = sps.csr_matrix(pp.xmat)
+type(xmcsr) # csr_matrix
+xmcsr.shape # h, k
+
+%timeit inz = np.nonzero(xmcsr.T)
+%timeit inz2 = sps.find(xmcsr.T)
+
+multd = (pp.xmat.T * pp.wh).T
+mults = xmcsr.T.multiply(pp.wh).T  # must be done this way
+
+type(mults) # sparse
+mults.shape  # (h, k)
+multd.shape  # (h, k)
+
+np.dot(x, cc)   
+
+
+
+
+# %% sparse speed test
+# what is the fastest dot product with a sparse matrix and a vector??
+# coo, csr, csc??
+
+qtiles = [0, .1, .25, .5, .75, .9, 1]
+
+pp = mtp.Problem(h=40, s=1, k=3)
+# pp = mtp.Problem(h=2000000, s=1, k=100)
+pp.h
+
+np.random.seed(1)
+px = 0.5 + np.random.rand(pp.h, )
+
+# make a regular array with zero elements
+ppctzero = .1
+pxmat = pp.xmat.copy()
+pindices = np.random.choice(np.arange(pp.xmat.size), replace=False, size=int(pp.xmat.size * ppctzero))
+pxmat[np.unravel_index(pindices, pp.xmat.shape)] = 0 
+pcc = (pxmat.T * pp.wh)
+pcc.shape
+
+
+# create sparse versions
+pcc_coo = sps.coo_matrix(pcc)
+pcc_csc = sps.csc_matrix(pcc)
+pcc_csr = sps.csr_matrix(pcc) # csr is fastest when matrices get large
+pcc_csr.shape
+
+(pxmat.T * pp.wh).T.shape   # dense multiplication h x k
+sps.csr_matrix(pxmat).T.multiply(pp.wh).T.shape  # sparse multiplication
+
+
+tmp = sps.find(pcc_csr)
+tmp
+tmp[2]
+
+tmp[(0, )]
+
+%timeit dense_dot = np.dot(pcc, px)
+%timeit coo_dot = pcc_coo.dot(px)
+%timeit csc_dot = pcc_csc.dot(px)
+%timeit csr_dot = pcc_csr.dot(px)
+
+
+
 
 # %% example classes
 

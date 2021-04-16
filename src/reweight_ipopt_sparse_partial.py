@@ -7,6 +7,8 @@ Reweight class
 import os
 
 import numpy as np
+import scipy.sparse as sps
+
 from timeit import default_timer as timer
 from collections import namedtuple
 
@@ -52,8 +54,8 @@ def rw_ipopt(wh, xmat, targets,
 
     """
 
-    print("in new rw_ipopt")
     a = timer()
+    # xmat = sps.csr_matrix(xmat) # make sparse version right away; csr is fastest for matrix-vector dot products
     n = xmat.shape[0]
     m = xmat.shape[1]
 
@@ -69,20 +71,15 @@ def rw_ipopt(wh, xmat, targets,
     opts = ut.dict_nt(options_all)
 
     # constraint coefficients (constant)
-    cc = (xmat.T * wh).T
+    cc = (xmat.T * wh).T   # dense multiplication
+    # cc = xmat.T.multiply(wh).T  # sparse multiplication
 
     # scale constraint coefficients and targets
     # ccscale = get_ccscale(cc, ccgoal=opts.ccgoal, method='mean')
     ccscale = 1
     cc = cc * ccscale  # mult by scale to have avg derivative meet our goal
     targets_scaled = targets * ccscale  # djb do I need to copy?
-    # print(cc)
     
-
-    # IMPORTANT: define callbacks AFTER we have scaled cc and targets
-    # because callbacks must be initialized with scaled cc
-    # callbacks = Reweight_callbacks(cc, opts.quiet)
-
     # x vector starting values, and lower and upper bounds
     x0 = np.ones(n)
     lb = np.full(n, opts.xlb)
@@ -92,7 +89,6 @@ def rw_ipopt(wh, xmat, targets,
     cl = targets_scaled - abs(targets_scaled) * opts.crange
     cu = targets_scaled + abs(targets_scaled) * opts.crange
 
-    print("creating class")
     nlp = cy.Problem(
         n=n,
         m=m,
@@ -114,8 +110,8 @@ def rw_ipopt(wh, xmat, targets,
     user_keys = user_defaults.keys()
     solver_options = {key: value for key, value in options_all.items() if key not in user_keys}
 
-    # for option, value in solver_options.items():
-    #     nlp.add_option(option, value)
+    for option, value in solver_options.items():
+        nlp.add_option(option, value)
 
     # outfile = '/home/donboyd/Documents/test.out'
     # if os.path.exists(outfile):
@@ -128,10 +124,11 @@ def rw_ipopt(wh, xmat, targets,
     #     print(f'\n {"":10} Iter {"":25} obj {"":22} infeas')
 
     # solve the problem
-    # g, ipopt_info = nlp.solve(x0)
+    g, ipopt_info = nlp.solve(x0)
 
-    # wh_opt = g * wh
-    # targets_opt = np.dot(xmat.T, wh_opt)
+    wh_opt = g * wh
+    # targets_opt = xmat.T.dot(wh_opt)  # sparse
+    targets_opt = np.dot(xmat.T, wh_opt)  # dense
     b = timer()
 
     # create a named tuple of items to return
@@ -143,19 +140,12 @@ def rw_ipopt(wh, xmat, targets,
               'ipopt_info')
     Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
 
-    res = Result(elapsed_seconds = -99,
-                 wh_opt=wh,
-                 targets_opt=targets,
-                 g=x0,
+    res = Result(elapsed_seconds=b - a,
+                 wh_opt=wh_opt,
+                 targets_opt=targets_opt,
+                 g=g,
                  opts=opts,
-                 ipopt_info="abcde")
-
-    # res = Result(elapsed_seconds=b - a,
-    #              wh_opt=wh_opt,
-    #              targets_opt=targets_opt,
-    #              g=g,
-    #              opts=opts,
-    #              ipopt_info=ipopt_info)
+                 ipopt_info=ipopt_info)
 
     return res
 
@@ -164,13 +154,15 @@ def rw_ipopt(wh, xmat, targets,
 class RW:
 
     def __init__(self, cc, n):
+        self.cc = cc  # is this making an unnecessary copy??
         self.jstruct = np.nonzero(cc.T)
+        # consider sps.find as possibly faster than np.nonzero, not sure
         self.jnz = cc.T[self.jstruct]
+        # self.jnz = sps.find(cc)[2]
+
         hidx = np.arange(0, n, dtype='int64')
         self.hstruct = (hidx, hidx)
         self.hnz = np.full(n, 2)
-        print(self.hnz)
-    #    pass
 
     def objective(self, x):
         """Returns the scalar value of the objective given x."""
@@ -182,7 +174,9 @@ class RW:
 
     def constraints(self, x):
         """Returns the constraints."""
-        return np.dot(x, cc)   
+        # np.dot(x, self.cc)  # dense calculation
+        # self.cc.T.dot(x)  # sparse calculation
+        return np.dot(x, self.cc)
 
     def jacobian(self, x):
         """Returns the Jacobian of the constraints with respect to x."""

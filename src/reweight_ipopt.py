@@ -109,8 +109,8 @@ def rw_ipopt(wh, xmat, targets,
 
     # scale constraint coefficients and targets
     ccscale = get_ccscale(cc, ccgoal=opts.ccgoal, method='mean')
-    # ccscale = 1
-    cc = cc * ccscale  # mult by scale to have avg derivative meet our goal
+    ccscale = 1
+    # cc = cc * ccscale  # mult by scale to have avg derivative meet our goal
     targets_scaled = targets * ccscale  # djb do I need to copy?
 
     # IMPORTANT: define callbacks AFTER we have scaled cc and targets
@@ -150,11 +150,11 @@ def rw_ipopt(wh, xmat, targets,
     for option, value in solver_options.items():
         nlp.add_option(option, value)
 
-    outfile = '/home/donboyd/Documents/test.out'
-    if os.path.exists(outfile):
-        os.remove(outfile)    
+    # outfile = '/home/donboyd/Documents/test.out'
+    # if os.path.exists(outfile):
+      #  os.remove(outfile)    
 
-    nlp.add_option('output_file', outfile)
+    # nlp.add_option('output_file', outfile)
     # nlp.add_option('derivative_test', 'first-order')  # second-order
 
     if(not opts.quiet):
@@ -246,9 +246,9 @@ class Reweight_callbacks(object):
         constraints
         gradient
         jacobian
-        jacobianstructure
+        jacobianstructure (if sparse)
         hessian
-        hessianstructure
+        hessianstructure (if sparse)
         intermediate
 
     Note that we only put 1 blank line between functions within a class
@@ -312,7 +312,7 @@ class Reweight_callbacks(object):
         TYPE
             DESCRIPTION.
 
-        """
+        """        
         return np.nonzero(self._cc.T)
 
     def hessian(self, x, lagrange, obj_factor):
