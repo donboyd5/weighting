@@ -11,16 +11,31 @@
 
 # %% imports
 
+# Load the autoreload extension
+# %load_ext autoreload
+# %reload_ext autoreload
+
+# Autoreload reloads modules before executing code
+# 0: disable
+# 1: reload modules imported with %aimport
+# 2: reload all modules, except those excluded by %aimport
+# %autoreload 2
+
+import importlib
 import numpy as np
 import scipy.sparse as sps
+import cyipopt as cy
+
 import src.make_test_problems as mtp
 import src.microweight as mw
-import cyipopt as cy
+
+# %% reimports
+importlib.reload(mw)
 
 
 # %% create data
-# p = mtp.Problem(h=30, s=1, k=3)
-p = mtp.Problem(h=200000, s=1, k=30)
+p = mtp.Problem(h=30, s=1, k=3)
+# p = mtp.Problem(h=200000, s=1, k=30)
 
 n = p.h  # n number variables
 m = p.k  # m number constraints
@@ -188,9 +203,24 @@ g
 # }
 
 
+# %% options
+optip = {'xlb': .1, 'xub': 10,
+         'crange': 0.005,
+         'print_level': 0,
+         'file_print_level': 5,
+         'max_iter': 100,
+         'linear_solver': 'ma86',  # ma27, ma77, ma57, ma86 work, not ma97
+         'quiet': False}
 
-# %% manual setup for ipopt
-print(sps.csc_matrix(xmat))
+
+# %% test the new sparse version
+prob = mw.Microweight(wh=wh, xmat=xmat, targets=targets)
+
+rw1a = prob.reweight(method='ipopt', options=optip)  
+rw1a.elapsed_seconds
+rw1a.sspd
+rw1a.pdiff
+# print(sps.csc_matrix(xmat))
 
 
 # %% examine

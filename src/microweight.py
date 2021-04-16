@@ -24,6 +24,8 @@ Functions:
 # needed for ipopt:
 # from __future__ import print_function, unicode_literals
 
+import importlib
+
 import numpy as np
 import pandas as pd
 from collections import namedtuple
@@ -34,11 +36,17 @@ import src.utilities as ut
 # import src.common as common
 import src.geoweight_qmatrix as qm
 import src.geoweight_poisson as ps
-import src.reweight_ipopt as rwip
+# import src.reweight_ipopt as rwip
+import src.reweight_ipopt2 as rwip
 import src.reweight_empcalib as rwec
 import src.reweight_raking as rwrk
 import src.reweight_leastsquares as rwls
 import src.reweight_minimizeNLP as rwmn
+
+
+# %% reimports
+importlib.reload(rwip)
+
 
 # import scipy.optimize as spo
 # from scipy.optimize import least_squares
@@ -81,6 +89,7 @@ class Microweight:
                  method='ipopt',
                  options=None):
         if method == 'ipopt':
+            print("updated mw")
             method_result = rwip.rw_ipopt(
                 self.wh, self.xmat, self.targets,
                 options=options)
