@@ -15,10 +15,11 @@ import numpy as np
 import scipy.sparse as sps
 import src.make_test_problems as mtp
 import src.microweight as mw
+import cyipopt as cy
 
 
 # %% create data
-p = mtp.Problem(h=200000, s=1, k=30)
+p = mtp.Problem(h=30, s=1, k=3)
 
 n = p.h  # n number variables
 m = p.k  # m number constraints
@@ -28,6 +29,7 @@ wh = p.wh.copy()
 
 # randomly set some elements of xmat to zero
 pctzero = .2
+np.random.seed(1)
 indices = np.random.choice(np.arange(xmat.size), replace=False, size=int(xmat.size * pctzero))
 xmat[np.unravel_index(indices, xmat.shape)] = 0 
 
@@ -36,6 +38,7 @@ xmat
 
 #  constraint coefficients (constant)
 cc = (xmat.T * wh).T
+cc # same shape as xmat
 
 x0 = np.ones(n)
 
@@ -90,50 +93,23 @@ class RW():
 
     def gradient(self, x):
         """Returns the gradient of the objective with respect to x."""
-        return np.dot(x, self._cc)  # fix this
+        return 2*x - 2
 
     def constraints(self, x):
         """Returns the constraints."""
-        return np.array((np.prod(x), np.dot(x, x)))
+        return np.dot(x, cc)
 
     def jacobian(self, x):
-        #
-        # The callback for calculating the Jacobian
-        #
-        return np.concatenate((np.prod(x) / x, 2*x))
+        return cc.T        
 
-    def hessianstructure(self):
-        #
-        # The structure of the Hessian
-        # Note:
-        # The default hessian structure is of a lower triangular matrix. Therefore
-        # this function is redundant. I include it as an example for structure
-        # callback.
-        #
+    # def jacobian(self, x):
+    #     """Returns the Jacobian of the constraints with respect to x."""
+    #     row, col = self.jacobianstructure()
+    #     return cc.T[row, col]
 
-        return np.nonzero(np.tril(np.ones((4, 4))))
-
-    def hessian(self, x, lagrange, obj_factor):
-        #
-        # The callback for calculating the Hessian
-        #
-        H = obj_factor*np.array((
-                (2*x[3], 0, 0, 0),
-                (x[3],   0, 0, 0),
-                (x[3],   0, 0, 0),
-                (2*x[0]+x[1]+x[2], x[0], x[0], 0)))
-
-        H += lagrange[0]*np.array((
-                (0, 0, 0, 0),
-                (x[2]*x[3], 0, 0, 0),
-                (x[1]*x[3], x[0]*x[3], 0, 0),
-                (x[1]*x[2], x[0]*x[2], x[0]*x[1], 0)))
-
-        H += lagrange[1]*2*np.eye(4)
-
-        row, col = self.hessianstructure()
-
-        return H[row, col]
+    # def jacobianstructure(self):
+    #     """ Define sparse structure of Jacobian. """
+    #     return np.nonzero(cc.T)        
 
     def intermediate(
             self,
@@ -150,10 +126,48 @@ class RW():
             ls_trials
             ):
 
-        #
-        # Example for the use of the intermediate callback.
-        #
         print("Objective value at iteration #%d is - %g" % (iter_count, obj_value))
+
+
+# %% run the nlp
+lb = np.full(n, 0.1)
+ub = np.full(n, 10)
+
+cl = targets - abs(targets) * .005
+cu = targets + abs(targets) * .005
+
+nlp = cy.Problem(
+    n=n,
+    m=m,
+    problem_obj=RW(),
+    lb=lb,
+    ub=ub,
+    cl=cl,
+    cu=cu
+    )
+
+outfile = '/home/donboyd/Documents/test.out'
+nlp.add_option('output_file', outfile) 
+nlp.add_option('file_print_level', 6) 
+
+g, ipopt_info = nlp.solve(x0)
+
+g
+
+
+
+# nlp.add_option('output_file', outfile) 
+
+# solver_defaults = {
+#     'print_level': 0,
+#     'file_print_level': 5,
+#     'jac_d_constant': 'yes',
+#     'hessian_constant': 'yes',
+#     'max_iter': 100,
+#     'mumps_mem_percent': 100,  # default 1000
+#     'linear_solver': 'ma57'
+# }
+
 
 
 # %% manual setup for ipopt
