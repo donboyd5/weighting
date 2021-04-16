@@ -63,11 +63,6 @@ p = mtp.Problem(h=10000, s=1, k=30)
 p = mtp.Problem(h=500000, s=1, k=100)
 
 
-# %% investigate sparse matrices]
-# A = p.xmat
-
-
-
 # %% add noise to targets
 np.random.seed(1)
 targs(p.targets)
@@ -110,6 +105,27 @@ solver_defaults = {
 options_defaults = {**solver_defaults, **user_defaults}
 
 
+# %% ipopt options ofr this analysis
+optip = {'xlb': .1, 'xub': 10,
+         'crange': 0.005,
+         'print_level': 0,
+         'file_print_level': 5,
+         # 'derivative_test': 'first-order',
+         'ccgoal': 1e2,
+         # 'objgoal': 1,
+         'max_iter': 100,
+         'linear_solver': 'ma57',  # ma27, ma77, ma57, ma86 work, not ma97
+         # 'ma86_order': 'metis',
+         # 'ma97_order': 'metis',
+         # 'mumps_mem_percent': 100,  # default 1000
+         'obj_scaling_factor': 1e0, # must be float
+         # 'linear_system_scaling': 'slack-based',
+         # 'ma57_automatic_scaling': 'yes',
+         'quiet': False}
+
+rw1 = prob.reweight(method='ipopt', options=optip)         
+
+
 # %% reweight with ipopt
 
 # free -m in terminal to see memory usage
@@ -117,19 +133,7 @@ options_defaults = {**solver_defaults, **user_defaults}
 # in bash export OMP_NUM_THREADS= <number of threads to use>
 
 
-optip = {'xlb': .1, 'xub': 10,
-         'crange': 0.02,
-         'print_level': 0,
-         'file_print_level': 6,
-         # 'derivative_test': 'first-order',
-         'ccgoal': 100,
-         'objgoal': 1,
-         'max_iter': 5,
-         'linear_solver': 'ma97',  # ma27, ma77, ma57, ma86 work, not ma97
-         # 'ma86_order': 'metis',
-         'ma97_order': 'metis',
-         # 'mumps_mem_percent': 100,  # default 1000
-         'quiet': False}
+
 
 
 # using coinhsl-2019.05.21

@@ -1,13 +1,24 @@
+# documentation and examples
+#   https://cyipopt.readthedocs.io/en/stable/
+#   https://cyipopt.readthedocs.io/en/stable/tutorial.html#problem-interface
+#   https://cyipopt.readthedocs.io/en/stable/reference.html
 
-# %% try to set a small problem up for ipopt that is in sparse form
+
+# set up a small problem for ipopt in sparse form
 # we need the jacobian structure
 # right now that is np.nonzero(cc.T)
+
+
+# %% imports
 
 import numpy as np
 import scipy.sparse as sps
 import src.make_test_problems as mtp
+import src.microweight as mw
 
-p = mtp.Problem(h=20, s=1, k=3)
+
+# %% create data
+p = mtp.Problem(h=200000, s=1, k=30)
 
 n = p.h  # n number variables
 m = p.k  # m number constraints
@@ -26,7 +37,158 @@ xmat
 #  constraint coefficients (constant)
 cc = (xmat.T * wh).T
 
-# how big could cc be?
+x0 = np.ones(n)
+
+# %% create targets, adding noise
+np.random.seed(1)
+noise = np.random.normal(0, .02, m)
+np.round(noise * 100, 2)
+
+init_vals = np.dot(x0, cc)
+targets = init_vals * (1 + noise)
+np.dot(xmat.T, wh)
+
+init_pdiff = (init_vals - targets) / targets * 100
+# equivalently: 100 / (1 + noise) - 100
+
+init_sspd = np.square(init_pdiff).sum()
+
+# %% test solve with microweight
+prob = mw.Microweight(wh=wh, xmat=xmat, targets=targets)
+optip = {'xlb': .1, 'xub': 10,
+         'crange': 0.0,
+         'print_level': 0,
+         'file_print_level': 5,
+         # 'derivative_test': 'first-order',
+         # 'ccgoal': 1e2,
+         # 'objgoal': 1,
+         'max_iter': 100,
+         'linear_solver': 'ma86',  # ma27, ma77, ma57, ma86 work, not ma97
+         # 'ma86_order': 'metis',
+         # 'ma97_order': 'metis',
+         # 'mumps_mem_percent': 100,  # default 1000
+         # 'obj_scaling_factor': 1e0, # must be float
+         # 'linear_system_scaling': 'slack-based',
+         # 'ma57_automatic_scaling': 'yes',
+         'quiet': False}
+
+rw1 = prob.reweight(method='ipopt', options=optip)      
+rw1.elapsed_seconds
+rw1.sspd
+np.round(rw1.pdiff, 1)
+
+
+# %% create class
+class RW():
+
+    # def __init__(self):
+    #    pass
+
+    def objective(self, x):
+        """Returns the scalar value of the objective given x."""
+        return np.sum((x - 1)**2)
+
+    def gradient(self, x):
+        """Returns the gradient of the objective with respect to x."""
+        return np.dot(x, self._cc)  # fix this
+
+    def constraints(self, x):
+        """Returns the constraints."""
+        return np.array((np.prod(x), np.dot(x, x)))
+
+    def jacobian(self, x):
+        #
+        # The callback for calculating the Jacobian
+        #
+        return np.concatenate((np.prod(x) / x, 2*x))
+
+    def hessianstructure(self):
+        #
+        # The structure of the Hessian
+        # Note:
+        # The default hessian structure is of a lower triangular matrix. Therefore
+        # this function is redundant. I include it as an example for structure
+        # callback.
+        #
+
+        return np.nonzero(np.tril(np.ones((4, 4))))
+
+    def hessian(self, x, lagrange, obj_factor):
+        #
+        # The callback for calculating the Hessian
+        #
+        H = obj_factor*np.array((
+                (2*x[3], 0, 0, 0),
+                (x[3],   0, 0, 0),
+                (x[3],   0, 0, 0),
+                (2*x[0]+x[1]+x[2], x[0], x[0], 0)))
+
+        H += lagrange[0]*np.array((
+                (0, 0, 0, 0),
+                (x[2]*x[3], 0, 0, 0),
+                (x[1]*x[3], x[0]*x[3], 0, 0),
+                (x[1]*x[2], x[0]*x[2], x[0]*x[1], 0)))
+
+        H += lagrange[1]*2*np.eye(4)
+
+        row, col = self.hessianstructure()
+
+        return H[row, col]
+
+    def intermediate(
+            self,
+            alg_mod,
+            iter_count,
+            obj_value,
+            inf_pr,
+            inf_du,
+            mu,
+            d_norm,
+            regularization_size,
+            alpha_du,
+            alpha_pr,
+            ls_trials
+            ):
+
+        #
+        # Example for the use of the intermediate callback.
+        #
+        print("Objective value at iteration #%d is - %g" % (iter_count, obj_value))
+
+
+# %% manual setup for ipopt
+print(sps.csc_matrix(xmat))
+
+
+# %% examine
+
+# for jacobian, we want the nonzero elements of the cc transpose
+cc.T
+np.nonzero(cc.T)
+sps.find(cc.T)
+
+%timeit np.nonzero(cc.T)  # 2.24us
+%timeit sps.find(cc.T)  # 52.5us
+
+
+# ijnz is a tuple with indexes and values of nonzero elements
+# it has 3 elements, each of which is an array
+ijnz = sps.find(cc.T)
+ijnz[0] # row indexes of nz elements
+ijnz[1] # col indexes of nz elements
+ijnz[2] # nz elements
+
+
+
+# what we need for ipopt:
+
+
+
+
+
+# define options (add_option)
+
+# %% how big could cc be?
 # standard reweight:
 # 40k variables, 40 targets, 1.6 million, maybe 80% nonzero
 
@@ -49,36 +211,6 @@ recs = 40e3; states = 50; targs = 40  # 82e6
 recs = 20e3; states = 50; targs = 25  # 26e6
 maxnzcc = (states * targs * recs + states * recs) / 1e6
 maxnzcc
-
-# for jacobian, we want the nonzero elements of the cc transpose
-cc.T
-np.nonzero(cc.T)
-sps.find(cc.T)
-
-%timeit np.nonzero(cc.T)  # 2.24us
-%timeit sps.find(cc.T)  # 52.5us
-
-
-# ijnz is a tuple with indexes and values of nonzero elements
-# it has 3 elements, each of which is an array
-ijnz = sps.find(cc.T)
-ijnz[0] # row indexes of nz elements
-ijnz[1] # col indexes of nz elements
-ijnz[2] # nz elements
-
-# %% manual setup for ipopt
-
-
-
-# what we need for ipopt:
-
-
-
-
-
-# define options (add_option)
-
-
 
 
 
@@ -153,3 +285,105 @@ print(A[0:3, 0:15])
 A = A.tocsr()
 b = rand(1000)
 x = spsolve(A, b)
+
+# %% example classes
+
+#    print("Objective value at iteration #%d is - %g" % (iter_count, obj_value))
+class HS071():
+    # this is from the tutorial
+    # https://cyipopt.readthedocs.io/en/stable/tutorial.html#problem-interface
+    # it does not have __init__ as in the lower case
+    # capitalization of class names is PEP8
+
+    def objective(self, x):
+        """Returns the scalar value of the objective given x."""
+        return x[0] * x[3] * np.sum(x[0:3]) + x[2]
+
+    def gradient(self, x):
+        """Returns the gradient of the objective with respect to x."""
+        return np.array([
+            x[0]*x[3] + x[3]*np.sum(x[0:3]),
+            x[0]*x[3],
+            x[0]*x[3] + 1.0,
+            x[0]*np.sum(x[0:3])
+        ])
+
+    def constraints(self, x):
+        """Returns the constraints."""
+        return np.array((np.prod(x), np.dot(x, x)))
+
+    def jacobian(self, x):
+        """Returns the Jacobian of the constraints with respect to x."""
+        return np.concatenate((np.prod(x)/x, 2*x))
+
+    def hessianstructure(self):
+        """Returns the row and column indices for non-zero vales of the
+        Hessian."""
+
+        # NOTE: The default hessian structure is of a lower triangular matrix,
+        # therefore this function is redundant. It is included as an example
+        # for structure callback.
+
+        return np.nonzero(np.tril(np.ones((4, 4))))
+
+    def hessian(self, x, lagrange, obj_factor):
+        """Returns the non-zero values of the Hessian."""
+
+        H = obj_factor*np.array((
+            (2*x[3], 0, 0, 0),
+            (x[3],   0, 0, 0),
+            (x[3],   0, 0, 0),
+            (2*x[0]+x[1]+x[2], x[0], x[0], 0)))
+
+        H += lagrange[0]*np.array((
+            (0, 0, 0, 0),
+            (x[2]*x[3], 0, 0, 0),
+            (x[1]*x[3], x[0]*x[3], 0, 0),
+            (x[1]*x[2], x[0]*x[2], x[0]*x[1], 0)))
+
+        H += lagrange[1]*2*np.eye(4)
+
+        row, col = self.hessianstructure()
+
+        return H[row, col]
+
+    def intermediate(self, alg_mod, iter_count, obj_value, inf_pr, inf_du, mu,
+                     d_norm, regularization_size, alpha_du, alpha_pr,
+                     ls_trials):
+        """Prints information at every Ipopt iteration."""
+
+        msg = "Objective value at iteration #{:d} is - {:g}"
+
+        print(msg.format(iter_count, obj_value))
+
+
+    nlp = cyipopt.Problem(
+        n=len(x0),
+        m=len(cl),
+        problem_obj=hs071(),
+        lb=lb,
+        ub=ub,
+        cl=cl,
+        cu=cu
+        )
+
+    #
+    # Set solver options
+    #
+    #nlp.addOption('derivative_test', 'second-order')
+    nlp.add_option('mu_strategy', 'adaptive')
+    nlp.add_option('tol', 1e-7)
+
+    #
+    # Scale the problem (Just for demonstration purposes)
+    #
+    nlp.set_problem_scaling(
+        obj_scaling=2,
+        x_scaling=[1, 1, 1, 1]
+        )
+    nlp.add_option('nlp_scaling_method', 'user-scaling')
+
+    #
+    # Solve the problem
+    #
+    x, info = nlp.solve(x0)
