@@ -19,7 +19,8 @@ import cyipopt as cy
 
 
 # %% create data
-p = mtp.Problem(h=30, s=1, k=3)
+# p = mtp.Problem(h=30, s=1, k=3)
+p = mtp.Problem(h=200000, s=1, k=30)
 
 n = p.h  # n number variables
 m = p.k  # m number constraints
@@ -59,7 +60,7 @@ init_sspd = np.square(init_pdiff).sum()
 # %% test solve with microweight
 prob = mw.Microweight(wh=wh, xmat=xmat, targets=targets)
 optip = {'xlb': .1, 'xub': 10,
-         'crange': 0.0,
+         'crange': 0.005,
          'print_level': 0,
          'file_print_level': 5,
          # 'derivative_test': 'first-order',
@@ -97,19 +98,23 @@ class RW():
 
     def constraints(self, x):
         """Returns the constraints."""
-        return np.dot(x, cc)
+        return np.dot(x, cc)   
 
     def jacobian(self, x):
-        return cc.T        
+        """Returns the Jacobian of the constraints with respect to x."""
+        return jnz
 
-    # def jacobian(self, x):
-    #     """Returns the Jacobian of the constraints with respect to x."""
-    #     row, col = self.jacobianstructure()
-    #     return cc.T[row, col]
+    def jacobianstructure(self):
+        """ Define sparse structure of Jacobian. """
+        return jstruct        
 
-    # def jacobianstructure(self):
-    #     """ Define sparse structure of Jacobian. """
-    #     return np.nonzero(cc.T)        
+    def hessian(self, x, lagrange, obj_factor):
+        """Returns the non-zero values of the Hessian."""
+        return obj_factor * hnz
+
+    def hessianstructure(self):
+        """ Define sparse structure of Hessian. """
+        return hstruct
 
     def intermediate(
             self,
@@ -128,6 +133,7 @@ class RW():
 
         print("Objective value at iteration #%d is - %g" % (iter_count, obj_value))
 
+# ctrl-k-c comment, ctrl-k-u uncomment
 
 # %% run the nlp
 lb = np.full(n, 0.1)
@@ -135,6 +141,14 @@ ub = np.full(n, 10)
 
 cl = targets - abs(targets) * .005
 cu = targets + abs(targets) * .005
+
+J = cc.T
+jstruct = np.nonzero(J)
+jnz = J[jstruct]
+
+hidx = np.arange(0, n, dtype='int64')
+hstruct = (hidx, hidx)
+hnz = np.full(n, 2)
 
 nlp = cy.Problem(
     n=n,
@@ -148,7 +162,12 @@ nlp = cy.Problem(
 
 outfile = '/home/donboyd/Documents/test.out'
 nlp.add_option('output_file', outfile) 
-nlp.add_option('file_print_level', 6) 
+nlp.add_option('file_print_level', 5)
+nlp.add_option('jac_d_constant', 'yes')
+nlp.add_option('hessian_constant', 'yes')
+nlp.add_option('linear_solver', 'ma86')
+# nlp.add_option('derivative_test', 'second-order')
+# nlp.add_option('max_iter', 3)
 
 g, ipopt_info = nlp.solve(x0)
 
