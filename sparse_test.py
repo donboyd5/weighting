@@ -34,12 +34,14 @@ import src.make_test_problems as mtp
 import src.microweight as mw
 
 # %% reimports
+importlib.reload(mtp)
 importlib.reload(mw)
 
 
 # %% create data
-# p = mtp.Problem(h=30, s=1, k=3)
-p = mtp.Problem(h=100000, s=1, k=30)
+p = mtp.Problem(h=30, s=1, k=3, pctzero=.4)
+p = mtp.Problem(h=100000, s=1, k=30, pctzero=.6)
+p = mtp.rProblem()  # has wh, xmat, and targets
 
 n = p.h  # n number variables
 m = p.k  # m number constraints
@@ -47,13 +49,6 @@ m = p.k  # m number constraints
 xmat = p.xmat.copy()
 wh = p.wh.copy()
 
-# randomly set some elements of xmat to zero
-pctzero = .6
-np.random.seed(1)
-indices = np.random.choice(np.arange(xmat.size), replace=False, size=int(xmat.size * pctzero))
-xmat[np.unravel_index(indices, xmat.shape)] = 0 
-
-p.xmat
 xmat
 
 #  constraint coefficients (constant)
