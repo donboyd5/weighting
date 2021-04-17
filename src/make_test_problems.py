@@ -71,6 +71,10 @@ class rProblem:
       self.wh = np.array([43.45278, 51.24605, 39.08130, 47.52817, 44.98483,
                   43.90340, 37.35561, 35.01735, 45.55096, 47.91773])
 
+      # create some initial weights
+      # seed(1)
+      # r = np.random.normal(0, xsd, (h, k))
+
       x1 = [0.113703411, 0.609274733, 0.860915384, 0.009495756, 0.666083758,
             0.693591292, 0.282733584, 0.292315840, 0.286223285, 0.186722790]
       x2 = [0.6222994, 0.6233794, 0.6403106, 0.2325505, 0.5142511, 0.5449748,
@@ -78,10 +82,11 @@ class rProblem:
       self.xmat = np.array([x1, x2]).T
       self.h = self.xmat.shape[0]
       self.k = self.xmat.shape[1]
-      self.s = 2
-      self.targets = np.array(
+      self.s = 3
+      # geotargets is an s x k matrix of state-specific targets
+      self.geotargets = np.array(
                   [[55.50609, 73.20929],
-                        [61.16143, 80.59494],
-                        [56.79071, 75.41574]])
+                   [61.16143, 80.59494],
+                   [56.79071, 75.41574]])
 
 
