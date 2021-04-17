@@ -1,5 +1,17 @@
 """
-Reweight class
+    This uses all sparse matrix operations that I could think of.
+    In particular, in addition to using the sparse matrix storage
+    approach allowed by ipopt (manually creating tuples defining the
+    sparsity structure of the Jacobian and Hessian), it uses scipy
+    sparse matrices in calculation of constraints.
+
+    However, I found that the results were not as precise or as fast
+    when doing this as they were without the scipy approach. Thus, I 
+    keep this file as an example of how to do this but don't plan to 
+    use it again unless we run into memory problems.
+
+    4/17/2021
+    
 """
 
 # %% imports
