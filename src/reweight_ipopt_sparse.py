@@ -1,5 +1,17 @@
 """
-Reweight class
+    This uses all sparse matrix operations that I could think of.
+    In particular, in addition to using the sparse matrix storage
+    approach allowed by ipopt (manually creating tuples defining the
+    sparsity structure of the Jacobian and Hessian), it uses scipy
+    sparse matrices in calculation of constraints.
+
+    However, I found that the results were not as precise or as fast
+    when doing this as they were without the scipy approach. Thus, I 
+    keep this file as an example of how to do this but don't plan to 
+    use it again unless we run into memory problems.
+
+    4/17/2021
+    
 """
 
 # %% imports
@@ -23,7 +35,7 @@ user_defaults = {
     'xlb': 0.1,
     'xub': 100,
     'crange': .02,
-    'ccgoal': 1,
+    'ccgoal': False,
     'objgoal': 100,
     'quiet': True}
 
@@ -42,6 +54,7 @@ options_defaults = {**solver_defaults, **user_defaults}
 
 
 # %% rw_ipopt - the primary function
+
 def rw_ipopt(wh, xmat, targets,
              options=None):
     r"""
@@ -55,7 +68,7 @@ def rw_ipopt(wh, xmat, targets,
     """
 
     a = timer()
-    xmat = sps.csr_matrix(xmat) # make sparse version right away; csr is fastest for matrix-vector dot products
+    # xmat = sps.csr_matrix(xmat) # make sparse version right away; csr is fastest for matrix-vector dot products
     n = xmat.shape[0]
     m = xmat.shape[1]
 
@@ -71,12 +84,15 @@ def rw_ipopt(wh, xmat, targets,
     opts = ut.dict_nt(options_all)
 
     # constraint coefficients (constant)
-    # cc = (xmat.T * wh).T   # dense multiplication
-    cc = xmat.T.multiply(wh).T  # sparse multiplication
+    cc = (xmat.T * wh).T   # dense multiplication
+    # cc = xmat.T.multiply(wh).T  # sparse multiplication
 
     # scale constraint coefficients and targets
-    # ccscale = get_ccscale(cc, ccgoal=opts.ccgoal, method='mean')
     ccscale = 1
+    if opts.ccgoal is not False:
+        ccscale = get_ccscale(cc, ccgoal=opts.ccgoal, method='mean')
+        
+    # ccscale = 1
     cc = cc * ccscale  # mult by scale to have avg derivative meet our goal
     targets_scaled = targets * ccscale  # djb do I need to copy?
     
@@ -92,7 +108,7 @@ def rw_ipopt(wh, xmat, targets,
     nlp = cy.Problem(
         n=n,
         m=m,
-        problem_obj=RW(cc, n),
+        problem_obj=RW(cc, n, opts.quiet),
         lb=lb,
         ub=ub,
         cl=cl,
@@ -113,22 +129,15 @@ def rw_ipopt(wh, xmat, targets,
     for option, value in solver_options.items():
         nlp.add_option(option, value)
 
-    # outfile = '/home/donboyd/Documents/test.out'
-    # if os.path.exists(outfile):
-    #     os.remove(outfile)    
-
-    # nlp.add_option('output_file', outfile)
-    # # nlp.add_option('derivative_test', 'first-order')  # second-order
-
-    # if(not opts.quiet):
-    #     print(f'\n {"":10} Iter {"":25} obj {"":22} infeas')
+    if(not opts.quiet):
+        print(f'\n {"":10} Iter {"":25} obj {"":22} infeas')
 
     # solve the problem
     g, ipopt_info = nlp.solve(x0)
 
     wh_opt = g * wh
-    targets_opt = xmat.T.dot(wh_opt)  # sparse
-    # targets_opt = np.dot(xmat.T, wh_opt)  # dense
+    # targets_opt = xmat.T.dot(wh_opt)  # sparse
+    targets_opt = np.dot(xmat.T, wh_opt)  # dense
     b = timer()
 
     # create a named tuple of items to return
@@ -153,16 +162,18 @@ def rw_ipopt(wh, xmat, targets,
 # %% reweight class
 class RW:
 
-    def __init__(self, cc, n):
+    def __init__(self, cc, n, quiet):
         self.cc = cc  # is this making an unnecessary copy??
         self.jstruct = np.nonzero(cc.T)
         # consider sps.find as possibly faster than np.nonzero, not sure
-        # self.jnz = cc.T[self.jstruct]
-        self.jnz = sps.find(cc)[2]
+        self.jnz = cc.T[self.jstruct]
+        # self.jnz = sps.find(cc)[2]
 
         hidx = np.arange(0, n, dtype='int64')
         self.hstruct = (hidx, hidx)
         self.hnz = np.full(n, 2)
+
+        self.quiet = quiet
 
     def objective(self, x):
         """Returns the scalar value of the objective given x."""
@@ -174,8 +185,9 @@ class RW:
 
     def constraints(self, x):
         """Returns the constraints."""
-        # np.dot(x, cc)  # dense calculation
-        return self.cc.T.dot(x)  # sparse calculation
+        # np.dot(x, self.cc)  # dense calculation
+        # self.cc.T.dot(x)  # sparse calculation
+        return np.dot(x, self.cc)
 
     def jacobian(self, x):
         """Returns the Jacobian of the constraints with respect to x."""
@@ -208,4 +220,36 @@ class RW:
             ls_trials
             ):
 
-        print("Objective value at iteration #%d is - %g" % (iter_count, obj_value))
+        if(not self.quiet):
+            print(f'{"":10} {iter_count:5d} {"":15} {obj_value:13.7e} {"":15} {inf_pr:13.7e}')
+
+# %% functions available outside of the RW class
+
+def get_ccscale(cc, ccgoal, method='mean'):
+    """
+    Create multiplicative scaling vector ccscale.
+
+    cc is the constraint coefficients matrix (h x k)
+    ccgoal is what we would like the typical scaled coefficient to be
+      (maybe around 100, for example)
+
+    For scaling the constraint coefficients and the targets.
+    Returns the ccscale vector.
+
+    """
+    # use mean or median of absolute values of coeffs as the denominator
+    # denom is a k-length vector (1 per target)
+    if(method == 'mean'):
+        denom = np.abs(cc).sum(axis=0) / cc.shape[0]
+    elif(method == 'median'):
+        denom = np.median(np.abs(cc), axis=0)
+
+    # it is hard to imagine how denom ever could be zero but just in
+    # case, set it to 1 in that case
+    denom[denom == 0] = 1
+
+    ccscale = np.absolute(ccgoal / denom)
+    # ccscale = ccscale / ccscale
+    return ccscale
+
+

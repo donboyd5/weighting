@@ -55,7 +55,7 @@ def rw_ipopt(wh, xmat, targets,
     """
 
     a = timer()
-    # xmat = sps.csr_matrix(xmat) # make sparse version right away; csr is fastest for matrix-vector dot products
+    xmat = sps.csr_matrix(xmat) # make sparse version right away; csr is fastest for matrix-vector dot products
     n = xmat.shape[0]
     m = xmat.shape[1]
 
@@ -71,8 +71,8 @@ def rw_ipopt(wh, xmat, targets,
     opts = ut.dict_nt(options_all)
 
     # constraint coefficients (constant)
-    cc = (xmat.T * wh).T   # dense multiplication
-    # cc = xmat.T.multiply(wh).T  # sparse multiplication
+    # cc = (xmat.T * wh).T   # dense multiplication
+    cc = xmat.T.multiply(wh).T  # sparse multiplication
 
     # scale constraint coefficients and targets
     # ccscale = get_ccscale(cc, ccgoal=opts.ccgoal, method='mean')
@@ -127,8 +127,8 @@ def rw_ipopt(wh, xmat, targets,
     g, ipopt_info = nlp.solve(x0)
 
     wh_opt = g * wh
-    # targets_opt = xmat.T.dot(wh_opt)  # sparse
-    targets_opt = np.dot(xmat.T, wh_opt)  # dense
+    targets_opt = xmat.T.dot(wh_opt)  # sparse
+    # targets_opt = np.dot(xmat.T, wh_opt)  # dense
     b = timer()
 
     # create a named tuple of items to return
@@ -157,8 +157,8 @@ class RW:
         self.cc = cc  # is this making an unnecessary copy??
         self.jstruct = np.nonzero(cc.T)
         # consider sps.find as possibly faster than np.nonzero, not sure
-        self.jnz = cc.T[self.jstruct]
-        # self.jnz = sps.find(cc)[2]
+        # self.jnz = cc.T[self.jstruct]
+        self.jnz = sps.find(cc)[2]
 
         hidx = np.arange(0, n, dtype='int64')
         self.hstruct = (hidx, hidx)
@@ -174,9 +174,8 @@ class RW:
 
     def constraints(self, x):
         """Returns the constraints."""
-        # np.dot(x, self.cc)  # dense calculation
-        # self.cc.T.dot(x)  # sparse calculation
-        return np.dot(x, self.cc)
+        # np.dot(x, cc)  # dense calculation
+        return self.cc.T.dot(x)  # sparse calculation
 
     def jacobian(self, x):
         """Returns the Jacobian of the constraints with respect to x."""
