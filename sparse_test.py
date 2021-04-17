@@ -9,6 +9,10 @@
 # right now that is np.nonzero(cc.T)
 
 
+# ctrl-k-c comment, ctrl-k-u uncomment
+
+
+
 # %% imports
 
 # Load the autoreload extension
@@ -35,7 +39,7 @@ importlib.reload(mw)
 
 # %% create data
 # p = mtp.Problem(h=30, s=1, k=3)
-p = mtp.Problem(h=100000, s=1, k=30)
+p = mtp.Problem(h=200000, s=1, k=40)
 
 n = p.h  # n number variables
 m = p.k  # m number constraints
@@ -44,7 +48,7 @@ xmat = p.xmat.copy()
 wh = p.wh.copy()
 
 # randomly set some elements of xmat to zero
-pctzero = .2
+pctzero = .6
 np.random.seed(1)
 indices = np.random.choice(np.arange(xmat.size), replace=False, size=int(xmat.size * pctzero))
 xmat[np.unravel_index(indices, xmat.shape)] = 0 
@@ -57,6 +61,7 @@ cc = (xmat.T * wh).T
 cc # same shape as xmat
 
 x0 = np.ones(n)
+
 
 # %% create targets, adding noise
 np.random.seed(1)
@@ -72,135 +77,6 @@ init_pdiff = (init_vals - targets) / targets * 100
 
 init_sspd = np.square(init_pdiff).sum()
 
-# %% test solve with microweight
-prob = mw.Microweight(wh=wh, xmat=xmat, targets=targets)
-optip = {'xlb': .1, 'xub': 10,
-         'crange': 0.005,
-         'print_level': 0,
-         'file_print_level': 5,
-         # 'derivative_test': 'first-order',
-         # 'ccgoal': 1e2,
-         # 'objgoal': 1,
-         'max_iter': 100,
-         'linear_solver': 'ma86',  # ma27, ma77, ma57, ma86 work, not ma97
-         # 'ma86_order': 'metis',
-         # 'ma97_order': 'metis',
-         # 'mumps_mem_percent': 100,  # default 1000
-         # 'obj_scaling_factor': 1e0, # must be float
-         # 'linear_system_scaling': 'slack-based',
-         # 'ma57_automatic_scaling': 'yes',
-         'quiet': False}
-
-rw1 = prob.reweight(method='ipopt', options=optip)      
-rw1.elapsed_seconds
-rw1.sspd
-np.round(rw1.pdiff, 1)
-
-
-# %% create class
-class RW():
-
-    # def __init__(self):
-    #    pass
-
-    def objective(self, x):
-        """Returns the scalar value of the objective given x."""
-        return np.sum((x - 1)**2)
-
-    def gradient(self, x):
-        """Returns the gradient of the objective with respect to x."""
-        return 2*x - 2
-
-    def constraints(self, x):
-        """Returns the constraints."""
-        return np.dot(x, cc)   
-
-    def jacobian(self, x):
-        """Returns the Jacobian of the constraints with respect to x."""
-        return jnz
-
-    def jacobianstructure(self):
-        """ Define sparse structure of Jacobian. """
-        return jstruct        
-
-    def hessian(self, x, lagrange, obj_factor):
-        """Returns the non-zero values of the Hessian."""
-        return obj_factor * hnz
-
-    def hessianstructure(self):
-        """ Define sparse structure of Hessian. """
-        return hstruct
-
-    def intermediate(
-            self,
-            alg_mod,
-            iter_count,
-            obj_value,
-            inf_pr,
-            inf_du,
-            mu,
-            d_norm,
-            regularization_size,
-            alpha_du,
-            alpha_pr,
-            ls_trials
-            ):
-
-        print("Objective value at iteration #%d is - %g" % (iter_count, obj_value))
-
-# ctrl-k-c comment, ctrl-k-u uncomment
-
-# %% run the nlp
-lb = np.full(n, 0.1)
-ub = np.full(n, 10)
-
-cl = targets - abs(targets) * .005
-cu = targets + abs(targets) * .005
-
-J = cc.T
-jstruct = np.nonzero(J)
-jnz = J[jstruct]
-
-hidx = np.arange(0, n, dtype='int64')
-hstruct = (hidx, hidx)
-hnz = np.full(n, 2)
-
-nlp = cy.Problem(
-    n=n,
-    m=m,
-    problem_obj=RW(),
-    lb=lb,
-    ub=ub,
-    cl=cl,
-    cu=cu
-    )
-
-outfile = '/home/donboyd/Documents/test.out'
-nlp.add_option('output_file', outfile) 
-nlp.add_option('file_print_level', 5)
-nlp.add_option('jac_d_constant', 'yes')
-nlp.add_option('hessian_constant', 'yes')
-nlp.add_option('linear_solver', 'ma86')
-# nlp.add_option('derivative_test', 'second-order')
-# nlp.add_option('max_iter', 3)
-
-g, ipopt_info = nlp.solve(x0)
-
-g
-
-
-
-# nlp.add_option('output_file', outfile) 
-
-# solver_defaults = {
-#     'print_level': 0,
-#     'file_print_level': 5,
-#     'jac_d_constant': 'yes',
-#     'hessian_constant': 'yes',
-#     'max_iter': 100,
-#     'mumps_mem_percent': 100,  # default 1000
-#     'linear_solver': 'ma57'
-# }
 
 
 # %% set up problem
@@ -214,7 +90,7 @@ opt_base = {'xlb': .1, 'xub': 10,
          'file_print_level': 5,
          'output_file': '/home/donboyd/Documents/tests.out',
          'max_iter': 100,
-         'linear_solver': 'ma57',  # ma27, ma77, ma57, ma86 work, not ma97
+         'linear_solver': 'ma77',  # ma27, ma77, ma57, ma86 work, not ma97
          'quiet': False}
 
 
@@ -543,3 +419,134 @@ class HS071():
     # Solve the problem
     #
     x, info = nlp.solve(x0)
+
+
+# %% create class
+class RW():
+
+    # def __init__(self):
+    #    pass
+
+    def objective(self, x):
+        """Returns the scalar value of the objective given x."""
+        return np.sum((x - 1)**2)
+
+    def gradient(self, x):
+        """Returns the gradient of the objective with respect to x."""
+        return 2*x - 2
+
+    def constraints(self, x):
+        """Returns the constraints."""
+        return np.dot(x, cc)   
+
+    def jacobian(self, x):
+        """Returns the Jacobian of the constraints with respect to x."""
+        return jnz
+
+    def jacobianstructure(self):
+        """ Define sparse structure of Jacobian. """
+        return jstruct        
+
+    def hessian(self, x, lagrange, obj_factor):
+        """Returns the non-zero values of the Hessian."""
+        return obj_factor * hnz
+
+    def hessianstructure(self):
+        """ Define sparse structure of Hessian. """
+        return hstruct
+
+    def intermediate(
+            self,
+            alg_mod,
+            iter_count,
+            obj_value,
+            inf_pr,
+            inf_du,
+            mu,
+            d_norm,
+            regularization_size,
+            alpha_du,
+            alpha_pr,
+            ls_trials
+            ):
+
+        print("Objective value at iteration #%d is - %g" % (iter_count, obj_value))
+
+# %% older stuff
+
+# %% test solve with microweight
+prob = mw.Microweight(wh=wh, xmat=xmat, targets=targets)
+optip = {'xlb': .1, 'xub': 10,
+         'crange': 0.005,
+         'print_level': 0,
+         'file_print_level': 5,
+         # 'derivative_test': 'first-order',
+         # 'ccgoal': 1e2,
+         # 'objgoal': 1,
+         'max_iter': 100,
+         'linear_solver': 'ma86',  # ma27, ma77, ma57, ma86 work, not ma97
+         # 'ma86_order': 'metis',
+         # 'ma97_order': 'metis',
+         # 'mumps_mem_percent': 100,  # default 1000
+         # 'obj_scaling_factor': 1e0, # must be float
+         # 'linear_system_scaling': 'slack-based',
+         # 'ma57_automatic_scaling': 'yes',
+         'quiet': False}
+
+rw1 = prob.reweight(method='ipopt', options=optip)      
+rw1.elapsed_seconds
+rw1.sspd
+np.round(rw1.pdiff, 1)
+
+
+# %% run the nlp
+lb = np.full(n, 0.1)
+ub = np.full(n, 10)
+
+cl = targets - abs(targets) * .005
+cu = targets + abs(targets) * .005
+
+J = cc.T
+jstruct = np.nonzero(J)
+jnz = J[jstruct]
+
+hidx = np.arange(0, n, dtype='int64')
+hstruct = (hidx, hidx)
+hnz = np.full(n, 2)
+
+nlp = cy.Problem(
+    n=n,
+    m=m,
+    problem_obj=RW(),
+    lb=lb,
+    ub=ub,
+    cl=cl,
+    cu=cu
+    )
+
+outfile = '/home/donboyd/Documents/test.out'
+nlp.add_option('output_file', outfile) 
+nlp.add_option('file_print_level', 5)
+nlp.add_option('jac_d_constant', 'yes')
+nlp.add_option('hessian_constant', 'yes')
+nlp.add_option('linear_solver', 'ma86')
+# nlp.add_option('derivative_test', 'second-order')
+# nlp.add_option('max_iter', 3)
+
+g, ipopt_info = nlp.solve(x0)
+
+g
+
+
+
+# nlp.add_option('output_file', outfile) 
+
+# solver_defaults = {
+#     'print_level': 0,
+#     'file_print_level': 5,
+#     'jac_d_constant': 'yes',
+#     'hessian_constant': 'yes',
+#     'max_iter': 100,
+#     'mumps_mem_percent': 100,  # default 1000
+#     'linear_solver': 'ma57'
+# }

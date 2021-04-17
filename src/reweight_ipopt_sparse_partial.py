@@ -92,7 +92,7 @@ def rw_ipopt(wh, xmat, targets,
     nlp = cy.Problem(
         n=n,
         m=m,
-        problem_obj=RW(cc, n),
+        problem_obj=RW(cc, n, opts.quiet),
         lb=lb,
         ub=ub,
         cl=cl,
@@ -113,15 +113,8 @@ def rw_ipopt(wh, xmat, targets,
     for option, value in solver_options.items():
         nlp.add_option(option, value)
 
-    # outfile = '/home/donboyd/Documents/test.out'
-    # if os.path.exists(outfile):
-    #     os.remove(outfile)    
-
-    # nlp.add_option('output_file', outfile)
-    # # nlp.add_option('derivative_test', 'first-order')  # second-order
-
-    # if(not opts.quiet):
-    #     print(f'\n {"":10} Iter {"":25} obj {"":22} infeas')
+    if(not opts.quiet):
+        print(f'\n {"":10} Iter {"":25} obj {"":22} infeas')
 
     # solve the problem
     g, ipopt_info = nlp.solve(x0)
@@ -153,7 +146,7 @@ def rw_ipopt(wh, xmat, targets,
 # %% reweight class
 class RW:
 
-    def __init__(self, cc, n):
+    def __init__(self, cc, n, quiet):
         self.cc = cc  # is this making an unnecessary copy??
         self.jstruct = np.nonzero(cc.T)
         # consider sps.find as possibly faster than np.nonzero, not sure
@@ -163,6 +156,8 @@ class RW:
         hidx = np.arange(0, n, dtype='int64')
         self.hstruct = (hidx, hidx)
         self.hnz = np.full(n, 2)
+
+        self.quiet = quiet
 
     def objective(self, x):
         """Returns the scalar value of the objective given x."""
@@ -209,4 +204,5 @@ class RW:
             ls_trials
             ):
 
-        print("Objective value at iteration #%d is - %g" % (iter_count, obj_value))
+        if(not self.quiet):
+            print(f'{"":10} {iter_count:5d} {"":15} {obj_value:13.7e} {"":15} {inf_pr:13.7e}')
