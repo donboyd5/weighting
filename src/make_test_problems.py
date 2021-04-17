@@ -56,7 +56,7 @@ class Problem:
             "\twh:\t\t\th-length vector of national weights for households",
             "\txmat:\t\th x k matrix of characteristices (data) for households",
             "\ttargets:\ts x k matrix of targets", sep='\n')
-            
+
       print("\nThe goal of geosolve is to find state weights that will",
             "hit the targets while ensuring that each household's state",
             "weights sum to its national weight.\n", sep='\n')
@@ -68,14 +68,17 @@ class rProblem:
     """
 
     def __init__(self):
-      self.wh = [43.45278, 51.24605, 39.08130, 47.52817, 44.98483,
-                  43.90340, 37.35561, 35.01735, 45.55096, 47.91773]
+      self.wh = np.array([43.45278, 51.24605, 39.08130, 47.52817, 44.98483,
+                  43.90340, 37.35561, 35.01735, 45.55096, 47.91773])
 
       x1 = [0.113703411, 0.609274733, 0.860915384, 0.009495756, 0.666083758,
             0.693591292, 0.282733584, 0.292315840, 0.286223285, 0.186722790]
       x2 = [0.6222994, 0.6233794, 0.6403106, 0.2325505, 0.5142511, 0.5449748,
             0.9234335, 0.8372956, 0.2668208, 0.2322259]
       self.xmat = np.array([x1, x2]).T
+      self.h = self.xmat.shape[0]
+      self.k = self.xmat.shape[1]
+      self.s = 2
       self.targets = np.array(
                   [[55.50609, 73.20929],
                         [61.16143, 80.59494],

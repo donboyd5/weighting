@@ -39,12 +39,14 @@ importlib.reload(mw)
 
 
 # %% create data
-p = mtp.Problem(h=30, s=1, k=3, pctzero=.4)
-p = mtp.Problem(h=100000, s=1, k=30, pctzero=.6)
-p = mtp.rProblem()  # has wh, xmat, and targets
+# p = mtp.Problem(h=30, s=1, k=3, pctzero=.4)
+# p = mtp.Problem(h=100000, s=1, k=30, pctzero=.6)
+p = mtp.Problem(h=500000, s=1, k=40, pctzero=.8)
+# p = mtp.rProblem()  # has wh, xmat, and targets
 
 n = p.h  # n number variables
 m = p.k  # m number constraints
+# s = p.s
 
 xmat = p.xmat.copy()
 wh = p.wh.copy()
@@ -57,24 +59,30 @@ cc # same shape as xmat
 
 x0 = np.ones(n)
 
+# optional:
+init_vals = np.dot(x0, cc)
+targets = p.targets # if run this, don't run next cell
+
 
 # %% create targets, adding noise
 np.random.seed(1)
 noise = np.random.normal(0, .02, m)
 np.round(noise * 100, 2)
 
-init_vals = np.dot(x0, cc)
 targets = init_vals * (1 + noise)
 # np.dot(xmat.T, wh)
 
-init_pdiff = (init_vals - targets) / targets * 100
-# equivalently: 100 / (1 + noise) - 100
-
-init_sspd = np.square(init_pdiff).sum()
-
-
 
 # %% set up problem
+init_pdiff = (init_vals - targets) / targets * 100
+# equivalently: 100 / (1 + noise) - 100
+init_sspd = np.square(init_pdiff).sum()
+
+# check problem attributes
+# wh.shape
+# xmat.shape
+# targets.shape
+
 prob = mw.Microweight(wh=wh, xmat=xmat, targets=targets)
 
 
@@ -83,7 +91,7 @@ opt_base = {'xlb': .1, 'xub': 10,
          'crange': 0.005,
          'print_level': 0,
          'file_print_level': 5,
-         # 'ccgoal': 100,
+         'ccgoal': 10000,
          'max_iter': 100,
          'linear_solver': 'ma86',  # ma27, ma77, ma57, ma86 work, not ma97
          'quiet': False}
