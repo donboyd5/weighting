@@ -35,7 +35,7 @@ user_defaults = {
     'xlb': 0.1,
     'xub': 100,
     'crange': .02,
-    'ccgoal': 1,
+    'ccgoal': False,
     'objgoal': 100,
     'quiet': True}
 
@@ -54,6 +54,7 @@ options_defaults = {**solver_defaults, **user_defaults}
 
 
 # %% rw_ipopt - the primary function
+
 def rw_ipopt(wh, xmat, targets,
              options=None):
     r"""
@@ -87,8 +88,11 @@ def rw_ipopt(wh, xmat, targets,
     # cc = xmat.T.multiply(wh).T  # sparse multiplication
 
     # scale constraint coefficients and targets
-    # ccscale = get_ccscale(cc, ccgoal=opts.ccgoal, method='mean')
     ccscale = 1
+    if opts.ccgoal is not False:
+        ccscale = get_ccscale(cc, ccgoal=opts.ccgoal, method='mean')
+        
+    # ccscale = 1
     cc = cc * ccscale  # mult by scale to have avg derivative meet our goal
     targets_scaled = targets * ccscale  # djb do I need to copy?
     
@@ -218,3 +222,34 @@ class RW:
 
         if(not self.quiet):
             print(f'{"":10} {iter_count:5d} {"":15} {obj_value:13.7e} {"":15} {inf_pr:13.7e}')
+
+# %% functions available outside of the RW class
+
+def get_ccscale(cc, ccgoal, method='mean'):
+    """
+    Create multiplicative scaling vector ccscale.
+
+    cc is the constraint coefficients matrix (h x k)
+    ccgoal is what we would like the typical scaled coefficient to be
+      (maybe around 100, for example)
+
+    For scaling the constraint coefficients and the targets.
+    Returns the ccscale vector.
+
+    """
+    # use mean or median of absolute values of coeffs as the denominator
+    # denom is a k-length vector (1 per target)
+    if(method == 'mean'):
+        denom = np.abs(cc).sum(axis=0) / cc.shape[0]
+    elif(method == 'median'):
+        denom = np.median(np.abs(cc), axis=0)
+
+    # it is hard to imagine how denom ever could be zero but just in
+    # case, set it to 1 in that case
+    denom[denom == 0] = 1
+
+    ccscale = np.absolute(ccgoal / denom)
+    # ccscale = ccscale / ccscale
+    return ccscale
+
+

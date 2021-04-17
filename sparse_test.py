@@ -39,7 +39,7 @@ importlib.reload(mw)
 
 # %% create data
 # p = mtp.Problem(h=30, s=1, k=3)
-p = mtp.Problem(h=200000, s=1, k=40)
+p = mtp.Problem(h=100000, s=1, k=30)
 
 n = p.h  # n number variables
 m = p.k  # m number constraints
@@ -88,9 +88,9 @@ opt_base = {'xlb': .1, 'xub': 10,
          'crange': 0.005,
          'print_level': 0,
          'file_print_level': 5,
-         'output_file': '/home/donboyd/Documents/tests.out',
+         # 'ccgoal': 100,
          'max_iter': 100,
-         'linear_solver': 'ma77',  # ma27, ma77, ma57, ma86 work, not ma97
+         'linear_solver': 'ma86',  # ma27, ma77, ma57, ma86 work, not ma97
          'quiet': False}
 
 

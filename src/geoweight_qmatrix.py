@@ -128,7 +128,7 @@ import empirical_calibration as ec
 
 import src.utilities as ut
 import src.raking as raking
-import src.reweight_ipopt as rwip
+import src.reweight_ipopt_dense as rwip  # revisit this, maybe use sparse
 import src.reweight_leastsquares as rwls
 
 

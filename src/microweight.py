@@ -36,9 +36,8 @@ import src.utilities as ut
 # import src.common as common
 import src.geoweight_qmatrix as qm
 import src.geoweight_poisson as ps
-import src.reweight_ipopt as rwip
-# import src.reweight_ipopt_sparse as rwips
-import src.reweight_ipopt_sparse_partial as rwips
+import src.reweight_ipopt_dense as rwip
+import src.reweight_ipopt_sparse as rwips
 import src.reweight_empcalib as rwec
 import src.reweight_raking as rwrk
 import src.reweight_leastsquares as rwls
