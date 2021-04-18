@@ -36,6 +36,7 @@
 #       40e3 x 50 = 2 million nonzero constraint coefficients for the adding-up constraints,
 #   For a total maxmum of 62 million nonzero constraint coefficients.
 
+# The Hessian
 
 
 
@@ -43,6 +44,7 @@
 
 # %% imports
 import numpy as np
+import scipy.sparse as sps
 from timeit import default_timer as timer
 from collections import namedtuple
 
@@ -84,14 +86,143 @@ def ipopt_geo(wh, xmat, geotargets,
                  geotargets_opt=geotargets_opt)
     return res
     
+# %% geoweight class for ipopt
+class GW:
+
+    def __init__(self, cc, n, quiet):
+        self.cc = cc  # is this making an unnecessary copy??
+        self.jstruct = np.nonzero(cc.T)
+        # consider sps.find as possibly faster than np.nonzero, not sure
+        self.jnz = cc.T[self.jstruct]
+        # self.jnz = sps.find(cc)[2]
+
+        hidx = np.arange(0, n, dtype='int64')
+        self.hstruct = (hidx, hidx)
+        self.hnz = np.full(n, 2)
+
+        self.quiet = quiet
+
+    def objective(self, x):
+        """Returns the scalar value of the objective given x."""
+        return np.sum((x - 1)**2)
+
+    def gradient(self, x):
+        """Returns the gradient of the objective with respect to x."""
+        return 2*x - 2
+
+    def constraints(self, x):
+        """Returns the constraints."""
+        # np.dot(x, self.cc)  # dense calculation
+        # self.cc.T.dot(x)  # sparse calculation
+        return np.dot(x, self.cc)
+
+    def jacobian(self, x):
+        """Returns the Jacobian of the constraints with respect to x."""
+        return self.jnz
+
+    def jacobianstructure(self):
+        """ Define sparse structure of Jacobian. """
+        return self.jstruct        
+
+    def hessian(self, x, lagrange, obj_factor):
+        """Returns the non-zero values of the Hessian."""
+        return obj_factor * self.hnz
+
+    def hessianstructure(self):
+        """ Define sparse structure of Hessian. """
+        return self.hstruct
+
+    def intermediate(
+            self,
+            alg_mod,
+            iter_count,
+            obj_value,
+            inf_pr,
+            inf_du,
+            mu,
+            d_norm,
+            regularization_size,
+            alpha_du,
+            alpha_pr,
+            ls_trials
+            ):
+
+        if(not self.quiet):
+            print(f'{"":10} {iter_count:5d} {"":15} {obj_value:13.7e} {"":15} {inf_pr:13.7e}')
+
+
 
 # %% test runs
-p = mtp.Problem(h=40, s=3, k=2)
+p = mtp.Problem(h=40, s=3, k=2, pctzero=.4)
+# p = mtp.Problem(h=40000, s=50, k=30, pctzero=.4)
+# p = mtp.Problem(h=40000, s=50, k=30)
 # p = mtp.Problem(h=1000, s=10, k=5, xsd=.1, ssd=.5)
 # p = mtp.Problem(h=10000, s=20, k=15)
 
-# n = p.xmat.shape[0]
-# m = p.targets.shape[0]
+n = p.xmat.shape[0]
+m = p.targets.shape[0]
+
+xmat = p.xmat
+wh = p.wh
+geotargets = p.geotargets
+
+
+h = xmat.shape[0]
+k = xmat.shape[1]
+s = geotargets.shape[0]
+
+cc = (xmat.T * wh).T   # dense multiplication
+# cc = xmat.T.multiply(wh).T  # sparse multiplication
+cc
+cc.shape
+
+# construct jacobian
+jbase = cc.T
+ijvalnz = sps.find(jbase)
+row, col, nzvalue = sps.find(jbase)
+
+# c2 = np.concatenate((col, col + h), axis=None)
+# r2 = np.concatenate((row, row + k), axis=None)
+# v2 = np.concatenate((nzvalue, nzvalue))
+# xvals = np.full(h * 2, .33)
+# np.concatenate([row, row + k, row +2 * k])
+
+rows = np.array([])
+cols = np.array([])
+for state in np.arange(0, s):
+    rows = np.concatenate([rows, row + k * state])
+    cols = np.concatenate([cols, col + h * state])
+
+rows = rows.astype('int32')
+cols = cols.astype('int32')
+rows.shape
+cols.shape
+
+rows
+cols
+xvals = np.full(h * s, 1/s)
+nzvalues = np.tile(nzvalue, s)
+jsparse = sps.csr_matrix((nzvalues, (rows, cols)))
+print(jsparse)
+jsparse.shape
+xvals.shape
+
+jbase
+jdense = jsparse.todense()
+jdense[0, ]
+jdense[1, ]
+
+jsparse.dot(xvals) 
+
+
+
+
+
+
+
+
+
+
 
 gw = ipopt_geo(p.wh, p.xmat, p.geotargets)
 gw.elapsed_seconds
@@ -100,3 +231,5 @@ gw.whs_opt
 
 
 
+
+# %%
