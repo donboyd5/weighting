@@ -1,5 +1,11 @@
 
 # %% notes
+
+# documentation and examples
+#   https://cyipopt.readthedocs.io/en/stable/
+#   https://cyipopt.readthedocs.io/en/stable/tutorial.html#problem-interface
+#   https://cyipopt.readthedocs.io/en/stable/reference.html
+
 #   h number of households
 #   k number of targets for a single state
 #   s number of states
@@ -146,6 +152,8 @@ def ipopt_geo(wh, xmat, geotargets,
     # constraint lower and upper bounds
     cl = targets_scaled - abs(targets_scaled) * opts.crange
     cu = targets_scaled + abs(targets_scaled) * opts.crange
+    print(cl)
+    print(cu)
 
     nlp = cy.Problem(
         n=n,
@@ -156,11 +164,27 @@ def ipopt_geo(wh, xmat, geotargets,
         cl=cl,
         cu=cu)
 
-    g, ipopt_info = nlp.solve(x0)
-    print(g)
+    user_keys = user_defaults.keys()
+    solver_options = {key: value for key, value in options_all.items() if key not in user_keys}
 
-    whs_opt = None
-    geotargets_opt = geotargets
+    for option, value in solver_options.items():
+        nlp.add_option(option, value)      
+
+    if(not opts.quiet):
+        print(f'\n {"":10} Iter {"":25} obj {"":22} infeas')  
+
+    g, ipopt_info = nlp.solve(x0)
+    # print(g)
+
+    Q_best = np.multiply(Q, g.reshape(h, s))
+    # print(Q_best)
+
+    whs_opt = np.multiply(Q_best, wh.reshape((-1, 1)))
+
+    # whs_opt = None
+    geotargets_opt = np.dot(whs_opt.T, xmat)
+    # diff = geotargets_opt - geotargets
+    # pctdiff = diff / geotargets * 100
 
     b = timer()
 
@@ -169,13 +193,21 @@ def ipopt_geo(wh, xmat, geotargets,
     fields = ('elapsed_seconds',
               'whs_opt',
               'geotargets',
-              'geotargets_opt')
+              'geotargets_opt',
+              'g',
+              'Q_best',
+              'opts',
+              'ipopt_info')
     Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
 
     res = Result(elapsed_seconds=b - a,
                  whs_opt=whs_opt,
                  geotargets = geotargets,
-                 geotargets_opt=geotargets_opt)
+                 geotargets_opt=geotargets_opt,
+                 g=g,
+                 Q_best=Q_best,
+                 opts=opts,
+                 ipopt_info=ipopt_info)
     return res
     
 # %% geoweight class for ipopt
@@ -242,6 +274,35 @@ class GW:
             print(f'{"":10} {iter_count:5d} {"":15} {obj_value:13.7e} {"":15} {inf_pr:13.7e}')
 
 
+# %% base options
+opt_base = {'xlb': .1, 'xub': 10,
+         'crange': 0.0,
+         'print_level': 0,
+         'file_print_level': 5,
+         # 'ccgoal': 10000,
+         'max_iter': 100,
+         'linear_solver': 'ma57',  # ma27, ma77, ma57, ma86 work, not ma97
+         'quiet': False}
+
+
+# %% sparse version
+opt_sparse = opt_base.copy()
+opt_sparse.update({'output_file': '/home/donboyd/Documents/test_sparse.out'})
+res = ipopt_geo(p.wh, p.xmat, p.geotargets, options=opt_sparse)
+res.geotargets
+res.geotargets_opt
+res.g
+res.ipopt_info
+res.ipopt_info['g']  # constraints at optimal solution
+res.Q_best
+res.Q_best.sum(axis=1)
+
+
+    # whs_opt = np.multiply(Q_best, wh.reshape((-1, 1)))
+
+    # # whs_opt = None
+    # geotargets_opt = np.dot(whs_opt.T, xmat)
+
 
 # %% test runs
 p = mtp.Problem(h=40, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
@@ -250,7 +311,9 @@ p = mtp.Problem(h=40, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
 # p = mtp.Problem(h=1000, s=10, k=5, xsd=.1, ssd=.5)
 # p = mtp.Problem(h=10000, s=20, k=15)
 
-ipopt_geo(p.wh, p.xmat, p.geotargets)
+res = ipopt_geo(p.wh, p.xmat, p.geotargets)
+res.geotargets
+res.geotargets_opt
 
 xmat = p.xmat
 wh = p.wh
