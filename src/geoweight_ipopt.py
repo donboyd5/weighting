@@ -159,17 +159,32 @@ p = mtp.Problem(h=40, s=3, k=2, pctzero=.4)
 # p = mtp.Problem(h=1000, s=10, k=5, xsd=.1, ssd=.5)
 # p = mtp.Problem(h=10000, s=20, k=15)
 
-n = p.xmat.shape[0]
-m = p.targets.shape[0]
-
 xmat = p.xmat
 wh = p.wh
 geotargets = p.geotargets
 
-
 h = xmat.shape[0]
 k = xmat.shape[1]
 s = geotargets.shape[0]
+
+# matrix of initial state weight shares -- each row sums to 1
+# Q = np.full((h, s), 1 / s) # each household's weight shares
+# get initial state weights from first column of geotargets
+qshares = geotargets[:, 0] / geotargets[:, 0].sum()
+
+Q = np.empty((h, s))
+Q[:, 0] = 0.2
+Q[:, 1] = 0.5
+Q[:, 2] = 0.3
+Q
+Q.flatten()
+
+whs = np.multiply(Q, wh.reshape((-1, 1))) 
+whs.flatten()
+
+np.dot(whs.T, xmat)  # s x k matrix of calculated targets
+
+whs.shape
 
 cc = (xmat.T * wh).T   # dense multiplication
 # cc = xmat.T.multiply(wh).T  # sparse multiplication
@@ -187,21 +202,27 @@ row, col, nzvalue = sps.find(jbase)
 # xvals = np.full(h * 2, .33)
 # np.concatenate([row, row + k, row +2 * k])
 
+
+
 rows = np.array([])
 cols = np.array([])
+nzvalues = np.array([])
 for state in np.arange(0, s):
     rows = np.concatenate([rows, row + k * state])
     cols = np.concatenate([cols, col + h * state])
+    nzvalues = np.concatenate([nzvalues, nzvalue * Q[row, state]])
 
 rows = rows.astype('int32')
 cols = cols.astype('int32')
 rows.shape
 cols.shape
+nzvalues.shape
 
 rows
 cols
-xvals = np.full(h * s, 1/s)
-nzvalues = np.tile(nzvalue, s)
+# xvals = np.full(h * s, 1/s)
+# nzvalues = np.tile(nzvalue, s)
+
 jsparse = sps.csr_matrix((nzvalues, (rows, cols)))
 print(jsparse)
 jsparse.shape
@@ -212,7 +233,13 @@ jdense = jsparse.todense()
 jdense[0, ]
 jdense[1, ]
 
-jsparse.dot(xvals) 
+x = np.ones(h * s)
+geo_est = jsparse.dot(x) 
+geotargets.flatten()
+geo_est.flatten()
+
+geotargets.sum()
+geo_est.sum()
 
 
 
