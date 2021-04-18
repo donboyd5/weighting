@@ -50,6 +50,32 @@ from collections import namedtuple
 
 import cyipopt as cy
 import make_test_problems as mtp
+# import src.utilities as ut
+import utilities as ut
+
+# import microweight as mw
+
+# %% default options
+
+user_defaults = {
+    'xlb': 0.1,
+    'xub': 100,
+    'crange': .02,
+    'ccgoal': False,
+    'objgoal': 100,
+    'quiet': True}
+
+solver_defaults = {
+    'print_level': 0,
+    'file_print_level': 5,
+    'jac_d_constant': 'yes',
+    'hessian_constant': 'yes',
+    'max_iter': 100,
+    'mumps_mem_percent': 100,  # default 1000
+    'linear_solver': 'ma57'
+}
+
+options_defaults = {**solver_defaults, **user_defaults}
 
 
 # %% main function
@@ -57,7 +83,7 @@ def ipopt_geo(wh, xmat, geotargets,
         options=None):
 
     # inputs:
-    #   wh: (h, )
+    #   wh: (h, )  national (i.e., total) weights for each household
     #   xmat:  (h, k)
     #   geotargets: (s, k)
 
@@ -66,6 +92,72 @@ def ipopt_geo(wh, xmat, geotargets,
 
 
     a = timer()
+
+    # update options with any user-supplied options
+    if options is None:
+        options_all = options_defaults.copy()
+    else:
+        options_all = options_defaults.copy()
+        options_all.update(options)
+        # options_all = {**options_defaults, **options}
+
+    # convert dict to named tuple for ease of use
+    opts = ut.dict_nt(options_all)
+
+    h = xmat.shape[0]  # number of households
+    k = xmat.shape[1]  # number of targets for each state
+    s = geotargets.shape[0]  # number of states or geographic areas
+
+    n = h * s # number of variables to solve for
+    m = k * s  # total number of constraints
+
+    # create Q, matrix of initial state weight shares -- each row sums to 1
+    # for now get initial state weight shares from first column of geotargets
+    state_shares = geotargets[:, 0] / geotargets[:, 0].sum()  # vector length s
+    Q = np.tile(state_shares, (h, 1))  # h x s matrix
+    # Q.sum(axis=1)
+
+    targets = geotargets.flatten()
+    targets_scaled = targets
+
+    # construct the jacobian, which is constant (and highly sparse)
+    cc = (xmat.T * wh).T   # dense multiplication because this is not large
+    # cc = xmat.T.multiply(wh).T  # sparse multiplication
+
+    # construct row and column indexes, and values of the jacobian
+    row, col, nzvalue = sps.find(cc.T)
+    rows = np.array([])
+    cols = np.array([])
+    nzvalues = np.array([])
+    for state in np.arange(0, s):
+        rows = np.concatenate([rows, row + k * state])
+        cols = np.concatenate([cols, col + h * state])
+        nzvalues = np.concatenate([nzvalues, nzvalue * Q[row, state]])
+
+    rows = rows.astype('int32')
+    cols = cols.astype('int32')
+    jsparse = sps.csr_matrix((nzvalues, (rows, cols)))
+
+    x0 = np.ones(n)
+    lb = np.full(n, opts.xlb)
+    ub = np.full(n, opts.xub)
+
+
+    # constraint lower and upper bounds
+    cl = targets_scaled - abs(targets_scaled) * opts.crange
+    cu = targets_scaled + abs(targets_scaled) * opts.crange
+
+    nlp = cy.Problem(
+        n=n,
+        m=m,
+        problem_obj=GW(jsparse, n, opts.quiet),
+        lb=lb,
+        ub=ub,
+        cl=cl,
+        cu=cu)
+
+    g, ipopt_info = nlp.solve(x0)
+    print(g)
 
     whs_opt = None
     geotargets_opt = geotargets
@@ -89,12 +181,11 @@ def ipopt_geo(wh, xmat, geotargets,
 # %% geoweight class for ipopt
 class GW:
 
-    def __init__(self, cc, n, quiet):
-        self.cc = cc  # is this making an unnecessary copy??
-        self.jstruct = np.nonzero(cc.T)
-        # consider sps.find as possibly faster than np.nonzero, not sure
-        self.jnz = cc.T[self.jstruct]
-        # self.jnz = sps.find(cc)[2]
+    def __init__(self, jsparse, n, quiet):
+        # self.cc = cc  # is this making an unnecessary copy??
+        self.jsparse = jsparse
+        rows, cols, self.jnz = sps.find(jsparse)
+        self.jstruct = (rows, cols)
 
         hidx = np.arange(0, n, dtype='int64')
         self.hstruct = (hidx, hidx)
@@ -113,8 +204,8 @@ class GW:
     def constraints(self, x):
         """Returns the constraints."""
         # np.dot(x, self.cc)  # dense calculation
-        # self.cc.T.dot(x)  # sparse calculation
-        return np.dot(x, self.cc)
+        # self.cc.T.dot(x)  # sparse calculation        
+        return self.jsparse.dot(x).flatten()
 
     def jacobian(self, x):
         """Returns the Jacobian of the constraints with respect to x."""
@@ -153,11 +244,13 @@ class GW:
 
 
 # %% test runs
-p = mtp.Problem(h=40, s=3, k=2, pctzero=.4)
+p = mtp.Problem(h=40, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
 # p = mtp.Problem(h=40000, s=50, k=30, pctzero=.4)
 # p = mtp.Problem(h=40000, s=50, k=30)
 # p = mtp.Problem(h=1000, s=10, k=5, xsd=.1, ssd=.5)
 # p = mtp.Problem(h=10000, s=20, k=15)
+
+ipopt_geo(p.wh, p.xmat, p.geotargets)
 
 xmat = p.xmat
 wh = p.wh
@@ -170,18 +263,22 @@ s = geotargets.shape[0]
 # matrix of initial state weight shares -- each row sums to 1
 # Q = np.full((h, s), 1 / s) # each household's weight shares
 # get initial state weights from first column of geotargets
-qshares = geotargets[:, 0] / geotargets[:, 0].sum()
+state_shares = geotargets[:, 0] / geotargets[:, 0].sum()
+Q = np.tile(state_shares, (h, 1))
+Q.sum(axis=1)
 
-Q = np.empty((h, s))
-Q[:, 0] = 0.2
-Q[:, 1] = 0.5
-Q[:, 2] = 0.3
-Q
-Q.flatten()
+# Q = np.empty((h, s))
+# Q[:, 0] = 0.2
+# Q[:, 1] = 0.5
+# Q[:, 2] = 0.3
+# Q
+# Q.flatten()
 
 whs = np.multiply(Q, wh.reshape((-1, 1))) 
-whs.flatten()
+whs
+# whs.flatten()
 
+geotargets
 np.dot(whs.T, xmat)  # s x k matrix of calculated targets
 
 whs.shape
