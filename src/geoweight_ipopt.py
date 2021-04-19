@@ -131,6 +131,16 @@ def ipopt_geo(wh, xmat, geotargets,
     # cc = xmat.T.multiply(wh).T  # sparse multiplication
     # cc is h x k, so cc.T is k x h
 
+    # scale constraint coefficients and targets
+    # ccscale = 1
+    # if opts.ccgoal is not False:
+    #     ccscale = get_ccscale(cc, ccgoal=opts.ccgoal, method='mean')
+        
+    # # ccscale = 1
+    # cc = cc * ccscale  # mult by scale to have avg derivative meet our goal
+
+    # targets_scaled = targets * ccscale  # djb do I need to copy?
+
     # construct row and column indexes, and values of the jacobian
     row, col, nzvalue = sps.find(cc.T)
     rows = np.array([])
@@ -144,15 +154,20 @@ def ipopt_geo(wh, xmat, geotargets,
 
     rows = rows.astype('int32')
     cols = cols.astype('int32')
-    jsparse = sps.csr_matrix((nzvalues, (rows, cols)))
+    jsparse_constraints = sps.csr_matrix((nzvalues, (rows, cols)))
+
+    # adding up constraints, if needed
+    jsparse = jsparse_constraints
 
     x0 = np.ones(n)
     lb = np.full(n, opts.xlb)
-    ub = np.full(n, opts.xub)
+    ub = np.full(n, opts.xub)    
 
     # constraint lower and upper bounds
     cl = targets_scaled - abs(targets_scaled) * opts.crange
     cu = targets_scaled + abs(targets_scaled) * opts.crange
+    print(cl)
+    print(cu)
 
     nlp = cy.Problem(
         n=n,
@@ -174,7 +189,7 @@ def ipopt_geo(wh, xmat, geotargets,
 
     g, ipopt_info = nlp.solve(x0)
 
-    Q_best = np.multiply(Q, g.reshape(h, s))
+    Q_best = np.multiply(Q, g.reshape(s, h).T)
     # Q_best.sum(axis=1)
 
     whs_opt = np.multiply(Q_best.T, wh).T
@@ -277,3 +292,54 @@ class GW:
 
         if(not self.quiet):
             print(f'{"":10} {iter_count:5d} {"":15} {obj_value:13.7e} {"":15} {inf_pr:13.7e}')
+
+
+# %% functions available outside of the RW class
+
+def get_ccscale(jsparse_constraints, ccgoal, method='mean'):
+    """
+    Create multiplicative scaling vector ccscale.
+
+    cc is the constraint coefficients matrix (h x k)
+    ccgoal is what we would like the typical scaled coefficient to be
+      (maybe around 100, for example)
+
+    For scaling the constraint coefficients and the targets.
+    Returns the ccscale vector.
+
+    # use mean or median of absolute values of coeffs as the denominator
+    # denom is a k-length vector (1 per target)
+
+    """
+
+    if(method == 'mean'):
+        denom = np.abs(cc).sum(axis=0) / cc.shape[0]
+    elif(method == 'median'):
+        denom = np.median(np.abs(cc), axis=0)
+
+    # it is hard to imagine how denom ever could be zero but just in
+    # case, set it to 1 in that case
+    denom[denom == 0] = 1
+
+    ccscale = np.absolute(ccgoal / denom)
+    # ccscale = ccscale / ccscale
+    return ccscale
+
+
+
+    if(method == 'mean'):
+        denom = np.abs(cc).sum(axis=0) / cc.shape[0]
+    elif(method == 'median'):
+        denom = np.median(np.abs(cc), axis=0)
+
+    # it is hard to imagine how denom ever could be zero but just in
+    # case, set it to 1 in that case
+    denom[denom == 0] = 1
+
+    ccscale = np.absolute(ccgoal / denom)
+    # ccscale = ccscale / ccscale
+    return ccscale
+
+
+
+

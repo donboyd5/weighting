@@ -38,7 +38,7 @@ opt_base = {'xlb': .1, 'xub': 10,
          'file_print_level': 5,
          # 'ccgoal': 10000,
          'max_iter': 100,
-         'linear_solver': 'ma77',  # ma27, ma77, ma57, ma86 work, not ma97
+         'linear_solver': 'ma57',  # ma27, ma77, ma57, ma86 work, not ma97
          'quiet': False}
 
 # %% test sparse version
@@ -67,10 +67,16 @@ res.ipopt_info['status_msg']
 
 p.geotargets
 res.geotargets
-geotargets
+# geotargets
 res.geotargets_opt
-pdiff = res.geotargets_opt / geotargets * 100 - 100
-np.round(pdiff, 2)
+res.ipopt_info['g']
+pdiff_init = res.geotargets_init / geotargets * 100 - 100
+pdiff_opt = res.geotargets_opt / geotargets * 100 - 100
+np.round(pdiff_init, 2)
+np.round(pdiff_opt, 2)
+
+geotargets_init
+geotargets_init
 
 res.g
 np.quantile(res.g*100, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1])
