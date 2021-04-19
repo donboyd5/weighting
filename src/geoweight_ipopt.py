@@ -166,8 +166,6 @@ def ipopt_geo(wh, xmat, geotargets,
     # constraint lower and upper bounds
     cl = targets_scaled - abs(targets_scaled) * opts.crange
     cu = targets_scaled + abs(targets_scaled) * opts.crange
-    print(cl)
-    print(cu)
 
     nlp = cy.Problem(
         n=n,

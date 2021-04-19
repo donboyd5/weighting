@@ -75,14 +75,11 @@ pdiff_opt = res.geotargets_opt / geotargets * 100 - 100
 np.round(pdiff_init, 2)
 np.round(pdiff_opt, 2)
 
-geotargets_init
-geotargets_init
-
 res.g
 np.quantile(res.g*100, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1])
 
 res.ipopt_info
-res.ipopt_info['g']  # constraints at optimal solution
+
 res.Q_best
 checksums = res.Q_best.sum(axis=1)
 np.quantile(checksums*100, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1])
