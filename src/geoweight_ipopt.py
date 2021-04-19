@@ -186,15 +186,18 @@ def ipopt_geo(wh, xmat, geotargets,
     # (whs_opt[:, 0] * xmat[:, 0]).sum()
 
     geotargets_opt = np.dot(whs_opt.T, xmat)
+    geotargets_init = np.dot(whs_init.T, xmat)
 
     b = timer()
 
 
     # create a named tuple of items to return
     fields = ('elapsed_seconds',
+              'whs_init',
               'whs_opt',
               'geotargets',
               'geotargets_opt',
+              'geotargets_init',
               'g',
               'Q_best',
               'opts',
@@ -203,8 +206,10 @@ def ipopt_geo(wh, xmat, geotargets,
 
     res = Result(elapsed_seconds=b - a,
                  whs_opt=whs_opt,
+                 whs_init=whs_init,
                  geotargets = geotargets,
                  geotargets_opt=geotargets_opt,
+                 geotargets_init=geotargets_init,
                  g=g,
                  Q_best=Q_best,
                  opts=opts,
