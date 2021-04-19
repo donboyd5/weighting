@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 # %% notes
 
@@ -47,7 +48,6 @@
 
 
 
-
 # %% imports
 import numpy as np
 import scipy.sparse as sps
@@ -55,9 +55,7 @@ from timeit import default_timer as timer
 from collections import namedtuple
 
 import cyipopt as cy
-import make_test_problems as mtp
-# import src.utilities as ut
-import utilities as ut
+import src.utilities as ut
 
 # import microweight as mw
 
@@ -121,7 +119,6 @@ def ipopt_geo(wh, xmat, geotargets,
     # for now get initial state weight shares from first column of geotargets
     state_shares = geotargets[:, 0] / geotargets[:, 0].sum()  # vector length s
     Q = np.tile(state_shares, (h, 1))  # h x s matrix
-    # print(Q)
     # Q.sum(axis=1)
 
     targets = geotargets.flatten() # all targets for first state, then next, then ...
@@ -134,52 +131,28 @@ def ipopt_geo(wh, xmat, geotargets,
     # cc = xmat.T.multiply(wh).T  # sparse multiplication
     # cc is h x k, so cc.T is k x h
 
-    # try another way to create the sparse jacobian
-    # whs_init = np.multiply(Q.T, wh).T
-    # 
-    # cc2 = np.multiply(xmat.T, whs_init)
-
-
     # construct row and column indexes, and values of the jacobian
     row, col, nzvalue = sps.find(cc.T)
     rows = np.array([])
     cols = np.array([])
     nzvalues = np.array([])
-    # state = 0
+
     for state in np.arange(0, s):
         rows = np.concatenate([rows, row + k * state]) # constraints
         cols = np.concatenate([cols, col + h * state])  # households
         nzvalues = np.concatenate([nzvalues, nzvalue * Q[col, state]])
-        # vals = whs_init[col, state] * xmat[col, :]
-        # nzvalues = np.concatenate([nzvalues, whs_init[]])
-
-    # row, col, nzvalue = sps.find(cc.T)
-    # rows = np.array([])
-    # cols = np.array([])
-    # nzvalues = np.array([])
-    # state = 0
-    # for state in np.arange(0, s):
-    #     rows = np.concatenate([rows, row + k * state])
-    #     cols = np.concatenate([cols, col + h * state])
-    #     whs = wh * Q[row, state]
-    #     nzvalues = np.concatenate([nzvalues, nzvalue * Q[row, state]])
-
 
     rows = rows.astype('int32')
     cols = cols.astype('int32')
     jsparse = sps.csr_matrix((nzvalues, (rows, cols)))
-    # jdense = jsparse.todense()
 
     x0 = np.ones(n)
     lb = np.full(n, opts.xlb)
     ub = np.full(n, opts.xub)
 
-
     # constraint lower and upper bounds
     cl = targets_scaled - abs(targets_scaled) * opts.crange
     cu = targets_scaled + abs(targets_scaled) * opts.crange
-    # print(cl)
-    # print(cu)
 
     nlp = cy.Problem(
         n=n,
@@ -200,31 +173,19 @@ def ipopt_geo(wh, xmat, geotargets,
         print(f'\n {"":10} Iter {"":25} obj {"":22} infeas')  
 
     g, ipopt_info = nlp.solve(x0)
-    # print(g)
-    # ipopt_info['x']
 
     Q_best = np.multiply(Q, g.reshape(h, s))
-    Q_best = np.multiply(Q, g.reshape(s, h).T)
-    # print(Q_best)
     # Q_best.sum(axis=1)
 
     whs_opt = np.multiply(Q_best.T, wh).T
     whs_init = np.multiply(Q.T, wh).T
-    # np.dot(whs_opt.T, xmat)
-    # np.dot(whs_init.T, xmat)
-
 
     # next 2 lines produce the same result, in about the same time
     # %timeit whs_opt = np.multiply(Q_best, wh.reshape((-1, 1)))  # same result
     # %timeit whs_opt = (Q_best.T * wh).T  # same result
     # (whs_opt[:, 0] * xmat[:, 0]).sum()
-    # ipopt_info['g']
-    # jsparse.dot(g)
 
-    # whs_opt = None
     geotargets_opt = np.dot(whs_opt.T, xmat)
-    # diff = geotargets_opt - geotargets
-    # pctdiff = diff / geotargets * 100
 
     b = timer()
 
@@ -237,7 +198,7 @@ def ipopt_geo(wh, xmat, geotargets,
               'g',
               'Q_best',
               'opts',
-              'ipopt_info', 'jsparse')
+              'ipopt_info')
     Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
 
     res = Result(elapsed_seconds=b - a,
@@ -247,15 +208,14 @@ def ipopt_geo(wh, xmat, geotargets,
                  g=g,
                  Q_best=Q_best,
                  opts=opts,
-                 ipopt_info=ipopt_info, jsparse=jsparse)
+                 ipopt_info=ipopt_info)
     return res
     
 # %% geoweight class for ipopt
 class GW:
 
     def __init__(self, jsparse, n, quiet):
-        # self.cc = cc  # is this making an unnecessary copy??
-        self.jsparse = jsparse
+        self.jsparse = jsparse # is this making an unnecessary copy??
         rows, cols, self.jnz = sps.find(jsparse)
         self.jstruct = (rows, cols)
 
@@ -312,225 +272,3 @@ class GW:
 
         if(not self.quiet):
             print(f'{"":10} {iter_count:5d} {"":15} {obj_value:13.7e} {"":15} {inf_pr:13.7e}')
-
-
-# %% base options
-opt_base = {'xlb': .1, 'xub': 10,
-         'crange': 0.0,
-         'print_level': 0,
-         'file_print_level': 5,
-         # 'ccgoal': 10000,
-         'max_iter': 100,
-         'linear_solver': 'ma86',  # ma27, ma77, ma57, ma86 work, not ma97
-         'quiet': False}
-
-
-# %% test sparse version
-
-p = mtp.Problem(h=20, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
-p = mtp.Problem(h=1000, s=5, k=4, xsd=.1, ssd=.5, pctzero=.4)
-p = mtp.Problem(h=10000, s=10, k=8, xsd=.1, ssd=.5, pctzero=.4)
-p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.4)
-p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4)
-xmat = p.xmat
-wh = p.wh
-geotargets = p.geotargets
-dir(p)
-targ_opt = np.dot(p.whs.T, p.xmat)
-p.wh
-Q = np.tile(state_shares, (h, 1))
-whs_shared = np.multiply(Q.T, p.wh).T
-targ_init = np.dot(whs_shared.T, p.xmat)
-targ_init - geotargets
-Q_best
-whs_best = np.multiply(Q_best.T, p.wh).T
-whs_new = np.multiply(whs_shared, ipopt_info['x'].reshape((p.h, p.s)))
-np.dot(whs_new.T, p.xmat)
-
-targ_final = np.dot(whs_best.T, p.xmat)
-targ_final
-targ_final - geotargets
-(targ_final - geotargets) / geotargets * 100
-
-
-
-cc = (xmat.T * wh).T 
-
-h = xmat.shape[0]
-k = xmat.shape[1]
-s = geotargets.shape[0]
-
-opt_sparse = opt_base.copy()
-opt_sparse.update({'output_file': '/home/donboyd/Documents/test_sparse.out'})
-res = ipopt_geo(p.wh, p.xmat, p.geotargets, options=opt_sparse)
-res.elapsed_seconds
-res.ipopt_info['status_msg']
-
-res.geotargets
-res.geotargets_opt
-res.g
-res.ipopt_info
-res.ipopt_info['g']  # constraints at optimal solution
-res.Q_best
-checksums = res.Q_best.sum(axis=1)
-np.quantile(checksums*100, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1])
-p.whs
-res.whs_opt
-print(res.jsparse)
-
-cc = (xmat.T * wh).T  # h, k, same for each s
-cc.shape
-(xmat.T * wh).T
-
-
-gwide = res.g.reshape((h, s))
-gwide.flatten()
-state_shares = p.geotargets[:, 0] / p.geotargets[:, 0].sum() 
-qbest = np.multiply(gwide, np.array(state_shares))
-qinit = np.tile(state_shares, (h, 1))
-q2 = np.multiply(gwide, qinit)
-np.multiply(qinit, gwide)
-
-
-qbest.shape
-whs_opt = np.multiply(qbest.T, wh).T
-whs_opt
-p.whs
-np.dot(whs_opt.T, xmat)
-np.dot(p.whs.T, xmat)
-
-Q_best = np.multiply(Q, g.reshape(h, s))
-whs_opt = np.multiply(Q_best, wh.reshape((-1, 1)))
-
-p.whs.shape
-state_shares = p.geotargets[:, 0] / p.geotargets[:, 0].sum()  # vector length s
-qinit = np.tile(state_shares, (h, 1))  
-qb = np.divide(p.whs.T, p.wh) # this is the goal, qbest
-# qi * g = qb
-np.divide(qb.T, qinit)
-np.divide(qb, qinit.T)
-
-np.divide(qinit.T, qb)
-
-    # whs_opt = np.multiply(Q_best, wh.reshape((-1, 1)))
-
-    # # whs_opt = None
-    # geotargets_opt = np.dot(whs_opt.T, xmat)
-
-
-# %% test runs
-p = mtp.Problem(h=40, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
-# p = mtp.Problem(h=40000, s=50, k=30, pctzero=.4)
-# p = mtp.Problem(h=40000, s=50, k=30)
-# p = mtp.Problem(h=1000, s=10, k=5, xsd=.1, ssd=.5)
-# p = mtp.Problem(h=10000, s=20, k=15)
-
-res = ipopt_geo(p.wh, p.xmat, p.geotargets)
-res.geotargets
-res.geotargets_opt
-
-xmat = p.xmat
-wh = p.wh
-geotargets = p.geotargets
-
-h = xmat.shape[0]
-k = xmat.shape[1]
-s = geotargets.shape[0]
-
-# matrix of initial state weight shares -- each row sums to 1
-# Q = np.full((h, s), 1 / s) # each household's weight shares
-# get initial state weights from first column of geotargets
-state_shares = geotargets[:, 0] / geotargets[:, 0].sum()
-Q = np.tile(state_shares, (h, 1))
-Q.sum(axis=1)
-
-# Q = np.empty((h, s))
-# Q[:, 0] = 0.2
-# Q[:, 1] = 0.5
-# Q[:, 2] = 0.3
-# Q
-# Q.flatten()
-
-whs = np.multiply(Q, wh.reshape((-1, 1))) 
-whs
-# whs.flatten()
-
-geotargets
-np.dot(whs.T, xmat)  # s x k matrix of calculated targets
-
-whs.shape
-
-cc = (xmat.T * wh).T   # dense multiplication
-# cc = xmat.T.multiply(wh).T  # sparse multiplication
-cc
-cc.shape
-
-# construct jacobian
-jbase = cc.T
-ijvalnz = sps.find(jbase)
-row, col, nzvalue = sps.find(jbase)
-
-# c2 = np.concatenate((col, col + h), axis=None)
-# r2 = np.concatenate((row, row + k), axis=None)
-# v2 = np.concatenate((nzvalue, nzvalue))
-# xvals = np.full(h * 2, .33)
-# np.concatenate([row, row + k, row +2 * k])
-
-
-
-rows = np.array([])
-cols = np.array([])
-nzvalues = np.array([])
-for state in np.arange(0, s):
-    rows = np.concatenate([rows, row + k * state])
-    cols = np.concatenate([cols, col + h * state])
-    nzvalues = np.concatenate([nzvalues, nzvalue * Q[row, state]])
-
-rows = rows.astype('int32')
-cols = cols.astype('int32')
-rows.shape
-cols.shape
-nzvalues.shape
-
-rows
-cols
-# xvals = np.full(h * s, 1/s)
-# nzvalues = np.tile(nzvalue, s)
-
-jsparse = sps.csr_matrix((nzvalues, (rows, cols)))
-print(jsparse)
-jsparse.shape
-xvals.shape
-
-jbase
-jdense = jsparse.todense()
-jdense[0, ]
-jdense[1, ]
-
-x = np.ones(h * s)
-geo_est = jsparse.dot(x) 
-geotargets.flatten()
-geo_est.flatten()
-
-geotargets.sum()
-geo_est.sum()
-
-
-
-
-
-
-
-
-
-
-
-gw = ipopt_geo(p.wh, p.xmat, p.geotargets)
-gw.elapsed_seconds
-gw.whs_opt
-
-
-
-
-
-# %%

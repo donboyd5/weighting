@@ -9,10 +9,6 @@
 # right now that is np.nonzero(cc.T)
 
 
-# ctrl-k-c comment, ctrl-k-u uncomment
-
-
-
 # %% imports
 
 # Load the autoreload extension
