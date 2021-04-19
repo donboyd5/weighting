@@ -67,6 +67,7 @@ user_defaults = {
     'crange': .02,
     'ccgoal': False,
     'objgoal': 100,
+    'addup': False,
     'quiet': True}
 
 solver_defaults = {
@@ -154,18 +155,24 @@ def ipopt_geo(wh, xmat, geotargets,
 
     rows = rows.astype('int32')
     cols = cols.astype('int32')
-    jsparse_constraints = sps.csr_matrix((nzvalues, (rows, cols)))
+    jsparse_targets = sps.csr_matrix((nzvalues, (rows, cols)))
 
     # adding up constraints, if needed
-    jsparse = jsparse_constraints
+    if opts.addup:
+        jsparse_addup = jsparse
+
+    jsparse = jsparse_targets
 
     x0 = np.ones(n)
     lb = np.full(n, opts.xlb)
     ub = np.full(n, opts.xub)    
 
     # constraint lower and upper bounds
-    cl = targets_scaled - abs(targets_scaled) * opts.crange
-    cu = targets_scaled + abs(targets_scaled) * opts.crange
+    cl_targets = targets_scaled - abs(targets_scaled) * opts.crange
+    cu_targets = targets_scaled + abs(targets_scaled) * opts.crange
+
+    cl = cl_targets
+    cu = cu_targets
 
     nlp = cy.Problem(
         n=n,

@@ -37,6 +37,7 @@ opt_base = {'xlb': .1, 'xub': 10,
          'print_level': 0,
          'file_print_level': 5,
          # 'ccgoal': 10000,
+         'addup': False,
          'max_iter': 100,
          'linear_solver': 'ma57',  # ma27, ma77, ma57, ma86 work, not ma97
          'quiet': False}
@@ -76,13 +77,13 @@ np.round(pdiff_init, 2)
 np.round(pdiff_opt, 2)
 
 res.g
-np.quantile(res.g*100, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1])
+np.quantile(res.g, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1])
 
 res.ipopt_info
 
 res.Q_best
 checksums = res.Q_best.sum(axis=1)
-np.quantile(checksums*100, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1])
+np.quantile(checksums, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1])
 p.whs
 res.whs_opt
 
@@ -97,3 +98,42 @@ dir(p)
 checksums = res.Q_best.sum(axis=1)
 np.quantile(checksums*100, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1])
 
+
+# %% array play
+p2 = mtp.Problem(h=20, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
+p2.whs
+p2.wh
+p2.whs.sum(axis=1) 
+
+h = p.h
+s = p.s
+
+# row h * s  0 0 0 1 1 1 2 2 2 ... 19 19 19  # repeat h s times
+# col s      0 3 6 1 4 7 2 5 8 ... col = row + s * (0, 1, 2)  
+row = np.repeat(np.arange(0, h), s)
+state_idx = np.tile(np.arange(0, s), h)
+col = row + state_idx * h
+# we'll use init whs values for the coefficients, not these opt values
+nzvalues = p.whs[row, state_idx]
+jsparse_addup = sps.csr_matrix((nzvalues, (row, col)))
+print(jsparse_addup)
+jsparse_addup.todense()
+
+
+
+# # creating an array from a Python sequence
+# np.array([i**2 for i in range(5)])
+# # array([ 0,  1,  4,  9, 16])
+
+# # creating an array filled with ones
+# np.ones((2, 4))
+# # array([[ 1.,  1.,  1.,  1.],
+# #        [ 1.,  1.,  1.,  1.]])
+
+# # creating an array of evenly-spaced points
+# np.linspace(0, 10, 5)
+# # array([  0. ,   2.5,   5. ,   7.5,  10. ])
+
+
+# # creating an array of a specified datatype
+# np.array([1.5, 3.20, 5.78], dtype=int)
