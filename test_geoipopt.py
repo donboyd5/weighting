@@ -71,7 +71,7 @@ p = mtp.Problem(h=20, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=100, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=1000, s=3, k=3, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=10000, s=10, k=8, xsd=.1, ssd=.5, pctzero=.4)
-p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.2)
 p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4)
 
 geotargets = p.geotargets
@@ -79,16 +79,17 @@ geotargets = p.geotargets
 # any zero rows?
 # p.xmat
 p.h
-qtiles = [0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1]
+
 
 # %% optionally add noise
 np.random.seed(1)
-noise = np.random.normal(0, .01, p.geotargets.size)
+noise = np.random.normal(0, .02, p.geotargets.size)
 # np.round(noise * 100, 2)
 
 geotargets = p.geotargets * (1 + noise.reshape((p.s, p.k)))
 
 # %% run problem
+qtiles = [0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1]
 opt_sparse = opt_base.copy()
 opt_sparse.update({'output_file': '/home/donboyd/Documents/test_sparse.out'})
 opt_sparse.update({'addup': True})
