@@ -49,6 +49,9 @@
 
 
 # %% imports
+
+import os
+import tempfile
 import numpy as np
 import scipy.sparse as sps
 from timeit import default_timer as timer
@@ -98,7 +101,7 @@ def ipopt_geo(wh, xmat, geotargets,
 
     a = timer()
 
-    # stop if xmat has any rows that are all zero (reconsider later)
+    # stop if xmat has any rows that are all zero (consider a better approach later)
     zero_rows = np.where(~xmat.any(axis=1))[0]
     if zero_rows.size > 0:
         print("found xmat rows that have all zeros, exiting...")
@@ -115,6 +118,13 @@ def ipopt_geo(wh, xmat, geotargets,
 
     # convert dict to named tuple for ease of use
     opts = ut.dict_nt(options_all)
+
+    if opts.linear_solver == 'ma77':
+        # create a temporary directory for the temporary files of ma77 so that
+        # if we run this in parallel they won't interfere with each other
+        cwd = os.getcwd()
+        temp_dir = tempfile.TemporaryDirectory()
+        os.chdir(temp_dir.name)
 
     h = xmat.shape[0]  # number of households
     k = xmat.shape[1]  # number of targets for each state
@@ -221,6 +231,11 @@ def ipopt_geo(wh, xmat, geotargets,
         print(f'\n {"":10} Iter {"":25} obj {"":22} infeas')  
 
     g, ipopt_info = nlp.solve(x0)
+
+    if opts.linear_solver == 'ma77':
+        # set the working directory back to what it was and clean up        
+        os.chdir(cwd)
+        temp_dir.cleanup()     
 
     Q_best = np.multiply(Q, g.reshape(s, h).T)
     # Q_best.sum(axis=1)
