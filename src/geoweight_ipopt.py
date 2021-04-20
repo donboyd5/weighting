@@ -71,6 +71,7 @@ user_defaults = {
     'ccgoal': False,
     'objgoal': 100,
     'addup': False,
+    'addup_range': .01,
     'quiet': True}
 
 solver_defaults = {
@@ -207,8 +208,8 @@ def ipopt_geo(wh, xmat, geotargets,
     cl = cl_targets
     cu = cu_targets
     if opts.addup:
-        whlow = wh * .99
-        whhigh = wh * 1.01
+        whlow = wh * (1 - opts.addup_range)
+        whhigh = wh * (1 + opts.addup_range)
         cl = np.concatenate((cl_targets, whlow), axis=0)
         cu = np.concatenate((cu_targets, whhigh), axis=0)
 
