@@ -114,13 +114,15 @@ def ipopt_geo(wh, xmat, geotargets,
     s = geotargets.shape[0]  # number of states or geographic areas
 
     n = h * s # number of variables to solve for
-    m = k * s  # total number of constraints
+    targs = k * s  # total number of target constraints
 
     # create Q, matrix of initial state weight shares -- each row sums to 1
     # for now get initial state weight shares from first column of geotargets
     state_shares = geotargets[:, 0] / geotargets[:, 0].sum()  # vector length s
     Q = np.tile(state_shares, (h, 1))  # h x s matrix
     # Q.sum(axis=1)
+
+    whs_init = np.multiply(Q.T, wh).T
 
     targets = geotargets.flatten() # all targets for first state, then next, then ...
     targets_scaled = targets
@@ -156,12 +158,26 @@ def ipopt_geo(wh, xmat, geotargets,
     rows = rows.astype('int32')
     cols = cols.astype('int32')
     jsparse_targets = sps.csr_matrix((nzvalues, (rows, cols)))
+    
 
     # adding up constraints, if needed
+    jsparse_addup = None
     if opts.addup:
-        jsparse_addup = jsparse
+        # define row indexes
+        row = np.repeat(np.arange(0, h), s)  # row we want from whs_init
 
-    jsparse = jsparse_targets
+        # define column indexes
+        state_idx = np.tile(np.arange(0, s), h) # which state do we want
+        col = row + state_idx * h
+
+        # use init whs values for the coefficients
+        nzvalues = whs_init[row, state_idx]
+        jsparse_addup = sps.csr_matrix((nzvalues, (row, col)))
+
+    return jsparse_targets, jsparse_addup
+    jsparse = sps.vstack([jsparse_targets, jsparse_addup])
+    
+    m = jsparse.shape[0]  # TOTAL number of constraints - targets plus adding-up
 
     x0 = np.ones(n)
     lb = np.full(n, opts.xlb)
@@ -173,6 +189,9 @@ def ipopt_geo(wh, xmat, geotargets,
 
     cl = cl_targets
     cu = cu_targets
+    if opts.addup:
+        cl = np.concatenate((cl_targets, wh), axis=0)
+        cu = cl
 
     nlp = cy.Problem(
         n=n,
@@ -198,7 +217,7 @@ def ipopt_geo(wh, xmat, geotargets,
     # Q_best.sum(axis=1)
 
     whs_opt = np.multiply(Q_best.T, wh).T
-    whs_init = np.multiply(Q.T, wh).T
+
 
     # next 2 lines produce the same result, in about the same time
     # %timeit whs_opt = np.multiply(Q_best, wh.reshape((-1, 1)))  # same result
