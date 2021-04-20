@@ -98,6 +98,13 @@ def ipopt_geo(wh, xmat, geotargets,
 
     a = timer()
 
+    # stop if xmat has any rows that are all zero (reconsider later)
+    zero_rows = np.where(~xmat.any(axis=1))[0]
+    if zero_rows.size > 0:
+        print("found xmat rows that have all zeros, exiting...")
+        print(zero_rows)
+        return
+
     # update options with any user-supplied options
     if options is None:
         options_all = options_defaults.copy()
@@ -174,7 +181,7 @@ def ipopt_geo(wh, xmat, geotargets,
         nzvalues = whs_init[row, state_idx]
         jsparse_addup = sps.csr_matrix((nzvalues, (row, col)))
 
-    return jsparse_targets, jsparse_addup
+    # return jsparse_targets, jsparse_addup
     jsparse = sps.vstack([jsparse_targets, jsparse_addup])
     
     m = jsparse.shape[0]  # TOTAL number of constraints - targets plus adding-up
@@ -190,8 +197,10 @@ def ipopt_geo(wh, xmat, geotargets,
     cl = cl_targets
     cu = cu_targets
     if opts.addup:
-        cl = np.concatenate((cl_targets, wh), axis=0)
-        cu = cl
+        whlow = wh * .99
+        whhigh = wh * 1.01
+        cl = np.concatenate((cl_targets, whlow), axis=0)
+        cu = np.concatenate((cu_targets, whhigh), axis=0)
 
     nlp = cy.Problem(
         n=n,

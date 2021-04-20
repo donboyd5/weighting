@@ -53,6 +53,11 @@ p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4)
 
 geotargets = p.geotargets
 
+# any zero rows?
+# p.xmat
+p.h
+qtiles = [0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1]
+
 # %% optionally add noise
 np.random.seed(1)
 noise = np.random.normal(0, .01, p.geotargets.size)
@@ -64,28 +69,28 @@ geotargets = p.geotargets * (1 + noise.reshape((p.s, p.k)))
 opt_sparse = opt_base.copy()
 opt_sparse.update({'output_file': '/home/donboyd/Documents/test_sparse.out'})
 opt_sparse.update({'addup': True})
-opt_sparse.update({'crange': .02})
+opt_sparse.update({'crange': .01})
+opt_sparse.update({'linear_solver': 'ma77'})
 opt_sparse
-# djb here
-jst, jsa = gwi.ipopt_geo(p.wh, p.xmat, geotargets, options=opt_sparse)
-jst.shape
-jsa.shape
 
 res = gwi.ipopt_geo(p.wh, p.xmat, geotargets, options=opt_sparse)
 res.elapsed_seconds
 res.ipopt_info['status_msg']
 qsums = res.Q_best.sum(axis=1)
-np.quantile(qsums, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1])
+np.quantile(qsums*100, q=qtiles)
 
-p.geotargets
 res.geotargets
-# geotargets
 res.geotargets_opt
-res.ipopt_info['g']
+# res.ipopt_info['g']
 pdiff_init = res.geotargets_init / geotargets * 100 - 100
 pdiff_opt = res.geotargets_opt / geotargets * 100 - 100
 np.round(pdiff_init, 2)
 np.round(pdiff_opt, 2)
+
+np.quantile(pdiff_init, q=qtiles)
+np.quantile(pdiff_opt, q=qtiles)
+
+
 
 res.g
 np.quantile(res.g, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1])
