@@ -22,13 +22,19 @@ class Problem:
       r = np.random.normal(0, xsd, (h, k))
       # r = np.random.randn(h, k) / 100  # random normal)
       xmean = 100 + 20 * np.arange(0, k)
-      xmat = xmean * (1 + r)
+      xmat_full = xmean * (1 + r)      
+      # inefficient, but...
+      xmat = xmat_full.copy()
 
       if pctzero > 0:
             # randomly set some elements of xmat to zero
             np.random.seed(1)
-            indices = np.random.choice(np.arange(xmat.size), replace=False, size=int(xmat.size * pctzero))
-            xmat[np.unravel_index(indices, xmat.shape)] = 0 
+            indices = np.random.choice(np.arange(xmat.size), replace=False, size=int(xmat.size * pctzero))            
+            xmat[np.unravel_index(indices, xmat.shape)] = 0
+            # if any rows have all zeros, put at least one nonzero element in
+            zero_rows = np.where(~xmat.any(axis=1))[0]
+            if zero_rows.size > 0:
+                  xmat[zero_rows, :] = xmat_full[zero_rows, :]
       
       self.xmat = xmat
 
