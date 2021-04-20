@@ -55,7 +55,7 @@ temp_dir.cleanup()  # gets rid of director so cannot change to it
 # pctdiff = diff / geotargets * 100
 
 # %% base options
-opt_base = {'xlb': .05, 'xub': 50,
+opt_base = {'xlb': .2, 'xub': 2,
          'crange': 0.0,
          'print_level': 0,
          'file_print_level': 5,
@@ -70,8 +70,8 @@ opt_base = {'xlb': .05, 'xub': 50,
 p = mtp.Problem(h=20, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=100, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=1000, s=3, k=3, xsd=.1, ssd=.5, pctzero=.4)
-p = mtp.Problem(h=10000, s=10, k=8, xsd=.1, ssd=.5, pctzero=.4)
-p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.2)
+p = mtp.Problem(h=10000, s=10, k=8, xsd=.1, ssd=.5, pctzero=.2)
+p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.1)
 p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4)
 
 geotargets = p.geotargets
@@ -94,7 +94,11 @@ opt_sparse = opt_base.copy()
 opt_sparse.update({'output_file': '/home/donboyd/Documents/test_sparse.out'})
 opt_sparse.update({'addup': True})
 opt_sparse.update({'crange': .01})
+opt_sparse.update({'addup_range': .0})
 opt_sparse.update({'linear_solver': 'ma86'})
+opt_sparse.update({'print_user_options': 'yes'})
+opt_sparse.update({'xlb': .1})
+opt_sparse.update({'xub': 10.0})
 opt_sparse
 
 res = gwi.ipopt_geo(p.wh, p.xmat, geotargets, options=opt_sparse)
