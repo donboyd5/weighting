@@ -27,8 +27,31 @@ importlib.reload(gwi)
 importlib.reload(mw)
 
 
-# %% create data
-# diff = geotargets_opt - geotargets
+# %% play with temp dirs
+import tempfile
+import os
+
+# project work dir is '/home/donboyd/Documents/python_projects/weighting'
+
+temp_dir = tempfile.TemporaryDirectory()
+dir(temp_dir)
+temp_dir.name
+
+cwd = os.getcwd()
+
+os.chdir(temp_dir.name)
+os.listdir(temp_dir.name)
+file_name = "test.txt"
+file1 = open(file_name, "w")
+file1. write("file information")
+file1. close()
+os.listdir(temp_dir.name)
+
+os.getcwd()
+os.chdir(cwd)
+os.listdir(cwd)
+
+temp_dir.cleanup()  # gets rid of director so cannot change to it
 # pctdiff = diff / geotargets * 100
 
 # %% base options
@@ -70,7 +93,7 @@ opt_sparse = opt_base.copy()
 opt_sparse.update({'output_file': '/home/donboyd/Documents/test_sparse.out'})
 opt_sparse.update({'addup': True})
 opt_sparse.update({'crange': .01})
-opt_sparse.update({'linear_solver': 'ma77'})
+opt_sparse.update({'linear_solver': 'ma86'})
 opt_sparse
 
 res = gwi.ipopt_geo(p.wh, p.xmat, geotargets, options=opt_sparse)
