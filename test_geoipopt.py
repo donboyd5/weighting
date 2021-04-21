@@ -40,12 +40,12 @@ opt_base = {# 'xlb': .2, 'xub': 2, # default 0.1, 10.0
          'linear_solver': 'ma57',  # ma27, ma77, ma57, ma86 work, not ma97
          'quiet': False}
 
-# %% test sparse version
+# %% create problem
 p = mtp.Problem(h=20, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=100, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=1000, s=3, k=3, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=10000, s=10, k=8, xsd=.1, ssd=.5, pctzero=.2)
-p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.6)
+p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.5)
 p = mtp.Problem(h=50000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.2)
 
@@ -59,7 +59,7 @@ p.xmat.size
 np.count_nonzero(p.xmat) * p.s
 
 
-# %% optionally add noise
+# %% add noise
 np.random.seed(1)
 noise = np.random.normal(0, .02, p.geotargets.size)
 # np.round(noise * 100, 2)
@@ -72,7 +72,7 @@ opt_sparse = opt_base.copy()
 opt_sparse.update({'output_file': '/home/donboyd/Documents/test_sparse.out'})
 opt_sparse.update({'addup': False})
 opt_sparse.update({'addup': True})
-opt_sparse.update({'crange': .02})
+opt_sparse.update({'crange': .005})
 opt_sparse.update({'addup_range': .0})
 opt_sparse.update({'linear_solver': 'ma86'})
 opt_sparse.update({'xlb': .01})
@@ -96,19 +96,32 @@ pdiff_opt = res.geotargets_opt / geotargets * 100 - 100
 np.round(pdiff_init, 2)
 np.round(pdiff_opt, 2)
 
+sspd = np.square(pdiff_opt).sum()
+sspd
+
 np.quantile(pdiff_init, q=qtiles)
 np.quantile(pdiff_opt, q=qtiles)
 
 res.g
-np.round(np.quantile(res.g, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1]), 2)
+np.round(np.quantile(res.g, q=qtiles), 2)
 
 res.ipopt_info
+res.whs_opt
 
 # targ_opt = np.dot(p.whs.T, p.xmat)
 
 
 # %% compare to poisson
 import src.microweight as mw
+prob = mw.Microweight(wh=p.wh, xmat=p.xmat, geotargets=geotargets)
+# uo = {'qmax_iter': 3, 'quiet': True, 'verbose': 2}
+gw5 = prob.geoweight(method='poisson')  # , options=uo
+gw5.elapsed_seconds
+gw5.sspd
+dir(gw5)
+gw5.pdiff
+np.round(np.quantile(gw5.pdiff, q=qtiles), 2)
+gw5.whs_opt
 
 
 
