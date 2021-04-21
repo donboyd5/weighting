@@ -30,27 +30,36 @@ import numpy as np
 import pandas as pd
 from collections import namedtuple
 from timeit import default_timer as timer
-# import ipopt  # requires special installation
-
-import src.utilities as ut
-# import src.common as common
-import src.geoweight_qmatrix as qm
-import src.geoweight_poisson as ps
-import src.reweight_ipopt_dense as rwip
-import src.reweight_ipopt_sparse as rwips
-import src.reweight_empcalib as rwec
-import src.reweight_raking as rwrk
-import src.reweight_leastsquares as rwls
-import src.reweight_minimizeNLP as rwmn
-
-
-# %% reimports
-importlib.reload(rwip)
-importlib.reload(rwips)
-
 
 # import scipy.optimize as spo
 # from scipy.optimize import least_squares
+
+import src.utilities as ut
+# import src.common as common
+
+import src.geoweight_ipopt as gwip
+import src.geoweight_poisson as gwps
+import src.geoweight_qmatrix as gwqm
+
+import src.reweight_empcalib as rwec
+import src.reweight_ipopt_dense as rwip
+import src.reweight_ipopt_sparse as rwips
+import src.reweight_leastsquares as rwls
+import src.reweight_minimizeNLP as rwmn
+import src.reweight_raking as rwrk
+
+
+# %% reimports
+importlib.reload(gwip)
+importlib.reload(gwps)
+importlib.reload(gwqm)
+
+importlib.reload(rwec)
+importlib.reload(rwip)
+importlib.reload(rwips)
+importlib.reload(rwls)
+importlib.reload(rwmn)
+importlib.reload(rwrk)
 
 
 # %% Microweight class
@@ -151,24 +160,27 @@ class Microweight:
         # geotargets must by s x k
 
         if method == 'qmatrix':
-            method_result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
+            method_result = gwqm.qmatrix(self.wh, self.xmat, self.geotargets,
                                        method='raking',
                                        options=options)
         elif method == 'qmatrix-ec':
-            method_result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
+            method_result = gwqm.qmatrix(self.wh, self.xmat, self.geotargets,
                                        method='empcal',
                                        options=options)
         elif method == 'qmatrix-ipopt':
-            method_result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
+            method_result = gwqm.qmatrix(self.wh, self.xmat, self.geotargets,
                                        method='ipopt',
                                        options=options)
         elif method == 'qmatrix-lsq':
-            method_result = qm.qmatrix(self.wh, self.xmat, self.geotargets,
+            method_result = gwqm.qmatrix(self.wh, self.xmat, self.geotargets,
                                        method='least_squares',
                                        options=options)
+        elif method == 'geoipopt':
+            method_result = gwip.ipopt_geo(self.wh, self.xmat, self.geotargets, 
+                                          options=options)
         elif method == 'poisson':
-            method_result = ps.poisson(self.wh, self.xmat, self.geotargets,
-                                       options=options)
+            method_result = gwps.poisson(self.wh, self.xmat, self.geotargets,
+                                         options=options)
 
         # calculate sum of squared percentage differences
         diff = method_result.geotargets_opt - self.geotargets

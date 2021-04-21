@@ -7,6 +7,7 @@
 # for checking:
 # import sys; print(sys.executable)
 # print(sys.path)
+import importlib
 
 import numpy as np
 
@@ -19,10 +20,9 @@ import src.make_test_problems as mtp
 import src.microweight as mw
 
 
-# import src.poisson as ps
+# %% reimports
+importlib.reload(mw)
 
-# print(mw.__doc__)
-# print('hello')
 
 # %% constants
 qtiles = (0, .01, .1, .25, .5, .75, .9, .99, 1)
@@ -49,6 +49,15 @@ p = mtp.Problem(h=100000, s=10, k=5)
 p = mtp.Problem(h=100000, s=50, k=30)
 p = mtp.Problem(h=1000000, s=50, k=30)
 
+p = mtp.Problem(h=20, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=100, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=1000, s=3, k=3, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=10000, s=10, k=8, xsd=.1, ssd=.5, pctzero=.2)
+p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.5)
+p = mtp.Problem(h=50000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.2)
+
+
 # %% add noise and set problem up
 p.h
 p.s
@@ -71,7 +80,7 @@ ngtargets = p.geotargets * (1 + gnoise)
 prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets, geotargets=ngtargets)
 
 
-# %% geoweight the problem
+# %% define options
 
 uo = {'qmax_iter': 10}
 uo = {'qmax_iter': 1, 'independent': True}
@@ -106,20 +115,47 @@ uolsq = {'qmax_iter': 10,
          'lsmr_tol': 'auto'  # 'auto'  # 'auto' or None
          }
 
+# geoipopt options
+geoipopt_base = {# 'xlb': .2, 'xub': 2, # default 0.1, 10.0
+         # 'crange': 0.0,  # default 0.0
+         # 'print_level': 0,
+         # 'file_print_level': 5,
+         # 'ccgoal': 10000,
+         # 'addup': False,  # default is false
+         'max_iter': 100,
+         'linear_solver': 'ma57',  # ma27, ma77, ma57, ma86 work, not ma97
+         'quiet': False}
+
+geoipopt_opts = geoipopt_base.copy()
+geoipopt_opts.update({'output_file': '/home/donboyd/Documents/test_sparse.out'})
+geoipopt_opts.update({'addup': False})
+geoipopt_opts.update({'addup': True})
+geoipopt_opts.update({'crange': .01})
+geoipopt_opts.update({'addup_range': .0})
+geoipopt_opts.update({'linear_solver': 'ma86'})
+geoipopt_opts.update({'xlb': .01})
+geoipopt_opts.update({'xub': 10.0})
+geoipopt_opts
+
+
+# %% geoweight the problem
 gw1 = prob.geoweight(method='qmatrix', options=uoqr)
 gw2 = prob.geoweight(method='qmatrix-lsq', options=uolsq)
 gw3 = prob.geoweight(method='qmatrix-ipopt', options=uoipopt)
 gw4 = prob.geoweight(method='qmatrix-ec', options=uoempcal)
 gw5 = prob.geoweight(method='poisson', options=uo)
+gw6 = prob.geoweight(method='geoipopt', options=geoipopt_opts)
+
 
 
 gw1.sspd
 gw2.sspd
 gw3.sspd
 gw5.sspd
+gw6.sspd
 
 
-gw = gw5  # one of the above
+gw = gw6  # one of the above
 # dir(gw)
 gw.method
 gw.sspd
@@ -163,6 +199,16 @@ dir(gw3)
 gw1.whs_opt
 gw2.whs_opt
 gw3.whs_opt
+
+gw5.whs_opt
+gw6.whs_opt
+
+np.round(np.quantile(gw5.whs_opt - gw6.whs_opt, q=qtiles), 2)
+np.round(np.quantile(gw5.whs_opt / gw6.whs_opt * 100 - 100, q=qtiles), 2)
+
+gw = gw5
+Q = np.divide(gw.whs_opt, p.wh.reshape(-1, 1))
+np.round(np.quantile(Q.sum(axis=1), q=qtiles), 2)
 
 
 # %% reweight the problem
