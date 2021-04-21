@@ -107,4 +107,10 @@ res.ipopt_info
 # targ_opt = np.dot(p.whs.T, p.xmat)
 
 
+# %% compare to poisson
+import src.microweight as mw
+
+
+
+
 # %%  play
