@@ -79,20 +79,6 @@ opt_sparse.update({'xub': 10.0})
 opt_sparse
 
 
-# %% examine nonzeros
-p.xmat.shape  # 100, 2 = 200
-p.xmat.size
-np.count_nonzero(p.xmat) # 152 gives 3 states x 152 = 456 nonzeros
-
-jst, jsa = gwi.ipopt_geo(p.wh, p.xmat, geotargets, options=opt_sparse)
-jst.shape # 6, 300  = 1,800
-jsa.shape # 100, 300 = 30,000
-
-jst.count_nonzero() # 456
-jsa.count_nonzero()  # 300 actual nz values in jsa
-
-
-
 # %% run problem
 res = gwi.ipopt_geo(p.wh, p.xmat, geotargets, options=opt_sparse)
 res.elapsed_seconds
@@ -116,100 +102,7 @@ np.round(np.quantile(res.g, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1]),
 
 res.ipopt_info
 
-
-# %% additional examination
-targ_opt = np.dot(p.whs.T, p.xmat)
-xmat = p.xmat
-wh = p.wh
-geotargets = p.geotargets
-dir(p)
-
-checksums = res.Q_best.sum(axis=1)
-np.quantile(checksums*100, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1])
+# targ_opt = np.dot(p.whs.T, p.xmat)
 
 
-# %% array play
-p2 = mtp.Problem(h=20, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
-opt_sparse.update({'addup': True})
-opt_sparse.update({'addup': False})
-check = gwi.ipopt_geo(p2.wh, p2.xmat, p2.geotargets, options=opt_sparse)
-
-check.Q_best
-check.Q_best.sum(axis=1) * 100
-
-jst.shape
-jsa.shape
-js = vstack([jst, jsa])
-js.shape
-js.shape[0]
-
-a = np.array([0, 1, 2, 3])
-b = np.array([7, 8, 9])
-np.concatenate((a, b), axis=0)
-
-
-check[0].max()
-check.shape
-sps.find(check)[0].max()
-tmp2 = check.todense()
-whs
-tmp2[6, :]
-
-from scipy.sparse import coo_matrix, csr_matrix, vstack
-A = csr_matrix([[1, 2], [3, 4], [0, 1]])
-B = csr_matrix([[5, 6]])
-A.shape
-B.shape
-
-A.todense()
-B.todense()
-ABmat = vstack([A, B])
-ABmat.todense()
-
-sps.find(A)
-sps.find(B)
-sps.find(ABmat)
-
-vstack([A, B]).toarray()
-
-
-p2.whs
-p2.wh
-p2.whs.sum(axis=1) 
-
-h = p2.h
-s = p2.s
-
-# row h * s  0 0 0 1 1 1 2 2 2 ... 19 19 19  # repeat h s times
-# col s      0 3 6 1 4 7 2 5 8 ... col = row + s * (0, 1, 2)  
-row = np.repeat(np.arange(0, h), s)
-state_idx = np.tile(np.arange(0, s), h)
-col = row + state_idx * h
-# we'll use init whs values for the coefficients, not these opt values
-nzvalues = p2.whs[row, state_idx]
-jsparse_addup = sps.csr_matrix((nzvalues, (row, col)))
-print(jsparse_addup)
-p2.whs
-tmp = jsparse_addup.todense()
-tmp.shape
-tmp[1, :]
-
-
-
-
-# # creating an array from a Python sequence
-# np.array([i**2 for i in range(5)])
-# # array([ 0,  1,  4,  9, 16])
-
-# # creating an array filled with ones
-# np.ones((2, 4))
-# # array([[ 1.,  1.,  1.,  1.],
-# #        [ 1.,  1.,  1.,  1.]])
-
-# # creating an array of evenly-spaced points
-# np.linspace(0, 10, 5)
-# # array([  0. ,   2.5,   5. ,   7.5,  10. ])
-
-
-# # creating an array of a specified datatype
-# np.array([1.5, 3.20, 5.78], dtype=int)
+# %%  play

@@ -65,8 +65,8 @@ import src.utilities as ut
 # %% default options
 
 user_defaults = {
-    'xlb': 0.1,
-    'xub': 10,
+    'xlb': 0.01,
+    'xub': 100,
     'crange': 0.0,
     'ccgoal': False,  # for constraint scaling
     'addup': False,
