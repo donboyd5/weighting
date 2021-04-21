@@ -46,7 +46,7 @@ p = mtp.Problem(h=100, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=1000, s=3, k=3, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=10000, s=10, k=8, xsd=.1, ssd=.5, pctzero=.2)
 p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.6)
-p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.5)
 p = mtp.Problem(h=50000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.2)
 
 geotargets = p.geotargets
@@ -55,6 +55,8 @@ geotargets = p.geotargets
 # p.xmat
 p.h
 p.xmat
+p.xmat.size
+np.count_nonzero(p.xmat) * p.s
 
 
 # %% optionally add noise
@@ -73,7 +75,6 @@ opt_sparse.update({'addup': True})
 opt_sparse.update({'crange': .02})
 opt_sparse.update({'addup_range': .0})
 opt_sparse.update({'linear_solver': 'ma86'})
-opt_sparse.update({'print_user_options': 'yes'})
 opt_sparse.update({'xlb': .01})
 opt_sparse.update({'xub': 10.0})
 opt_sparse
@@ -82,6 +83,7 @@ opt_sparse
 # %% run problem
 res = gwi.ipopt_geo(p.wh, p.xmat, geotargets, options=opt_sparse)
 res.elapsed_seconds
+res.elapsed_seconds / 60
 res.ipopt_info['status_msg']
 qsums = res.Q_best.sum(axis=1)
 np.quantile(qsums*100, q=qtiles)
