@@ -21,6 +21,7 @@ import src.make_test_problems as mtp
 import src.geoweight_ipopt as gwi
 import src.microweight as mw
 
+
 # %% reimports
 importlib.reload(mtp)
 importlib.reload(gwi)
@@ -72,7 +73,7 @@ opt_sparse = opt_base.copy()
 opt_sparse.update({'output_file': '/home/donboyd/Documents/test_sparse.out'})
 opt_sparse.update({'addup': False})
 opt_sparse.update({'addup': True})
-opt_sparse.update({'crange': .005})
+opt_sparse.update({'crange': .01})
 opt_sparse.update({'addup_range': .0})
 opt_sparse.update({'linear_solver': 'ma86'})
 opt_sparse.update({'xlb': .01})
@@ -96,23 +97,24 @@ pdiff_opt = res.geotargets_opt / geotargets * 100 - 100
 np.round(pdiff_init, 2)
 np.round(pdiff_opt, 2)
 
-sspd = np.square(pdiff_opt).sum()
-sspd
-
 np.quantile(pdiff_init, q=qtiles)
 np.quantile(pdiff_opt, q=qtiles)
 
-res.g
+sspd = np.square(pdiff_opt).sum()
+sspd
+
 np.round(np.quantile(res.g, q=qtiles), 2)
 
 res.ipopt_info
 res.whs_opt
 
+np.round(np.quantile(res.whs_opt, q=qtiles), 2)
+
 # targ_opt = np.dot(p.whs.T, p.xmat)
 
 
 # %% compare to poisson
-import src.microweight as mw
+
 prob = mw.Microweight(wh=p.wh, xmat=p.xmat, geotargets=geotargets)
 # uo = {'qmax_iter': 3, 'quiet': True, 'verbose': 2}
 gw5 = prob.geoweight(method='poisson')  # , options=uo
@@ -123,7 +125,8 @@ gw5.pdiff
 np.round(np.quantile(gw5.pdiff, q=qtiles), 2)
 gw5.whs_opt
 
-
+np.round(np.quantile(gw5.whs_opt, q=qtiles), 2)
 
 
 # %%  play
+qtiles
