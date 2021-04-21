@@ -26,59 +26,35 @@ importlib.reload(mtp)
 importlib.reload(gwi)
 importlib.reload(mw)
 
-
-# %% play with temp dirs
-import tempfile
-import os
-
-# project work dir is '/home/donboyd/Documents/python_projects/weighting'
-
-temp_dir = tempfile.TemporaryDirectory()
-dir(temp_dir)
-temp_dir.name
-
-cwd = os.getcwd()
-
-os.chdir(temp_dir.name)
-os.listdir(temp_dir.name)
-file_name = "test.txt"
-file1 = open(file_name, "w")
-file1. write("file information")
-file1. close()
-os.listdir(temp_dir.name)
-
-os.getcwd()
-os.chdir(cwd)
-os.listdir(cwd)
-
-temp_dir.cleanup()  # gets rid of director so cannot change to it
-# pctdiff = diff / geotargets * 100
+# %% constants
+qtiles = [0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1]
 
 # %% base options
-opt_base = {'xlb': .2, 'xub': 2,
-         'crange': 0.0,
-         'print_level': 0,
-         'file_print_level': 5,
+opt_base = {# 'xlb': .2, 'xub': 2, # default 0.1, 10.0
+         # 'crange': 0.0,  # default 0.0
+         # 'print_level': 0,
+         # 'file_print_level': 5,
          # 'ccgoal': 10000,
-         'addup': False,
+         # 'addup': False,  # default is false
          'max_iter': 100,
          'linear_solver': 'ma57',  # ma27, ma77, ma57, ma86 work, not ma97
          'quiet': False}
 
 # %% test sparse version
-
 p = mtp.Problem(h=20, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=100, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=1000, s=3, k=3, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=10000, s=10, k=8, xsd=.1, ssd=.5, pctzero=.2)
-p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.1)
+p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.6)
 p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=50000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.2)
 
 geotargets = p.geotargets
 
 # any zero rows?
 # p.xmat
 p.h
+p.xmat
 
 
 # %% optionally add noise
@@ -88,19 +64,36 @@ noise = np.random.normal(0, .02, p.geotargets.size)
 
 geotargets = p.geotargets * (1 + noise.reshape((p.s, p.k)))
 
-# %% run problem
-qtiles = [0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1]
+
+# %% update options
 opt_sparse = opt_base.copy()
 opt_sparse.update({'output_file': '/home/donboyd/Documents/test_sparse.out'})
+opt_sparse.update({'addup': False})
 opt_sparse.update({'addup': True})
-opt_sparse.update({'crange': .01})
+opt_sparse.update({'crange': .02})
 opt_sparse.update({'addup_range': .0})
 opt_sparse.update({'linear_solver': 'ma86'})
 opt_sparse.update({'print_user_options': 'yes'})
-opt_sparse.update({'xlb': .1})
+opt_sparse.update({'xlb': .01})
 opt_sparse.update({'xub': 10.0})
 opt_sparse
 
+
+# %% examine nonzeros
+p.xmat.shape  # 100, 2 = 200
+p.xmat.size
+np.count_nonzero(p.xmat) # 152 gives 3 states x 152 = 456 nonzeros
+
+jst, jsa = gwi.ipopt_geo(p.wh, p.xmat, geotargets, options=opt_sparse)
+jst.shape # 6, 300  = 1,800
+jsa.shape # 100, 300 = 30,000
+
+jst.count_nonzero() # 456
+jsa.count_nonzero()  # 300 actual nz values in jsa
+
+
+
+# %% run problem
 res = gwi.ipopt_geo(p.wh, p.xmat, geotargets, options=opt_sparse)
 res.elapsed_seconds
 res.ipopt_info['status_msg']
@@ -118,18 +111,10 @@ np.round(pdiff_opt, 2)
 np.quantile(pdiff_init, q=qtiles)
 np.quantile(pdiff_opt, q=qtiles)
 
-
-
 res.g
-np.quantile(res.g, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1])
+np.round(np.quantile(res.g, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1]), 2)
 
 res.ipopt_info
-
-res.Q_best
-checksums = res.Q_best.sum(axis=1)
-np.quantile(checksums, q=[0, .01, .05, .1, .25, .5, .75, .9, .95, .99, 1])
-p.whs
-res.whs_opt
 
 
 # %% additional examination

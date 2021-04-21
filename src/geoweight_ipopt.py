@@ -66,15 +66,16 @@ import src.utilities as ut
 
 user_defaults = {
     'xlb': 0.1,
-    'xub': 100,
-    'crange': .02,
-    'ccgoal': False,
-    'objgoal': 100,
+    'xub': 10,
+    'crange': 0.0,
+    'ccgoal': False,  # for constraint scaling
     'addup': False,
-    'addup_range': .01,
+    'addup_range': 0.0,
+    'objgoal': 100,
     'quiet': True}
 
 solver_defaults = {
+    'print_user_options': 'yes',
     'print_level': 0,
     'file_print_level': 5,
     'jac_d_constant': 'yes',
@@ -121,8 +122,8 @@ def ipopt_geo(wh, xmat, geotargets,
     opts = ut.dict_nt(options_all)
 
     if opts.linear_solver == 'ma77':
-        # create a temporary directory for the temporary files of ma77 so that
-        # if we run this in parallel they won't interfere with each other
+        # create a temporary directory for the temporary files ma77 writes
+        # this way if run in parallel files won't interfere with each other
         cwd = os.getcwd()
         temp_dir = tempfile.TemporaryDirectory()
         os.chdir(temp_dir.name)
@@ -132,13 +133,12 @@ def ipopt_geo(wh, xmat, geotargets,
     s = geotargets.shape[0]  # number of states or geographic areas
 
     n = h * s # number of variables to solve for
-    targs = k * s  # total number of target constraints
+    ntargs = k * s  # total number of target constraints
 
     # create Q, matrix of initial state weight shares -- each row sums to 1
     # for now get initial state weight shares from first column of geotargets
     state_shares = geotargets[:, 0] / geotargets[:, 0].sum()  # vector length s
     Q = np.tile(state_shares, (h, 1))  # h x s matrix
-    # Q.sum(axis=1)
 
     whs_init = np.multiply(Q.T, wh).T
 
@@ -167,7 +167,6 @@ def ipopt_geo(wh, xmat, geotargets,
     rows = np.array([])
     cols = np.array([])
     nzvalues = np.array([])
-
     for state in np.arange(0, s):
         rows = np.concatenate([rows, row + k * state]) # constraints
         cols = np.concatenate([cols, col + h * state])  # households
@@ -175,10 +174,9 @@ def ipopt_geo(wh, xmat, geotargets,
 
     rows = rows.astype('int32')
     cols = cols.astype('int32')
-    jsparse_targets = sps.csr_matrix((nzvalues, (rows, cols)))
-    
+    jsparse_targets = sps.csr_matrix((nzvalues, (rows, cols)))    
 
-    # adding up constraints, if needed
+    # adding up constraints for the jacobian, if needed
     jsparse_addup = None
     if opts.addup:
         # define row indexes
@@ -192,7 +190,6 @@ def ipopt_geo(wh, xmat, geotargets,
         nzvalues = whs_init[row, state_idx]
         jsparse_addup = sps.csr_matrix((nzvalues, (row, col)))
 
-    # return jsparse_targets, jsparse_addup
     jsparse = sps.vstack([jsparse_targets, jsparse_addup])
     
     m = jsparse.shape[0]  # TOTAL number of constraints - targets plus adding-up
@@ -239,11 +236,8 @@ def ipopt_geo(wh, xmat, geotargets,
         temp_dir.cleanup()     
 
     Q_best = np.multiply(Q, g.reshape(s, h).T)
-    # Q_best.sum(axis=1)
 
     whs_opt = np.multiply(Q_best.T, wh).T
-
-
     # next 2 lines produce the same result, in about the same time
     # %timeit whs_opt = np.multiply(Q_best, wh.reshape((-1, 1)))  # same result
     # %timeit whs_opt = (Q_best.T * wh).T  # same result
@@ -280,6 +274,7 @@ def ipopt_geo(wh, xmat, geotargets,
                  ipopt_info=ipopt_info)
     return res
     
+
 # %% geoweight class for ipopt
 class GW:
 
