@@ -19,120 +19,6 @@ import autograd as ag
 import src.make_test_problems as mtp
 
 
-# %% new functions
-def get_delta(wh, beta, xmat):
-    beta_x = jnp.exp(jnp.dot(beta, xmat.T))
-    delta = jnp.log(wh / beta_x.sum(axis=0))  # axis=0 gives colsums
-    return delta
-
-def get_diff_weights(geotargets, goal=100):
-    goalmat = jnp.full(geotargets.shape, goal)
-    # djb note there is no jnp.errstate so I use np.errstate  
-    with np.errstate(divide='ignore'):  # turn off divide-by-zero warning
-        diff_weights = jnp.where(geotargets != 0, goalmat / geotargets, 1)
-    return diff_weights
-
-def get_geoweights(beta, delta, xmat):
-    """
-    Calculate state-specific weights for each household.
-
-    Definitions:
-    h: number of households
-    k: number of characteristics each household has
-    s: number of states or geographic areas
-
-    See (Khitatrakun, Mermin, Francis, 2016, p.4)
-
-    Parameters
-    ----------
-    beta : matrix
-        s x k matrix of coefficients for the poisson function that generates
-        state weights.
-    delta : vector
-        h-length vector of constants (one per household) for the poisson
-        function that generates state weights.
-    xmat : matrix
-        h x k matrix of characteristics (data) for households.
-
-    Returns
-    -------
-    matrix of dimension h x s.
-
-    """
-    # begin by calculating beta_x, an s x h matrix:
-    #   each row has the sum over k of beta[s_i, k] * x[h_j, k]
-    #     for each household where s_i is the state in row i
-    #   each column is a specific household
-    beta_x = jnp.dot(beta, xmat.T)
-
-    # add the delta vector of household constants to every row
-    # of beta_x and transpose
-    # beta_xd <- apply(beta_x, 1, function(mat) mat + delta)
-    beta_xd = (beta_x + delta).T
-
-    weights = jnp.exp(beta_xd)
-
-    return weights
-
-
-def get_geotargets(beta, wh, xmat):
-    """
-    Calculate matrix of target values by state and characteristic.
-
-    Returns
-    -------
-    targets_mat : matrix
-        s x k matrix of target values.
-
-    """
-    delta = get_delta(wh, beta, xmat)
-    whs = get_geoweights(beta, delta, xmat)
-    targets_mat = jnp.dot(whs.T, xmat)
-    return targets_mat    
-
-
-def targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
-    '''
-    Calculate difference between calculated targets and desired targets.
-
-    Parameters
-    ----------
-    beta_obj: vector or matrix
-        if vector it will have length s x k and we will create s x k matrix
-        if matrix it will be dimension s x k
-        s x k matrix of coefficients for the poisson function that generates
-        state weights.
-    wh: array-like
-        DESCRIPTION.
-    xmat: TYPE
-        DESCRIPTION.
-    geotargets: TYPE
-        DESCRIPTION.
-    diff_weights: TYPE
-        DESCRIPTION.
-
-    Returns
-    -------
-    matrix of dimension s x k.
-
-    '''
-    # beta must be a matrix so if beta_object is a vector, reshape it
-    if beta_object.ndim == 1:
-        beta = beta_object.reshape(geotargets.shape)
-    elif beta_object.ndim == 2:
-        beta = beta_object
-
-    geotargets_calc = get_geotargets(beta, wh, xmat)
-    diffs = geotargets_calc - geotargets
-    diffs = diffs * diff_weights
-
-    # return a matrix or vector, depending on the shape of beta_object
-    if beta_object.ndim == 1:
-        diffs = diffs.flatten()
-
-    return diffs
-
-
 # %% regular functions
 def get_delta(wh, beta, xmat):
     """Get vector of constants, 1 per household.
@@ -290,20 +176,20 @@ def targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
     return diffs
 
 
-# %% j functions
-def jget_delta(wh, beta, xmat):
+# %% jx functions
+def jxget_delta(wh, beta, xmat):
     beta_x = jnp.exp(jnp.dot(beta, xmat.T))
     delta = jnp.log(wh / beta_x.sum(axis=0))  # axis=0 gives colsums
     return delta
 
-def jget_diff_weights(geotargets, goal=100):
+def jxget_diff_weights(geotargets, goal=100):
     goalmat = jnp.full(geotargets.shape, goal)
     # djb note there is no jnp.errstate so I use np.errstate  
     with np.errstate(divide='ignore'):  # turn off divide-by-zero warning
         diff_weights = jnp.where(geotargets != 0, goalmat / geotargets, 1)
     return diff_weights
 
-def jget_geoweights(beta, delta, xmat):
+def jxget_geoweights(beta, delta, xmat):
     """
     Calculate state-specific weights for each household.
 
@@ -346,7 +232,7 @@ def jget_geoweights(beta, delta, xmat):
     return weights
 
 
-def jget_geotargets(beta, wh, xmat):
+def jxget_geotargets(beta, wh, xmat):
     """
     Calculate matrix of target values by state and characteristic.
 
@@ -356,13 +242,13 @@ def jget_geotargets(beta, wh, xmat):
         s x k matrix of target values.
 
     """
-    delta = jget_delta(wh, beta, xmat)
-    whs = jget_geoweights(beta, delta, xmat)
+    delta = jxget_delta(wh, beta, xmat)
+    whs = jxget_geoweights(beta, delta, xmat)
     targets_mat = jnp.dot(whs.T, xmat)
     return targets_mat    
 
 
-def jtargets_diff(beta_object, wh, xmat, geotargets, diff_weights):
+def jxtargets_diff(beta_object, wh, xmat, geotargets, diff_weights):
     '''
     Calculate difference between calculated targets and desired targets.
 
@@ -393,7 +279,7 @@ def jtargets_diff(beta_object, wh, xmat, geotargets, diff_weights):
     elif beta_object.ndim == 2:
         beta = beta_object
 
-    geotargets_calc = jget_geotargets(beta, wh, xmat)
+    geotargets_calc = jxget_geotargets(beta, wh, xmat)
     diffs = geotargets_calc - geotargets
     diffs = diffs * diff_weights
 
@@ -404,14 +290,28 @@ def jtargets_diff(beta_object, wh, xmat, geotargets, diff_weights):
     return diffs
 
 
+# %% jax jacobian functions
+jfn = jax.jacobian(jxtargets_diff)
 
+def jfn2(beta0, wh, xmat, geotargets, dw):
+   jacvals = jfn(beta0, wh, xmat, geotargets, dw)
+   jacvals = np.array(jacvals).reshape((dw.size, dw.size))
+   return jacvals
 
 
 # %% testbed
 import numpy as np
 import jax.numpy as jnp
+# this next item is CRUCIAL or we will lose precision
+from jax.config import config; config.update("jax_enable_x64", True)
 
 p = mtp.Problem(h=20, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=100, s=8, k=4, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=1000, s=8, k=4, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=1000, s=15, k=10, xsd=.1, ssd=.5, pctzero=.4) # bad jtdiffs
+p = mtp.Problem(h=10000, s=30, k=15, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=20000, s=50, k=20, xsd=.1, ssd=.5, pctzero=.4)
+
 wh = p.wh
 xmat = p.xmat
 geotargets = p.geotargets
@@ -421,37 +321,45 @@ beta0 = betavec0.reshape(geotargets.shape)
 
 delta = get_delta(wh, beta0, xmat)
 dw = get_diff_weights(geotargets)
+
+# next few items not needed to run the optimization
 gweights = get_geoweights(beta0, delta, xmat)
 
 whs = get_geoweights(beta0, delta, xmat)
 whs.sum(axis=1)
 wh
 
+# test what went wrong
+get_delta(wh, beta0, xmat)
+jxget_delta(wh, beta0, xmat) # this is bad
+
+# why?? look into delta
+np.exp(np.dot(beta0, xmat.T))
+jnp.exp(jnp.dot(beta0, xmat.T)) # infs
+
+tmp = np.exp(np.dot(beta0, xmat.T))
+dir(tmp)
+type(tmp)
+tmp.dtype # float64
+
+jtmp = jnp.exp(jnp.dot(beta0, xmat.T)) # infs
+jtmp.dtype # float32
+
+# is it dot??
+np.dot(beta0, xmat.T)
+jnp.dot(beta0, xmat.T) # this looks ok
+
+get_geotargets(beta0, wh, xmat)
+jxget_geotargets(beta0, wh, xmat)
+
 tdiffs = targets_diff(beta0, wh, xmat, geotargets, dw)
-jtdiffs = jtargets_diff(beta0, wh, xmat, geotargets, dw)
+jtdiffs = jxtargets_diff(beta0, wh, xmat, geotargets, dw)
 tdiffs
 jtdiffs
 
-jfn = jax.jacobian(jtargets_diff)
-
-def jfn2(beta0, wh, xmat, geotargets, dw):
-   jacvals = jfn(beta0, wh, xmat, geotargets, dw)
-   jacvals = np.array(jacvals).reshape((6, 6))
-   return jacvals
-
 jfn2(beta0, wh, xmat, geotargets, dw)   
 
-import autograd.numpy as np
-jagfn = ag.jacobian(targets_diff)
-
-jtest = jfn(beta0, wh, xmat, geotargets, dw)
-jtest.shape
-jtest.reshape((6, 6))
-
-jagtest = jagfn(beta0, wh, xmat, geotargets, dw)
-jagtest.shape
-jagtest.reshape((6, 6))
-
+# %% optimize
 
 spo_result = spo.least_squares(
     fun=targets_diff,
@@ -473,6 +381,20 @@ spo_result = spo.least_squares(
     loss='soft_l1',  # linear, soft_l1, huber, cauchy, arctan,
     max_nfev=100,
     args=(wh, xmat, geotargets, dw))
+
+
+# %% autograd
+import autograd.numpy as np
+jagfn = ag.jacobian(targets_diff)
+
+jtest = jfn(beta0, wh, xmat, geotargets, dw)
+jtest.shape
+jtest.reshape((6, 6))
+
+jagtest = jagfn(beta0, wh, xmat, geotargets, dw)
+jagtest.shape
+jagtest.reshape((6, 6))
+
 
 
 
