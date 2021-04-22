@@ -54,6 +54,7 @@ p = mtp.Problem(h=100, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=1000, s=3, k=3, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=10000, s=10, k=8, xsd=.1, ssd=.5, pctzero=.2)
 p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=30000, s=30, k=20, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.5)
 p = mtp.Problem(h=50000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.2)
 
@@ -78,6 +79,26 @@ ngtargets = p.geotargets * (1 + gnoise)
 # ngtargets = p.geotargets
 
 prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets, geotargets=ngtargets)
+
+
+# %% what if we normalize xmat and geotargets?
+# divide all xmat columns by their sum
+# divide all corresponding geotargets
+p.xmat.shape
+scale = p.xmat.sum(axis=0) / 10000.0
+scale.shape
+ngtargets.shape  # s x k
+
+xmat = np.divide(p.xmat, scale)
+xmat.shape
+xmat.sum(axis=0)
+
+ngtargets2 = np.divide(ngtargets, scale)
+ngtargets2.shape
+ngtargets2.sum(axis=0)
+
+
+prob = mw.Microweight(wh=p.wh, xmat=xmat, targets=ntargets, geotargets=ngtargets2)
 
 
 # %% define options
@@ -130,7 +151,7 @@ geoipopt_opts = geoipopt_base.copy()
 geoipopt_opts.update({'output_file': '/home/donboyd/Documents/test_sparse.out'})
 geoipopt_opts.update({'addup': False})
 geoipopt_opts.update({'addup': True})
-geoipopt_opts.update({'crange': .01})
+geoipopt_opts.update({'crange': .005})
 geoipopt_opts.update({'addup_range': .0})
 geoipopt_opts.update({'linear_solver': 'ma86'})
 geoipopt_opts.update({'xlb': .01})
@@ -144,27 +165,45 @@ gw2 = prob.geoweight(method='qmatrix-lsq', options=uolsq)
 gw3 = prob.geoweight(method='qmatrix-ipopt', options=uoipopt)
 gw4 = prob.geoweight(method='qmatrix-ec', options=uoempcal)
 gw5 = prob.geoweight(method='poisson', options=uo)
+gw5a = prob.geoweight(method='poisson_autodiff', options=uo)
+gw5b = prob.geoweight(method='poisson', options=uo)
 gw6 = prob.geoweight(method='geoipopt', options=geoipopt_opts)
 
+# djb: overflow encountered in exp
+#  beta_x = np.exp(np.dot(beta, xmat.T))
+# so this is happening in the non-jax function
+gw5.elapsed_seconds / 60
+# gw5b.elapsed_seconds / 60
+gw6.elapsed_seconds / 60
+
+np.corrcoef(gw5.whs_opt.flatten(), gw6.whs_opt.flatten())
 
 
 gw1.sspd
 gw2.sspd
 gw3.sspd
+
 gw5.sspd
+gw5a.sspd
 gw6.sspd
 
 
-gw = gw6  # one of the above
+gw = gw5  # one of the above
 # dir(gw)
 gw.method
 gw.sspd
 gw.elapsed_seconds
+
+targets_check = np.dot(gw.whs_opt.T, p.xmat)
+targets_check
+ngtargets
+
 prob.geotargets
 gw.geotargets_opt
 gw.pdiff
 np.round(gw.pdiff, 2)
 gw.whs_opt
+gw.whs_opt.sum(axis=1) - p.wh
 dir(gw.method_result)
 np.max(np.abs(gw.pdiff))
 
