@@ -352,15 +352,15 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
 #     outs, = vmap(vjp_fun)(M)
 #     return outs
 
-f = lambda x: jax_targets_diff(x, wh, xmat, geotargets, dw)
-def jacfwd_bycols(f):
-    # generic function to build jacobian column by column    
-    def jacfun(x):
-        # _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
-        _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
-        Jt = jax.vmap(_jvp, in_axes=1)(wh, xmat, geotargets, dw)(jnp.eye(len(x)))
-        return jnp.transpose(Jt)
-    return jacfun
+# f = lambda x: jax_targets_diff(x, wh, xmat, geotargets, dw)
+# def jacfwd_bycols(f):
+#     # generic function to build jacobian column by column    
+#     def jacfun(x):
+#         # _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
+#         _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
+#         Jt = jax.vmap(_jvp, in_axes=1)(wh, xmat, geotargets, dw)(jnp.eye(len(x)))
+#         return jnp.transpose(Jt)
+#     return jacfun
 
 # jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))
 # jax_jacobian_basic = jax.jacfwd(jax_targets_diff)
