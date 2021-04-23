@@ -55,6 +55,7 @@ p = mtp.Problem(h=1000, s=3, k=3, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=10000, s=10, k=8, xsd=.1, ssd=.5, pctzero=.2)
 p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=30000, s=30, k=20, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=35000, s=40, k=25, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.5)
 p = mtp.Problem(h=50000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.2)
 
@@ -173,6 +174,7 @@ gw5a = prob.geoweight(method='poisson_autodiff', options=uo)
 #  beta_x = np.exp(np.dot(beta, xmat.T))
 # so this is happening in the non-jax function
 gw5.elapsed_seconds / 60
+gw5a.elapsed_seconds / 60
 gw5b.elapsed_seconds / 60
 gw6.elapsed_seconds / 60
 
