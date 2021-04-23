@@ -17,6 +17,8 @@ from collections import namedtuple
 
 import scipy.optimize as spo
 
+import gc
+
 
 # %% poisson - the primary function
 
@@ -31,14 +33,36 @@ def poisson(wh, xmat, geotargets, options=None):
         f = lambda x: g(x, wh, xmat, geotargets, dw)
         def jacfun(x, wh, xmat, geotargets, dw):
             _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
+            gc.collect()
             Jt = jax.vmap(_jvp, in_axes=1)(jnp.eye(len(x)))
+            return jnp.transpose(Jt)
+        return jacfun    
+
+    def jac_jvpgc(g):
+        f = lambda x: g(x, wh, xmat, geotargets, dw)
+        def jacfun(x, wh, xmat, geotargets, dw):
+            def _jvp(s):
+                gc.collect()
+                return jax.jvp(f, (x,), (s,))[1]
+            Jt = jax.vmap(_jvp, in_axes=1)(jnp.eye(len(x)))
+            return jnp.transpose(Jt)
+        return jacfun   
+
+    def jac_vjp(g):
+        f = lambda x: g(x, wh, xmat, geotargets, dw)
+        def jacfun(x, wh, xmat, geotargets, dw):
+            y, _vjp = jax.vjp(f, x)
+            Jt, = jax.vmap(_vjp, in_axes=0)(jnp.eye(len(y)))
             return jnp.transpose(Jt)
         return jacfun    
 
     # jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))
     # jax_jacobian_basic = jax.jacfwd(jax_targets_diff)
-    jax_jacobian_basic = jac_jvp(jax_targets_diff)  # jax_jacobian_basic is a function -- the jax jacobian
-
+    jax_jacobian_basic = jax.jit(jac_jvp(jax_targets_diff))  # jax_jacobian_basic is a function -- the jax jacobian
+    # jax_jacobian_basic = jax.jit(jac_jvpgc(jax_targets_diff)) 
+    # jax_jacobian_basic = jac_jvp(jax_targets_diff) 
+    # jax_jacobian_basic = jac_vjp(jax_targets_diff) 
+    # jax_jacobian_basic = jax.jit(jac_vjp(jax_targets_diff))
 
     def jax_jacobian(beta, wh, xmat, geotargets, dw):
         jac_values = jax_jacobian_basic(beta, wh, xmat, geotargets, dw)

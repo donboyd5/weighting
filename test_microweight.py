@@ -10,6 +10,7 @@
 import importlib
 
 import numpy as np
+import gc  # gc.collect()
 
 import scipy
 from scipy.optimize import lsq_linear
@@ -161,6 +162,8 @@ geoipopt_opts
 
 
 # %% geoweight the problem
+gc.collect()
+
 # gw1 = prob.geoweight(method='qmatrix', options=uoqr)
 # gw2 = prob.geoweight(method='qmatrix-lsq', options=uolsq)
 # gw3 = prob.geoweight(method='qmatrix-ipopt', options=uoipopt)
@@ -193,7 +196,7 @@ gw5b.sspd
 gw6.sspd
 
 
-gw = gw5b  # one of the above
+gw = gw5a  # one of the above
 # dir(gw)
 gw.method
 gw.sspd
