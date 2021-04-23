@@ -17,8 +17,6 @@ from collections import namedtuple
 
 import scipy.optimize as spo
 
-import gc
-
 
 # %% poisson - the primary function
 
@@ -28,48 +26,6 @@ def poisson(wh, xmat, geotargets, options=None):
     # betavec0 = np.zeros(geotargets.size)
     betavec0 = np.full(geotargets.size, 0.1)  # 1e-13 or 1e-12 seems best
     dw = get_diff_weights(geotargets)
-
-    def jac_jvp(g):
-        f = lambda x: g(x, wh, xmat, geotargets, dw)
-        def jacfun(x, wh, xmat, geotargets, dw):
-            _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
-            gc.collect()
-            Jt = jax.vmap(_jvp, in_axes=1)(jnp.eye(len(x)))
-            return jnp.transpose(Jt)
-        return jacfun    
-
-    def jac_jvpgc(g):
-        f = lambda x: g(x, wh, xmat, geotargets, dw)
-        def jacfun(x, wh, xmat, geotargets, dw):
-            def _jvp(s):
-                gc.collect()
-                return jax.jvp(f, (x,), (s,))[1]
-            Jt = jax.vmap(_jvp, in_axes=1)(jnp.eye(len(x)))
-            return jnp.transpose(Jt)
-        return jacfun   
-
-    def jac_vjp(g):
-        f = lambda x: g(x, wh, xmat, geotargets, dw)
-        def jacfun(x, wh, xmat, geotargets, dw):
-            y, _vjp = jax.vjp(f, x)
-            Jt, = jax.vmap(_vjp, in_axes=0)(jnp.eye(len(y)))
-            return jnp.transpose(Jt)
-        return jacfun    
-
-    # jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))
-    # jax_jacobian_basic = jax.jacfwd(jax_targets_diff)
-    jax_jacobian_basic = jax.jit(jac_jvp(jax_targets_diff))  # jax_jacobian_basic is a function -- the jax jacobian
-    # jax_jacobian_basic = jax.jit(jac_jvpgc(jax_targets_diff)) 
-    # jax_jacobian_basic = jac_jvp(jax_targets_diff) 
-    # jax_jacobian_basic = jac_vjp(jax_targets_diff) 
-    # jax_jacobian_basic = jax.jit(jac_vjp(jax_targets_diff))
-
-    def jax_jacobian(beta, wh, xmat, geotargets, dw):
-        jac_values = jax_jacobian_basic(beta, wh, xmat, geotargets, dw)
-        jac_values = np.array(jac_values).reshape((dw.size, dw.size))
-        return jac_values
-
-
     spo_result = spo.least_squares(
         fun=targets_diff,
         x0=betavec0,
@@ -406,5 +362,25 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
 #         return jnp.transpose(Jt)
 #     return jacfun
 
+# jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))
+# jax_jacobian_basic = jax.jacfwd(jax_targets_diff)
+jax_jacobian_basic = jacfwd_bycols(jax_targets_diff)
+
+def jax_jacobian(beta0, wh, xmat, geotargets, dw):
+   jac_values = jax_jacobian_basic(beta0, wh, xmat, geotargets, dw)
+   jac_values = np.array(jac_values).reshape((dw.size, dw.size))
+   return jac_values
+
+
+import numpy as np
+from scipy.sparse.linalg import LinearOperator
+def mv(v):
+    return np.array([2*v[0], 3*v[1]])
+
+A = LinearOperator((2,2), matvec=mv)
+A
+
+A.matvec(np.ones(2))
+A * np.ones(2)   
 
 

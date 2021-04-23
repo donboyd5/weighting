@@ -10,6 +10,7 @@
 import importlib
 
 import numpy as np
+import gc  # gc.collect()
 
 import scipy
 from scipy.optimize import lsq_linear
@@ -161,6 +162,8 @@ geoipopt_opts
 
 
 # %% geoweight the problem
+gc.collect()
+
 # gw1 = prob.geoweight(method='qmatrix', options=uoqr)
 # gw2 = prob.geoweight(method='qmatrix-lsq', options=uolsq)
 # gw3 = prob.geoweight(method='qmatrix-ipopt', options=uoipopt)
@@ -168,7 +171,7 @@ geoipopt_opts
 gw5 = prob.geoweight(method='poisson', options=uo)
 gw5a = prob.geoweight(method='poisson_autodiff', options=uo)
 # gw5b = prob.geoweight(method='poisson', options=uo)
-# gw6 = prob.geoweight(method='geoipopt', options=geoipopt_opts)
+gw6 = prob.geoweight(method='geoipopt', options=geoipopt_opts)
 
 # djb: overflow encountered in exp
 #  beta_x = np.exp(np.dot(beta, xmat.T))
@@ -178,7 +181,9 @@ gw5a.elapsed_seconds / 60
 gw5b.elapsed_seconds / 60
 gw6.elapsed_seconds / 60
 
-np.corrcoef(gw5b.whs_opt.flatten(), gw6.whs_opt.flatten())
+
+np.corrcoef(gw5a.whs_opt.flatten(), gw6.whs_opt.flatten())
+gw5a.sspd
 gw6.sspd
 
 gw1.sspd
@@ -191,7 +196,7 @@ gw5b.sspd
 gw6.sspd
 
 
-gw = gw5b  # one of the above
+gw = gw5a  # one of the above
 # dir(gw)
 gw.method
 gw.sspd
