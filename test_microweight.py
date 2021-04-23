@@ -168,7 +168,7 @@ geoipopt_opts
 gw5 = prob.geoweight(method='poisson', options=uo)
 gw5a = prob.geoweight(method='poisson_autodiff', options=uo)
 # gw5b = prob.geoweight(method='poisson', options=uo)
-# gw6 = prob.geoweight(method='geoipopt', options=geoipopt_opts)
+gw6 = prob.geoweight(method='geoipopt', options=geoipopt_opts)
 
 # djb: overflow encountered in exp
 #  beta_x = np.exp(np.dot(beta, xmat.T))
@@ -178,7 +178,9 @@ gw5a.elapsed_seconds / 60
 gw5b.elapsed_seconds / 60
 gw6.elapsed_seconds / 60
 
-np.corrcoef(gw5b.whs_opt.flatten(), gw6.whs_opt.flatten())
+
+np.corrcoef(gw5a.whs_opt.flatten(), gw6.whs_opt.flatten())
+gw5a.sspd
 gw6.sspd
 
 gw1.sspd
