@@ -160,14 +160,14 @@ geoipopt_opts
 
 
 # %% geoweight the problem
-gw1 = prob.geoweight(method='qmatrix', options=uoqr)
-gw2 = prob.geoweight(method='qmatrix-lsq', options=uolsq)
-gw3 = prob.geoweight(method='qmatrix-ipopt', options=uoipopt)
-gw4 = prob.geoweight(method='qmatrix-ec', options=uoempcal)
+# gw1 = prob.geoweight(method='qmatrix', options=uoqr)
+# gw2 = prob.geoweight(method='qmatrix-lsq', options=uolsq)
+# gw3 = prob.geoweight(method='qmatrix-ipopt', options=uoipopt)
+# gw4 = prob.geoweight(method='qmatrix-ec', options=uoempcal)
 gw5 = prob.geoweight(method='poisson', options=uo)
 gw5a = prob.geoweight(method='poisson_autodiff', options=uo)
-gw5b = prob.geoweight(method='poisson', options=uo)
-gw6 = prob.geoweight(method='geoipopt', options=geoipopt_opts)
+# gw5b = prob.geoweight(method='poisson', options=uo)
+# gw6 = prob.geoweight(method='geoipopt', options=geoipopt_opts)
 
 # djb: overflow encountered in exp
 #  beta_x = np.exp(np.dot(beta, xmat.T))
