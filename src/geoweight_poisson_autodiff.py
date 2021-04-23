@@ -7,6 +7,11 @@ Created on Sun Oct  4 05:11:04 2020
 
 # %% imports
 import numpy as np
+import jax
+import jax.numpy as jnp
+# this next line is CRUCIAL or we will lose precision
+from jax.config import config; config.update("jax_enable_x64", True)
+
 from timeit import default_timer as timer
 from collections import namedtuple
 
@@ -24,10 +29,9 @@ def poisson(wh, xmat, geotargets, options=None):
     spo_result = spo.least_squares(
         fun=targets_diff,
         x0=betavec0,
-        method='trf', jac='2-point', verbose=2,
-        tr_solver='lsmr', # use this or not?
+        method='trf', jac=jax_jacobian, verbose=2,
         ftol=1e-7, xtol=1e-7,
-        x_scale='jac',
+        # x_scale='jac',
         loss='soft_l1',  # linear, soft_l1, huber, cauchy, arctan,
         max_nfev=100,
         args=(wh, xmat, geotargets, dw))
@@ -78,9 +82,7 @@ def get_delta(wh, beta, xmat):
 
     This will generate runtime warnings of overflow or divide by zero.
     """
-    # print(np.dot(beta, xmat.T).sum())
-    exponent = np.dot(beta, xmat.T)
-    beta_x = np.exp(exponent)  # np.exp gives runtime overflow
+    beta_x = np.exp(np.dot(beta, xmat.T))
 
     # beta_x[beta_x == 0] = 0.1  # experimental
     # beta_x[np.isnan(beta_x)] = 0.1
@@ -214,3 +216,127 @@ def targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
         diffs = diffs.flatten()
 
     return diffs
+
+
+# %% jax functions
+def jax_get_delta(wh, beta, xmat):
+    beta_x = jnp.exp(jnp.dot(beta, xmat.T))
+    delta = jnp.log(wh / beta_x.sum(axis=0))  # axis=0 gives colsums
+    return delta
+
+def jax_get_diff_weights(geotargets, goal=100):
+    goalmat = jnp.full(geotargets.shape, goal)
+    # djb note there is no jnp.errstate so I use np.errstate  
+    with np.errstate(divide='ignore'):  # turn off divide-by-zero warning
+        diff_weights = jnp.where(geotargets != 0, goalmat / geotargets, 1)
+    return diff_weights
+
+def jax_get_geoweights(beta, delta, xmat):
+    """
+    Calculate state-specific weights for each household.
+
+    Definitions:
+    h: number of households
+    k: number of characteristics each household has
+    s: number of states or geographic areas
+
+    See (Khitatrakun, Mermin, Francis, 2016, p.4)
+
+    Parameters
+    ----------
+    beta : matrix
+        s x k matrix of coefficients for the poisson function that generates
+        state weights.
+    delta : vector
+        h-length vector of constants (one per household) for the poisson
+        function that generates state weights.
+    xmat : matrix
+        h x k matrix of characteristics (data) for households.
+
+    Returns
+    -------
+    matrix of dimension h x s.
+
+    """
+    # begin by calculating beta_x, an s x h matrix:
+    #   each row has the sum over k of beta[s_i, k] * x[h_j, k]
+    #     for each household where s_i is the state in row i
+    #   each column is a specific household
+    beta_x = jnp.dot(beta, xmat.T)
+
+    # add the delta vector of household constants to every row
+    # of beta_x and transpose
+    # beta_xd <- apply(beta_x, 1, function(mat) mat + delta)
+    beta_xd = (beta_x + delta).T
+
+    weights = jnp.exp(beta_xd)
+
+    return weights
+
+
+def jax_get_geotargets(beta, wh, xmat):
+    """
+    Calculate matrix of target values by state and characteristic.
+
+    Returns
+    -------
+    targets_mat : matrix
+        s x k matrix of target values.
+
+    """
+    delta = jax_get_delta(wh, beta, xmat)
+    whs = jax_get_geoweights(beta, delta, xmat)
+    targets_mat = jnp.dot(whs.T, xmat)
+    return targets_mat    
+
+
+def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
+    '''
+    Calculate difference between calculated targets and desired targets.
+
+    Parameters
+    ----------
+    beta_obj: vector or matrix
+        if vector it will have length s x k and we will create s x k matrix
+        if matrix it will be dimension s x k
+        s x k matrix of coefficients for the poisson function that generates
+        state weights.
+    wh: array-like
+        DESCRIPTION.
+    xmat: TYPE
+        DESCRIPTION.
+    geotargets: TYPE
+        DESCRIPTION.
+    diff_weights: TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    matrix of dimension s x k.
+
+    '''
+    # beta must be a matrix so if beta_object is a vector, reshape it
+    if beta_object.ndim == 1:
+        beta = beta_object.reshape(geotargets.shape)
+    elif beta_object.ndim == 2:
+        beta = beta_object
+
+    geotargets_calc = jax_get_geotargets(beta, wh, xmat)
+    diffs = geotargets_calc - geotargets
+    diffs = diffs * diff_weights
+
+    # return a matrix or vector, depending on the shape of beta_object
+    if beta_object.ndim == 1:
+        diffs = diffs.flatten()
+
+    return diffs
+
+
+# %% jax jacobian functions
+jax_jacobian_basic = jax.jacobian(jax_targets_diff)
+
+def jax_jacobian(beta0, wh, xmat, geotargets, dw):
+   jac_values = jax_jacobian_basic(beta0, wh, xmat, geotargets, dw)
+   jac_values = np.array(jac_values).reshape((dw.size, dw.size))
+   return jac_values
+
