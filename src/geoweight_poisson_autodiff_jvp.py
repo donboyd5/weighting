@@ -352,7 +352,7 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
 #     outs, = vmap(vjp_fun)(M)
 #     return outs
 
-# f = lambda x: jax_targets_diff(x, wh, xmat, geotargets, dw)
+f = lambda x: jax_targets_diff(x, wh, xmat, geotargets, dw)
 def jacfwd_bycols(f):
     # generic function to build jacobian column by column    
     def jacfun(x):
@@ -370,5 +370,17 @@ def jax_jacobian(beta0, wh, xmat, geotargets, dw):
    jac_values = jax_jacobian_basic(beta0, wh, xmat, geotargets, dw)
    jac_values = np.array(jac_values).reshape((dw.size, dw.size))
    return jac_values
+
+
+import numpy as np
+from scipy.sparse.linalg import LinearOperator
+def mv(v):
+    return np.array([2*v[0], 3*v[1]])
+
+A = LinearOperator((2,2), matvec=mv)
+A
+
+A.matvec(np.ones(2))
+A * np.ones(2)   
 
 

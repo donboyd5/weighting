@@ -13,13 +13,6 @@ import numpy as np
 
 
 # %% setup
-x = np.arange(10, dtype='float')
-y = np.arange(3, 13, dtype='float')
-x.size
-y.size
-
-# def f(x, y):
-#     return jnp.square(x - 1) + jnp.square(y)
 
 def f(x):
     return jnp.asarray([x[0], 5*x[2], 4*x[1]**2 - 2*x[2], x[2] * jnp.sin(x[0])])
@@ -51,6 +44,10 @@ print(res)
 # https://jax.readthedocs.io/en/latest/notebooks/autodiff_cookbook.html
 from jax import jacfwd as builtin_jacfwd
 
+def f(x):
+    return jnp.asarray([x[0], 5*x[2], 4*x[1]**2 - 2*x[2], x[2] * jnp.sin(x[0])])
+
+
 def our_jacfwd(f):
     def jacfun(x):
         _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
@@ -63,4 +60,90 @@ builtin_jacfwd(f)(x)
 our_jacfwd(f)(x)
 
 assert jnp.allclose(builtin_jacfwd(f)(x), our_jacfwd(f)(x)), 'Incorrect forward-mode Jacobian results!'
+
+# %% even more
+# %% more
+# https://jax.readthedocs.io/en/latest/notebooks/autodiff_cookbook.html
+from jax import jacfwd as builtin_jacfwd
+
+# f = lambda W: predict(W, b, inputs)
+# def vmap_mjp(f, x, M):
+#     y, vjp_fun = vjp(f, x)
+#     outs, = vmap(vjp_fun)(M)
+#     return outs
+
+# def vmap_jmp(f, W, M):
+#     _jvp = lambda s: jvp(f, (W,), (s,))[1]
+#     return vmap(_jvp)(M)
+
+x = jnp.array([1., 2., 3.])
+y = 7.0
+
+def f(x, y):
+    return jnp.asarray([x[0]*y, 5*x[2], 4*x[1]**2 - 2*x[2], x[2] * jnp.sin(x[0])])
+
+def vmap_jmp(f, x, M):
+    _jvp = lambda s: jvp(f, (x,), (s,))[1]
+    return vmap(_jvp)(x)
+
+
+
+
+def our_jacfwd(f):
+    def jacfun(x, y):
+        _jvp = lambda s: jax.jvp(f, (x, y), (s,))[1]
+        Jt = jax.vmap(_jvp, in_axes=1)(jnp.eye(len(x)))
+        return jnp.transpose(Jt)
+    return jacfun
+
+f(x, y)
+builtin_jacfwd(f)(x, y)
+our_jacfwd(f)(x, y)
+
+from jax import random
+key = random.PRNGKey(0)
+num_vecs = 128
+S = random.normal(key, (num_vecs,) + x.shape)
+f = lambda W: predict(W, b, inputs)
+
+g = lambda x: f(x, y)
+
+def vmap_jmp(f, x, M):
+    _jvp = lambda s: jvp(f, (x,), (s,))[1]
+    return vmap(_jvp)(x)
+
+f(x)
+
+vmap_vs = vmap_jmp(f, W, M=S)
+
+
+# djb this is it solution starts here 4/23/2021
+def g(x, y):
+    return jnp.asarray([x[0]*y*y, 5*x[2], 4*x[1]**2 - 2*x[2]])
+
+
+f = lambda x: g(x, y)
+x = jnp.array([1., 2., 3.])
+y = 3.0
+
+
+g(x, y)
+u = lambda s: jax.jvp(f, (x,), (s,))[1]
+jt = jax.vmap(u, in_axes=1)(jnp.eye(len(x)))
+jt.T
+jax.jacfwd(g)(x, y)
+
+
+
+# older below here
+jnp.matmul(uvec, imat)
+u(x)(jnp.eye(len(x)))
+uvec = u(x)
+imat = jnp.eye(len(x))
+
+# Push forward the vector `v` along `f` evaluated at `W`
+z, u = jax.jvp(f, (x,), (x,))
+z
+u
+# z is g(x, y) evaluated at x, y
 
