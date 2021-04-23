@@ -353,21 +353,29 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
 #     return outs
 
 # f = lambda x: jax_targets_diff(x, wh, xmat, geotargets, dw)
-def jacfwd_bycols(f):
-    # generic function to build jacobian column by column    
-    def jacfun(x):
-        # _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
+# def jacfwd_bycols(f):
+#     # generic function to build jacobian column by column    
+#     def jacfun(x):
+#         # _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
+#         _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
+#         Jt = jax.vmap(_jvp, in_axes=1)(wh, xmat, geotargets, dw)(jnp.eye(len(x)))
+#         return jnp.transpose(Jt)
+#     return jacfun
+
+def jac_jvp(g):
+    f = lambda x: jax_targets_diff(x, wh, xmat, geotargets, dw)
+    def jacfun(x, wh, xmat, geotargets, dw):
         _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
-        Jt = jax.vmap(_jvp, in_axes=1)(wh, xmat, geotargets, dw)(jnp.eye(len(x)))
+        Jt = jax.vmap(_jvp, in_axes=1)(jnp.eye(len(x)))
         return jnp.transpose(Jt)
-    return jacfun
+    return jacfun    
 
 # jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))
 # jax_jacobian_basic = jax.jacfwd(jax_targets_diff)
-jax_jacobian_basic = jacfwd_bycols(jax_targets_diff)
+jax_jacobian_basic = jac_jvp(jax_targets_diff)  # jax_jacobian_basic is a function -- the jax jacobian
 
-def jax_jacobian(beta0, wh, xmat, geotargets, dw):
-   jac_values = jax_jacobian_basic(beta0, wh, xmat, geotargets, dw)
+def jax_jacobian(beta, wh, xmat, geotargets, dw):
+   jac_values = jax_jacobian_basic(beta, wh, xmat, geotargets, dw)
    jac_values = np.array(jac_values).reshape((dw.size, dw.size))
    return jac_values
 

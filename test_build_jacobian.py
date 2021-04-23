@@ -55,9 +55,13 @@ def our_jacfwd(f):
         return jnp.transpose(Jt)
     return jacfun
 
+x = jnp.array([1., 2., 3.])
 f(x)
 builtin_jacfwd(f)(x)
 our_jacfwd(f)(x)
+mj = our_jacfwd(f)
+mj(x)
+
 
 assert jnp.allclose(builtin_jacfwd(f)(x), our_jacfwd(f)(x)), 'Incorrect forward-mode Jacobian results!'
 
@@ -133,6 +137,52 @@ jt = jax.vmap(u, in_axes=1)(jnp.eye(len(x)))
 jt.T
 jax.jacfwd(g)(x, y)
 
+
+# create a function-based version of same -------
+
+def g(x, y):
+    return jnp.asarray([x[0]*y*y, 5*x[2], 4*x[1]**2 - 2*x[2]])
+
+def jac_jvp(g):  # this is good
+    f = lambda x: g(x, y)
+    def jacfun(x, y):
+        _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
+        Jt = jax.vmap(_jvp, in_axes=1)(jnp.eye(len(x)))
+        return jnp.transpose(Jt)
+    return jacfun
+
+def jac_jvp(g, y):
+    f = lambda x: g(x, y)
+    def jacfun(x, y):
+        _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
+        Jt = jax.vmap(_jvp, in_axes=1)(jnp.eye(len(x)))
+        return jnp.transpose(Jt)
+    return jacfun
+
+
+myfn = jac_jvp(g, y)
+x = jnp.array([1., 2., 3.])
+y = 3.0
+myfn(x, y)
+jax.jacfwd(g)(x, y)
+
+
+def g(x, y, z):
+    return jnp.asarray([x[0]*y*y, 5*x[2]*z, 4*x[1]**2 - 2*x[2]])
+
+def jac_jvp(g):  # this is good
+    f = lambda x: g(x, y, z)
+    def jacfun(x, y, z):
+        _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
+        Jt = jax.vmap(_jvp, in_axes=1)(jnp.eye(len(x)))
+        return jnp.transpose(Jt)
+    return jacfun
+f2 = jac_jvp(g)
+x = jnp.array([1., 2., 3.])
+y = 3.0
+z = -10.0
+f2(x, y, z)
+jax.jacfwd(g)(x, y, z)
 
 
 # older below here
