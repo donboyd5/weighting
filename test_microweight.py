@@ -173,11 +173,11 @@ gw6 = prob.geoweight(method='geoipopt', options=geoipopt_opts)
 #  beta_x = np.exp(np.dot(beta, xmat.T))
 # so this is happening in the non-jax function
 gw5.elapsed_seconds / 60
-# gw5b.elapsed_seconds / 60
+gw5b.elapsed_seconds / 60
 gw6.elapsed_seconds / 60
 
-np.corrcoef(gw5.whs_opt.flatten(), gw6.whs_opt.flatten())
-
+np.corrcoef(gw5b.whs_opt.flatten(), gw6.whs_opt.flatten())
+gw6.sspd
 
 gw1.sspd
 gw2.sspd
@@ -185,10 +185,11 @@ gw3.sspd
 
 gw5.sspd
 gw5a.sspd
+gw5b.sspd
 gw6.sspd
 
 
-gw = gw5  # one of the above
+gw = gw5b  # one of the above
 # dir(gw)
 gw.method
 gw.sspd
