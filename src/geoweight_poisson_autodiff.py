@@ -333,7 +333,8 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
 
 
 # %% jax jacobian functions
-jax_jacobian_basic = jax.jacobian(jax_targets_diff)
+# jax_jacobian_basic = jax.jacobian(jax_targets_diff)
+jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))
 
 def jax_jacobian(beta0, wh, xmat, geotargets, dw):
    jac_values = jax_jacobian_basic(beta0, wh, xmat, geotargets, dw)
