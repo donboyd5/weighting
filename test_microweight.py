@@ -3,6 +3,20 @@
 # # -*- coding: utf-8 -*-
 
 
+# TODO:
+# DONE: pass options to poisson
+# DONE: poisson scaling
+# consolidate all poisson methods in one file
+# make sure qmatrix approach is working properly
+# geoipopt scaling
+# run puf geoweighting
+# run puf analysis
+# openblas
+# Ceres
+# contact Matt J.
+
+
+
 # %% imports
 # for checking:
 # import sys; print(sys.executable)
@@ -59,19 +73,16 @@ p.h
 p.s
 p.k
 
+# add noise to main targets
 np.random.seed(1)
-targs(p.targets)
 noise = np.random.normal(0, .01, p.k)
-noise
 ntargets = p.targets * (1 + noise)
-# ntargets = p.targets
 
 # now add noise to geotargets
 np.random.seed(1)
 gnoise = np.random.normal(0, .01, p.k * p.s)
 gnoise = gnoise.reshape(p.geotargets.shape)
 ngtargets = p.geotargets * (1 + gnoise)
-# ngtargets = p.geotargets
 
 prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets, geotargets=ngtargets)
 
@@ -136,11 +147,31 @@ geoipopt_opts
 # %% geoweight: poisson 
 poisson_opts = {
     'scaling': True,
-    'scale_goal': 10e3,
-    'jacmethod': 'findiff',  # vjp, jvp, full, findiff
+    'scale_goal': 1e3,
+    'init_beta': 0.5,
+    'jacmethod': 'jvp',  # vjp, jvp, full, findiff
     'quiet': True}
-gwp1 = prob.geoweight(method='poisson_autodiff', options=poisson_opts)
+gwp1 = prob.geoweight(method='poisson', options=poisson_opts)
+gwp1.elapsed_seconds
 gwp1.sspd
+
+poisson_opts.update({'jacmethod': 'full'})
+gwp2 = prob.geoweight(method='poisson', options=poisson_opts)
+gwp2.elapsed_seconds
+gwp2.sspd
+
+poisson_opts.update({'jacmethod': 'findiff'})
+gwp3 = prob.geoweight(method='poisson', options=poisson_opts)
+gwp3.elapsed_seconds
+gwp3.sspd
+
+poisson_opts.update({'jacmethod': 'jvp'})
+poisson_opts.update({'scale_goal': 1e3})
+poisson_opts.update({'init_beta': 1e-6})
+poisson_opts.update({'init_beta': 0.5})
+poisson_opts.update({'init_beta': 1.0})
+poisson_opts
+tmp = gwp3
 
 dir(gwp1)
 p.geotargets
