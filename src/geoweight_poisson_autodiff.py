@@ -6,7 +6,10 @@ Created on Sun Oct  4 05:11:04 2020
 """
 
 # %% imports
+import scipy.optimize as spo
+import gc
 import numpy as np
+
 import jax
 import jax.numpy as jnp
 # this next line is CRUCIAL or we will lose precision
@@ -14,10 +17,17 @@ from jax.config import config; config.update("jax_enable_x64", True)
 
 from timeit import default_timer as timer
 from collections import namedtuple
+import src.utilities as ut
 
-import scipy.optimize as spo
 
-import gc
+# %% option defaults
+options_defaults = {
+    'scaling': True,
+    'scale_goal': 10e3,
+    'jacmethod': 'jvp',  # vjp, jvp, full, finite-diff
+    'quiet': True}
+
+# options_defaults = {**solver_defaults, **user_defaults}
 
 
 # %% poisson - the primary function
@@ -25,21 +35,23 @@ import gc
 def poisson(wh, xmat, geotargets, options=None):
     # TODO: implement options
     a = timer()
+
+    options_all = options_defaults.copy()
+    options_all.update(options)
+    opts = ut.dict_nt(options_all)  # convert dict to named tuple for ease of use
+
+    if opts.scaling:
+        xmat, geotargets, scale_factors = scale_problem(xmat, geotargets, opts.scale_goal)
+
     # betavec0 = np.zeros(geotargets.size)
     betavec0 = np.full(geotargets.size, 0.1)  # 1e-13 or 1e-12 seems best
     dw = get_diff_weights(geotargets)
 
-    def jac_jvpgc(g):
-        f = lambda x: g(x, wh, xmat, geotargets, dw)
-        def jacfun(x, wh, xmat, geotargets, dw):
-            def _jvp(s):
-                gc.collect()
-                return jax.jvp(f, (x,), (s,))[1]
-            Jt = jax.vmap(_jvp, in_axes=1)(jnp.eye(len(x)))
-            return jnp.transpose(Jt)
-        return jacfun   
-
+    # define the different functions that can be used to construct the jacobian
+    # these are alternative to each other - we'll only use one
+    # I have not succeeded in moving them outside of the poisson function
     def jac_vjp(g):
+        # build jacobian row by row to conserve memory use
         f = lambda x: g(x, wh, xmat, geotargets, dw)
         def jacfun(x, wh, xmat, geotargets, dw):
             y, _vjp = jax.vjp(f, x)
@@ -48,6 +60,7 @@ def poisson(wh, xmat, geotargets, options=None):
         return jacfun    
 
     def jac_jvp(g):
+        # build jacobian column by column to conserve memory use
         f = lambda x: g(x, wh, xmat, geotargets, dw)
         def jacfun(x, wh, xmat, geotargets, dw):
             _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
@@ -56,23 +69,50 @@ def poisson(wh, xmat, geotargets, options=None):
             return jnp.transpose(Jt)
         return jacfun  
 
-    def jax_jacobian(beta, wh, xmat, geotargets, dw):
-        # jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))
-        # jax_jacobian_basic = jax.jacfwd(jax_targets_diff)
+    def jac_jvpgc(g):
+        # build jacobian column by column to conserve memory use
+        # with garbage collection after each column
+        f = lambda x: g(x, wh, xmat, geotargets, dw)
+        def jacfun(x, wh, xmat, geotargets, dw):
+            def _jvp(s):
+                gc.collect()
+                return jax.jvp(f, (x,), (s,))[1]
+            Jt = jax.vmap(_jvp, in_axes=1)(jnp.eye(len(x)))
+            return jnp.transpose(Jt)
+        return jacfun
+
+    # determine which jacobian method to use
+    
+    if opts.jacmethod == 'jvp':
         jax_jacobian_basic = jax.jit(jac_jvp(jax_targets_diff))  # jax_jacobian_basic is a function -- the jax jacobian
-        # jax_jacobian_basic = jax.jit(jac_jvpgc(jax_targets_diff)) 
-        # jax_jacobian_basic = jac_jvp(jax_targets_diff) 
-        # jax_jacobian_basic = jac_vjp(jax_targets_diff) 
-        # jax_jacobian_basic = jax.jit(jac_vjp(jax_targets_diff))
+    elif opts.jacmethod == 'full':
+        jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))
+    else:
+        jax_jacobian_basic = None
+
+    # jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))
+    # jax_jacobian_basic = jax.jacfwd(jax_targets_diff)
+    # jax_jacobian_basic = jax.jit(jac_jvp(jax_targets_diff))  # jax_jacobian_basic is a function -- the jax jacobian
+    # jax_jacobian_basic = jax.jit(jac_jvpgc(jax_targets_diff)) 
+    # jax_jacobian_basic = jac_jvp(jax_targets_diff) 
+    # jax_jacobian_basic = jac_vjp(jax_targets_diff) 
+    # jax_jacobian_basic = jax.jit(jac_vjp(jax_targets_diff))
+
+    def jax_jacobian(beta, wh, xmat, geotargets, dw):
         jac_values = jax_jacobian_basic(beta, wh, xmat, geotargets, dw)
         jac_values = np.array(jac_values).reshape((dw.size, dw.size))
         return jac_values
 
+    # jax_jacobian_basic = jax.jit(jac_jvp(jax_targets_diff))  # jax_jacobian_basic is a function -- the jax jacobian
+    if opts.jacmethod == 'findiff':
+        jacmethod = '2-point'
+    else:
+        jacmethod = jax_jacobian
 
     spo_result = spo.least_squares(
         fun=targets_diff,
         x0=betavec0,
-        method='trf', jac=jax_jacobian, verbose=2,
+        method='trf', jac=jacmethod, verbose=2,
         ftol=1e-7, xtol=1e-7,
         # x_scale='jac',
         loss='soft_l1',  # linear, soft_l1, huber, cauchy, arctan,
@@ -84,6 +124,9 @@ def poisson(wh, xmat, geotargets, options=None):
     delta_opt = get_delta(wh, beta_opt, xmat)
     whs_opt = get_geoweights(beta_opt, delta_opt, xmat)
     geotargets_opt = get_geotargets(beta_opt, wh, xmat)
+
+    if opts.scaling:
+        geotargets_opt = np.multiply(geotargets_opt, scale_factors)
 
     b = timer()
 
@@ -262,6 +305,8 @@ def targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
 
 
 # %% jax functions
+# these functions are used by jax to compute the jacobian
+# I have not yet figured out how to avoid having two versions of the functions
 def jax_get_delta(wh, beta, xmat):
     beta_x = jnp.exp(jnp.dot(beta, xmat.T))
     delta = jnp.log(wh / beta_x.sum(axis=0))  # axis=0 gives colsums
@@ -375,33 +420,10 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
     return diffs
 
 
-# %% jax jacobian functions
-# jax_jacobian_basic = jax.jacobian(jax_targets_diff)
-
-# def jacfwd_bycols(f):
-#     # generic function to build jacobian column by column
-#     def jacfun(x):
-#         _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
-#         Jt = jax.vmap(_jvp, in_axes=1)(jnp.eye(len(x)))
-#         return jnp.transpose(Jt)
-#     return jacfun
-
-
-# f = lambda W: predict(W, b, inputs)
-# y, vjp_fun = vjp(f, W)
-# f = lambda W: predict(W, b, inputs)
-# def vmap_mjp(f, x, M):
-#     y, vjp_fun = vjp(f, x)
-#     outs, = vmap(vjp_fun)(M)
-#     return outs
-
-# f = lambda x: jax_targets_diff(x, wh, xmat, geotargets, dw)
-# def jacfwd_bycols(f):
-#     # generic function to build jacobian column by column    
-#     def jacfun(x):
-#         # _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
-#         _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
-#         Jt = jax.vmap(_jvp, in_axes=1)(wh, xmat, geotargets, dw)(jnp.eye(len(x)))
-#         return jnp.transpose(Jt)
-#     return jacfun
+# %% scaling
+def scale_problem(xmat, geotargets, scale_goal):
+    scale_factors = xmat.sum(axis=0) / scale_goal
+    xmat = np.divide(xmat, scale_factors)
+    geotargets = np.divide(geotargets, scale_factors)
+    return xmat, geotargets, scale_factors
 

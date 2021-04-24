@@ -29,13 +29,6 @@ importlib.reload(mw)
 qtiles = (0, .01, .1, .25, .5, .75, .9, .99, 1)
 
 
-# %% functions
-def targs(targvec, div=50, seed=seed(1234)):
-    r = np.random.randn(targvec.size) / 50  # random normal
-    targets = (targvec * (1 + r)).flatten()
-    return targets
-
-
 # %% make problem
 # p = mtp.Problem(h=1000, s=10, k=5, xsd=.1, ssd=.5)
 p = mtp.Problem(h=10, s=2, k=2)
@@ -81,26 +74,6 @@ ngtargets = p.geotargets * (1 + gnoise)
 # ngtargets = p.geotargets
 
 prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets, geotargets=ngtargets)
-
-
-# %% what if we normalize xmat and geotargets?
-# divide all xmat columns by their sum
-# divide all corresponding geotargets
-p.xmat.shape
-scale = p.xmat.sum(axis=0) / 10000.0
-scale.shape
-ngtargets.shape  # s x k
-
-xmat = np.divide(p.xmat, scale)
-xmat.shape
-xmat.sum(axis=0)
-
-ngtargets2 = np.divide(ngtargets, scale)
-ngtargets2.shape
-ngtargets2.sum(axis=0)
-
-
-prob = mw.Microweight(wh=p.wh, xmat=xmat, targets=ntargets, geotargets=ngtargets2)
 
 
 # %% define options
@@ -160,6 +133,22 @@ geoipopt_opts.update({'xlb': .01})
 geoipopt_opts.update({'xub': 10.0})
 geoipopt_opts
 
+# %% geoweight: poisson 
+poisson_opts = {
+    'scaling': True,
+    'scale_goal': 10e3,
+    'jacmethod': 'findiff',  # vjp, jvp, full, findiff
+    'quiet': True}
+gwp1 = prob.geoweight(method='poisson_autodiff', options=poisson_opts)
+gwp1.sspd
+
+dir(gwp1)
+p.geotargets
+gwp1.geotargets_opt
+gwp1.whs_opt
+gwp1.whs_opt.sum(axis=1)
+p.wh
+p.xmat.sum(axis=0)
 
 # %% geoweight the problem
 gc.collect()
@@ -169,7 +158,7 @@ gc.collect()
 # gw3 = prob.geoweight(method='qmatrix-ipopt', options=uoipopt)
 # gw4 = prob.geoweight(method='qmatrix-ec', options=uoempcal)
 gw5 = prob.geoweight(method='poisson', options=uo)
-gw5a = prob.geoweight(method='poisson_autodiff', options=uo)
+
 # gw5b = prob.geoweight(method='poisson', options=uo)
 gw6 = prob.geoweight(method='geoipopt', options=geoipopt_opts)
 

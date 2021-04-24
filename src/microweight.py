@@ -26,6 +26,7 @@ Functions:
 
 import importlib
 
+import gc
 import numpy as np
 import pandas as pd
 from collections import namedtuple
@@ -100,6 +101,7 @@ class Microweight:
     def reweight(self,
                  method='ipopt',
                  options=None):
+        gc.collect()  # just to be safe
         if method == 'ipopt':
             method_result = rwip.rw_ipopt(
                 self.wh, self.xmat, self.targets,
@@ -160,6 +162,7 @@ class Microweight:
 
         # input checks:
         # geotargets must by s x k
+        gc.collect()  # just to be safe
 
         if method == 'qmatrix':
             method_result = gwqm.qmatrix(self.wh, self.xmat, self.geotargets,
