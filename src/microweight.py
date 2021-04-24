@@ -26,6 +26,7 @@ Functions:
 
 import importlib
 
+import gc
 import numpy as np
 import pandas as pd
 from collections import namedtuple
@@ -39,7 +40,6 @@ import src.utilities as ut
 
 import src.geoweight_ipopt as gwip
 import src.geoweight_poisson as gwps
-import src.geoweight_poisson_autodiff as gwpsauto
 import src.geoweight_qmatrix as gwqm
 
 import src.reweight_empcalib as rwec
@@ -53,7 +53,6 @@ import src.reweight_raking as rwrk
 # %% reimports
 importlib.reload(gwip)
 importlib.reload(gwps)
-importlib.reload(gwpsauto)
 importlib.reload(gwqm)
 
 importlib.reload(rwec)
@@ -100,6 +99,7 @@ class Microweight:
     def reweight(self,
                  method='ipopt',
                  options=None):
+        gc.collect()  # just to be safe
         if method == 'ipopt':
             method_result = rwip.rw_ipopt(
                 self.wh, self.xmat, self.targets,
@@ -160,6 +160,7 @@ class Microweight:
 
         # input checks:
         # geotargets must by s x k
+        gc.collect()  # just to be safe
 
         if method == 'qmatrix':
             method_result = gwqm.qmatrix(self.wh, self.xmat, self.geotargets,
@@ -184,9 +185,9 @@ class Microweight:
             method_result = gwps.poisson(self.wh, self.xmat, self.geotargets,
                                          options=options)
 
-        elif method == 'poisson_autodiff':
-            method_result = gwpsauto.poisson(self.wh, self.xmat, self.geotargets,
-                                         options=options)                                         
+        # elif method == 'poisson_autodiff':
+        #     method_result = gwpsauto.poisson(self.wh, self.xmat, self.geotargets,
+        #                                  options=options)                                         
 
         # calculate sum of squared percentage differences
         diff = method_result.geotargets_opt - self.geotargets
