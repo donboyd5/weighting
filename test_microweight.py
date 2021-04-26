@@ -7,11 +7,13 @@
 # DONE: pass options to poisson
 # DONE: poisson scaling
 # DONE: consolidate all poisson methods in one file
-# add poisson tpc method (Newton)
-# make sure qmatrix approach is working properly
+# DONE: add poisson tpc method (Newton)
+# DONE: make sure qmatrix approach is working properly
 # geoipopt scaling
 # run puf geoweighting
 # run puf analysis
+# possibly implement jvp and jit for tpc approach
+# investigate improvements to empirical calibration - robustness
 # openblas
 # Ceres
 # contact Matt J.
@@ -95,65 +97,25 @@ prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets, geotargets=ngtarge
 uo = {'qmax_iter': 10}
 uo = {'qmax_iter': 1, 'independent': True}
 uo = {'qmax_iter': 10, 'quiet': True}
-uo = {'qmax_iter': 3, 'quiet': True, 'verbose': 2}
-
-# raking options (there aren't really any)
-uoqr = {'qmax_iter': 10}
-
-# empcal options
-uoempcal = {'qmax_iter': 10, 'objective': 'ENTROPY'}
-uoempcal = {'qmax_iter': 10, 'objective': 'QUADRATIC'}
-
-# ipopt options
-uoipopt = {'qmax_iter': 30,
-           'quiet': True,
-           'xlb': 0.001,
-           'xub': 1000,
-           'crange': .000001,
-           'linear_solver': 'ma57'
-           }
 
 
-# lsq options
-uolsq = {'qmax_iter': 10,
-         'verbose': 0,
-         'xlb': 0.001,
-         'xub': 1000,
-         'scaling': False,
-         # bvls (default) or trf - bvls usually faster, better
-         'method': 'bvls',
-         'lsmr_tol': 'auto'  # 'auto'  # 'auto' or None
-         }
 
-# geoipopt options
-geoipopt_base = {# 'xlb': .2, 'xub': 2, # default 0.1, 10.0
-         # 'crange': 0.0,  # default 0.0
-         # 'print_level': 0,
-         # 'file_print_level': 5,
-         # 'ccgoal': 10000,
-         # 'addup': False,  # default is false
-         'max_iter': 100,
-         'linear_solver': 'ma57',  # ma27, ma77, ma57, ma86 work, not ma97
-         'quiet': False}
 
-geoipopt_opts = geoipopt_base.copy()
-geoipopt_opts.update({'output_file': '/home/donboyd/Documents/test_sparse.out'})
-geoipopt_opts.update({'addup': False})
-geoipopt_opts.update({'addup': True})
-geoipopt_opts.update({'crange': .005})
-geoipopt_opts.update({'addup_range': .0})
-geoipopt_opts.update({'linear_solver': 'ma86'})
-geoipopt_opts.update({'xlb': .01})
-geoipopt_opts.update({'xub': 10.0})
-geoipopt_opts
 
-# %% geoweight: poisson 
+
+
+
+
+
+
+# %% geoweight: poisson
 poisson_opts = {
     'scaling': True,
     'scale_goal': 1e3,
     'init_beta': 0.5,
     'jacmethod': 'jvp',  # vjp, jvp, full, findiff
     'quiet': True}
+
 gwp1 = prob.geoweight(method='poisson', options=poisson_opts)
 gwp1.elapsed_seconds
 gwp1.sspd
@@ -177,124 +139,126 @@ poisson_opts.update({'scale_goal': 1e3})
 poisson_opts.update({'init_beta': 1e-6})
 poisson_opts.update({'init_beta': 0.5})
 poisson_opts.update({'init_beta': 1.0})
-poisson_opts
-tmp = gwp3
-
-dir(gwp1)
-p.geotargets
-gwp1.geotargets_opt
-gwp1.whs_opt
-gwp1.whs_opt.sum(axis=1)
-p.wh
-p.xmat.sum(axis=0)
-
-# %% geoweight the problem
-gc.collect()
-
-# gw1 = prob.geoweight(method='qmatrix', options=uoqr)
-# gw2 = prob.geoweight(method='qmatrix-lsq', options=uolsq)
-# gw3 = prob.geoweight(method='qmatrix-ipopt', options=uoipopt)
-# gw4 = prob.geoweight(method='qmatrix-ec', options=uoempcal)
-gw5 = prob.geoweight(method='poisson', options=uo)
-
-# gw5b = prob.geoweight(method='poisson', options=uo)
-gw6 = prob.geoweight(method='geoipopt', options=geoipopt_opts)
-gwp6 = gw6
-
-# djb: overflow encountered in exp
-#  beta_x = np.exp(np.dot(beta, xmat.T))
-# so this is happening in the non-jax function
-gw5.elapsed_seconds / 60
-gw5a.elapsed_seconds / 60
-gw5b.elapsed_seconds / 60
-gw6.elapsed_seconds / 60
 
 
-np.corrcoef(gw5a.whs_opt.flatten(), gw6.whs_opt.flatten())
-gw5a.sspd
-gw6.sspd
+# %% geoweight: geoipopt
+# geoipopt options
+geoipopt_base = {# 'xlb': .2, 'xub': 2, # default 0.1, 10.0
+         # 'crange': 0.0,  # default 0.0
+         # 'print_level': 0,
+         # 'file_print_level': 5,
+         # 'ccgoal': 10000,
+         # 'addup': False,  # default is false
+         'output_file': '/home/donboyd/Documents/test_sparse.out'
+         'max_iter': 100,
+         'linear_solver': 'ma86',  # ma27, ma77, ma57, ma86 work, not ma97
+         'quiet': False}
 
-gw1.sspd
-gw2.sspd
-gw3.sspd
+geoipopt_opts = geoipopt_base.copy()
+geoipopt_opts.update({'addup': False})
+geoipopt_opts.update({'addup': True})
+geoipopt_opts.update({'crange': .05})
+geoipopt_opts.update({'addup_range': .005})
+geoipopt_opts.update({'xlb': .01})
+geoipopt_opts.update({'xub': 10.0})
+geoipopt_opts
 
-gw5.sspd
-gw5a.sspd
-gw5b.sspd
-gw6.sspd
+gwip1 = prob.geoweight(method='geoipopt', options=geoipopt_opts)
+gwip1.elapsed_seconds
+gwip1.sspd
 
 
-gw = gwp4  # one of the above
-# dir(gw)
-gw.method
-gw.sspd
+# %% general qmatrix options
+# uo = {'qmax_iter': 1, 'independent': True}
+# uo = {'qmax_iter': 3, 'quiet': True, 'verbose': 2}
+
+
+# %% geoweight: qmatrix lsq
+# lsq options
+uolsq = {'qmax_iter': 10,
+         'verbose': 0,
+         'xlb': 0.001,
+         'xub': 1000,
+         'scaling': False,
+         # bvls (default) or trf - bvls usually faster, better
+         'method': 'bvls',
+         'lsmr_tol': 'auto'  # 'auto'  # 'auto' or None
+         }
+
+gwqm_lsq = prob.geoweight(method='qmatrix-lsq', options=uolsq)
+gwqm_lsq.elapsed_seconds
+gwqm_lsq.sspd
+
+# %% geoweight: qmatrix ipopt
+# ipopt options
+uoipopt = {'qmax_iter': 30,
+           'quiet': True,
+           'xlb': 0.001,
+           'xub': 1000,
+           'crange': .000001,
+           'linear_solver': 'ma57'
+           }
+
+gwqm_ip = prob.geoweight(method='qmatrix-ipopt', options=uoipopt)
+gwqm_ip.elapsed_seconds
+gwqm_ip.sspd
+
+
+# %% geoweight empcal
+# empcal options
+uoempcal = {'qmax_iter': 10, 'objective': 'ENTROPY'}
+uoempcal = {'qmax_iter': 10, 'objective': 'QUADRATIC'}
+gwqm_ec = prob.geoweight(method='qmatrix-ec', options=uoempcal)
+gwqm_ec.elapsed_seconds
+gwqm_ec.sspd
+
+
+# %% geoweight raking
+# raking options (there aren't really any)
+uoqr = {'qmax_iter': 10}
+gwqm_rake = prob.geoweight(method='qmatrix', options=uoqr)
+
+
+# %% check geoweight results
+
+gw = gwp4  # gwp1, ..., 
+gw = gwip1  # gwip1, ...
+gw = gwqm_lsq  # gwqm1, ...
+gw = gwqm_ip
+gw = gwqm_ec
+gw = gwqm_rake
+
 gw.elapsed_seconds
 
-targets_check = np.dot(gw.whs_opt.T, p.xmat)
-targets_check
-ngtargets
+# compute weight sums vs totals
+wtsums = gw.whs_opt.sum(axis=1)
+wtdiffs = wtsums - p.wh
+wtpdiffs = wtdiffs / p.wh * 100
+np.round(np.quantile(wtpdiffs, qtiles), 2)
 
-prob.geotargets
-gw.geotargets_opt
-gw.pdiff
-np.round(gw.pdiff, 2)
-gw.whs_opt
-gw.whs_opt.sum(axis=1) - p.wh
-dir(gw.method_result)
-
-np.max(np.abs(gwp1.pdiff))
-np.max(np.abs(gwp2.pdiff))
-np.max(np.abs(gwp3.pdiff))
-np.max(np.abs(gwp4.pdiff))
-np.max(np.abs(gwp6.pdiff))
-
-gwp1.sspd
-gwp2.sspd
-gwp3.sspd
-gwp4.sspd
-gwp6.sspd
-
-
-gw.whs_opt
-
-gw.sspd
-
-gw3 = prob.geoweight(method='poisson')
-gw3.method
-gw3.sspd
-gw3.elapsed_seconds
-gw3.geotargets_opt
-gw3.whs_opt
-dir(gw3.method_result)
-
-# sum of squared percentage differences
-gw1.sspd
-gw1a.sspd
-gw1b.sspd
-gw2.sspd
-gw3.sspd
-
-np.square((gw1.geotargets_opt - p.geotargets) / p.geotargets * 100).sum()
-np.square((gw2.geotargets_opt - p.geotargets) / p.geotargets * 100).sum()
-np.square((gw3.geotargets_opt - p.geotargets) / p.geotargets * 100).sum()
-
-
-# %% check
-
-dir(gw3)
-gw1.whs_opt
-gw2.whs_opt
-gw3.whs_opt
-
-gw5.whs_opt
-gw6.whs_opt
-
-np.round(np.quantile(gw5.whs_opt - gw6.whs_opt, q=qtiles), 2)
-np.round(np.quantile(gw5.whs_opt / gw6.whs_opt * 100 - 100, q=qtiles), 2)
-
-gw = gw5
 Q = np.divide(gw.whs_opt, p.wh.reshape(-1, 1))
 np.round(np.quantile(Q.sum(axis=1), q=qtiles), 2)
+
+# compute geotargets vs totals
+geotargets_opt = np.dot(gw.whs_opt.T, p.xmat)
+targdiffs = geotargets_opt - ngtargets
+targpdiffs = targdiffs / ngtargets * 100
+np.round(np.quantile(targpdiffs, qtiles), 2)
+np.max(np.abs(targpdiffs))
+
+# sspd
+np.round(np.square(targpdiffs).sum(), 4)
+
+
+# %% compare results from multiple methods
+np.corrcoef(gwp4.whs_opt.flatten(), gwqm_lsq.whs_opt.flatten())
+np.corrcoef(gwp4.whs_opt.flatten(), gwqm_rake.whs_opt.flatten())
+np.corrcoef(gwp4.whs_opt.flatten(), gwqm_ec.whs_opt.flatten())
+
+
+
+# %% END GEOWEIGHT START REWEIGHT
+
 
 
 # %% reweight the problem
@@ -388,7 +352,7 @@ rw4.g.sum()
 rw5.g.sum()
 
 
-# %% test linear least squares
+# %% reweight linear least squares
 # here we test ability to hit national (not state) targets, creating
 # weights that minimize sum of squared differences from targets
 
@@ -486,161 +450,5 @@ rw2.elapsed_seconds
 #   A x multiplication gives calculated targets
 # using sparse matrix As instead of A
 
-diff_weights = np.where(targets != 0, 100 / targets, 1)
-diff_weights = np.ones_like(targets)
-
-b = targets * diff_weights
-b
-
-wmat = p.xmat * diff_weights
-At = np.multiply(p.wh.reshape(p.h, 1), wmat)
-# At = np.multiply(p.wh.reshape(p.h, 1), p.xmat)
-A = At.T
-As = scipy.sparse.coo_matrix(A)
-
-# calculate starting percent differences
-Atraw = np.multiply(p.wh.reshape(p.h, 1), p.xmat)
-# compare sdiff -- starting differences - to res.fun
-sdiff = (np.dot(np.full(p.h, 1), Atraw) - targets) / targets * 100
-sdiff
-np.square(sdiff).sum()
-
-lb = np.full(p.h, 0.1)
-ub = np.full(p.h, 100)
-
-# lb = np.full(p.h, 0)
-# ub = np.full(p.h, np.inf)
-
-p.h
-p.k
-
-start = timer()
-res = lsq_linear(As, b, bounds=(lb, ub),
-                 method='trf',
-                 # tol=1e-6,
-                 lsmr_tol='auto',
-                 max_iter=500, verbose=2)
-end = timer()
-
-end - start
-
-np.abs(sdiff).max()
-np.abs(res.fun).max()
-
-np.square(sdiff).sum()
-np.square(res.fun).sum()
-
-# compare to cost function
-np.square(sdiff).sum() / 2
-res.cost
-# np.square(res.fun).sum() / 2
-
-
-# %% by hand
-p.wh
-p.xmat
-targets
-
-p.xmat.shape
-
-init_targs = np.dot(p.wh.T, p.xmat)
-init_targs / targets * 100 - 100
-
-# sum of squared diffs
-ssd = np.square(init_targs - targets).sum()
-ssd / 2 / 1e6
-
-# targets * scale_vector
-#    wmat = xmat * scale_vector
-
-At = np.multiply(p.wh.reshape(-1, 1), p.xmat)
-A = p.xmat.T
-
-s = 10
-lb = p.wh / s
-ub = p.wh * s
-
-lsq_info = lsq_linear(p.xmat.T, targets, bounds=(lb, ub),
-                      method='bvls',
-                      lsq_solver='exact',
-                      tol=1e-18,
-                      lsmr_tol=1e-10,
-                      max_iter=200,
-                      verbose=2)
-lsq_info.success
-lsq_info.x
-lsq_info.x / p.wh
-
-end_targs = np.dot(lsq_info.x.T, p.xmat)
-end_targs / targets * 100 - 100
-
-lsq_info.fun
-end_targs - targets
-
-# sum of squared diffs
-ssd = np.square(init_targs - targets).sum()
-ssd / 2 / 1e6
-
-
-np.square(end_targs - targets).sum() / 2 / 1e6
-init_pdiff = (init_targs - targets) / targets * 100
-end_pdiff = (end_targs - targets) / targets * 100
-init_pdiff
-end_pdiff
-np.square(init_pdiff).sum()
-np.square(end_pdiff).sum()
-
-
-# %% incorporate weights
-
-p = mtp.Problem(h=100, s=1, k=4)
-p = mtp.Problem(h=1000, s=1, k=10)
-p = mtp.Problem(h=10000, s=1, k=20)
-
-# stack a matrix like a with column of 1s
-targets = targs(p.targets)
-targets.shape
-At = np.concatenate((p.xmat, np.identity(p.wh.size)), axis=1)
-A = At.T
-As = scipy.sparse.coo_matrix(A)  # sparse matrices not allowed with bvls
-b = np.concatenate((targets, p.wh))
-At.shape
-b.shape
-
-lb = np.concatenate(([0, 0], p.wh * .8))
-ub = np.concatenate(([np.Inf, np.Inf], p.wh * 1.2))
-lb.shape
-b.shape
-ub.shape
-
-np.dot(p.wh.T, At) - b
-A.shape
-At.shape
-b.shape
-
-lb = p.wh * .75
-ub = p.wh * 1.25
 
 # bvls is very fast but can't use sparse matrices'
-
-res = lsq_linear(A, b, bounds=(lb, ub),
-                 method='bvls',
-                 tol=1e-8,
-                 # lsmr_tol='auto',
-                 max_iter=100, verbose=2)
-
-ress = lsq_linear(As, b, bounds=(lb, ub),
-                  method='trf',
-                  tol=1e-8,
-                  # lsmr_tol='auto',
-                  max_iter=100, verbose=2)
-
-p.xmat.shape
-res.x
-p.wh
-np.round(res.x / p.wh * 100 - 100, 1)
-res.fun
-res.fun / b * 100
-
-res.fun[0:10] / b[0:10] * 100
-res.fun[11:20] / b[11:20] * 100

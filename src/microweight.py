@@ -188,11 +188,7 @@ class Microweight:
                                          options=options)
         elif method == 'poisson-tpc':
             method_result = gwtpc.poisson(self.wh, self.xmat, self.geotargets,
-                                         options=options)                                         
-
-        # elif method == 'poisson_autodiff':
-        #     method_result = gwpsauto.poisson(self.wh, self.xmat, self.geotargets,
-        #                                  options=options)                                         
+                                         options=options)                                                                             
 
         # calculate sum of squared percentage differences
         diff = method_result.geotargets_opt - self.geotargets
