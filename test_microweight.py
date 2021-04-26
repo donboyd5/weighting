@@ -9,7 +9,7 @@
 # DONE: consolidate all poisson methods in one file
 # DONE: add poisson tpc method (Newton)
 # DONE: make sure qmatrix approach is working properly
-# geoipopt scaling
+# DONE: geoipopt basic target scaling
 # run puf geoweighting
 # run puf analysis
 # possibly implement jvp and jit for tpc approach
