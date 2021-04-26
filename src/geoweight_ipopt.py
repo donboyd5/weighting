@@ -68,6 +68,8 @@ user_defaults = {
     'xlb': 0.01,
     'xub': 100,
     'crange': 0.0,
+    'scaling': True,
+    'scale_goal': 1e3,
     'ccgoal': False,  # for constraint scaling
     'addup': False,
     'addup_range': 0.0,
@@ -120,6 +122,9 @@ def ipopt_geo(wh, xmat, geotargets,
 
     # convert dict to named tuple for ease of use
     opts = ut.dict_nt(options_all)
+
+    if opts.scaling:
+        xmat, geotargets, scale_factors = scale_problem(xmat, geotargets, opts.scale_goal)
 
     if opts.linear_solver == 'ma77':
         # create a temporary directory for the temporary files ma77 writes
@@ -245,6 +250,9 @@ def ipopt_geo(wh, xmat, geotargets,
 
     geotargets_opt = np.dot(whs_opt.T, xmat)
     geotargets_init = np.dot(whs_init.T, xmat)
+
+    if opts.scaling:
+        geotargets_opt = np.multiply(geotargets_opt, scale_factors)
 
     b = timer()
 
@@ -384,6 +392,13 @@ def get_ccscale(jsparse_constraints, ccgoal, method='mean'):
     # ccscale = ccscale / ccscale
     return ccscale
 
+
+# %% scaling
+def scale_problem(xmat, geotargets, scale_goal):
+    scale_factors = xmat.sum(axis=0) / scale_goal
+    xmat = np.divide(xmat, scale_factors)
+    geotargets = np.divide(geotargets, scale_factors)
+    return xmat, geotargets, scale_factors
 
 
 

@@ -14,6 +14,7 @@
 # run puf analysis
 # possibly implement jvp and jit for tpc approach
 # investigate improvements to empirical calibration - robustness
+# clean up target scaling and make it more consistent
 # openblas
 # Ceres
 # contact Matt J.
@@ -92,22 +93,6 @@ ngtargets = p.geotargets * (1 + gnoise)
 prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets, geotargets=ngtargets)
 
 
-# %% define options
-
-uo = {'qmax_iter': 10}
-uo = {'qmax_iter': 1, 'independent': True}
-uo = {'qmax_iter': 10, 'quiet': True}
-
-
-
-
-
-
-
-
-
-
-
 # %% geoweight: poisson
 poisson_opts = {
     'scaling': True,
@@ -143,13 +128,16 @@ poisson_opts.update({'init_beta': 1.0})
 
 # %% geoweight: geoipopt
 # geoipopt options
-geoipopt_base = {# 'xlb': .2, 'xub': 2, # default 0.1, 10.0
-         # 'crange': 0.0,  # default 0.0
+geoipopt_base = {
+        'xlb': .1, 'xub': 10., # default 0.1, 10.0
+         'crange': 0.0,  # default 0.0
          # 'print_level': 0,
-         # 'file_print_level': 5,
+        'file_print_level': 5,
+        # 'scaling': True,
+        # 'scale_goal': 1e3,
          # 'ccgoal': 10000,
-         # 'addup': False,  # default is false
-         'output_file': '/home/donboyd/Documents/test_sparse.out'
+         'addup': True,  # default is false
+         'output_file': '/home/donboyd/Documents/test_sparse.out',
          'max_iter': 100,
          'linear_solver': 'ma86',  # ma27, ma77, ma57, ma86 work, not ma97
          'quiet': False}
@@ -157,7 +145,9 @@ geoipopt_base = {# 'xlb': .2, 'xub': 2, # default 0.1, 10.0
 geoipopt_opts = geoipopt_base.copy()
 geoipopt_opts.update({'addup': False})
 geoipopt_opts.update({'addup': True})
-geoipopt_opts.update({'crange': .05})
+geoipopt_opts.update({'scaling': True})
+geoipopt_opts.update({'scale_goal': 1e3})
+geoipopt_opts.update({'crange': .04})
 geoipopt_opts.update({'addup_range': .005})
 geoipopt_opts.update({'xlb': .01})
 geoipopt_opts.update({'xub': 10.0})
@@ -228,6 +218,7 @@ gw = gwqm_ip
 gw = gwqm_ec
 gw = gwqm_rake
 
+# general results
 gw.elapsed_seconds
 
 # compute weight sums vs totals
