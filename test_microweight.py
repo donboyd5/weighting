@@ -6,7 +6,8 @@
 # TODO:
 # DONE: pass options to poisson
 # DONE: poisson scaling
-# consolidate all poisson methods in one file
+# DONE: consolidate all poisson methods in one file
+# add poisson tpc method (Newton)
 # make sure qmatrix approach is working properly
 # geoipopt scaling
 # run puf geoweighting
@@ -64,8 +65,10 @@ p = mtp.Problem(h=10000, s=10, k=8, xsd=.1, ssd=.5, pctzero=.2)
 p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=30000, s=30, k=20, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=35000, s=40, k=25, xsd=.1, ssd=.5, pctzero=.4)
-p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.5)
+p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4) 
 p = mtp.Problem(h=50000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.2)
+
+p = mtp.Problem(h=10000, s=15, k=10, xsd=.1, ssd=.5, pctzero=.4)    
 
 
 # %% add noise and set problem up
@@ -80,7 +83,7 @@ ntargets = p.targets * (1 + noise)
 
 # now add noise to geotargets
 np.random.seed(1)
-gnoise = np.random.normal(0, .01, p.k * p.s)
+gnoise = np.random.normal(0, .05, p.k * p.s)
 gnoise = gnoise.reshape(p.geotargets.shape)
 ngtargets = p.geotargets * (1 + gnoise)
 
@@ -165,6 +168,10 @@ gwp3 = prob.geoweight(method='poisson', options=poisson_opts)
 gwp3.elapsed_seconds
 gwp3.sspd
 
+gwp4 = prob.geoweight(method='poisson-tpc', options=poisson_opts)
+gwp4.elapsed_seconds
+gwp4.sspd
+
 poisson_opts.update({'jacmethod': 'jvp'})
 poisson_opts.update({'scale_goal': 1e3})
 poisson_opts.update({'init_beta': 1e-6})
@@ -192,6 +199,7 @@ gw5 = prob.geoweight(method='poisson', options=uo)
 
 # gw5b = prob.geoweight(method='poisson', options=uo)
 gw6 = prob.geoweight(method='geoipopt', options=geoipopt_opts)
+gwp6 = gw6
 
 # djb: overflow encountered in exp
 #  beta_x = np.exp(np.dot(beta, xmat.T))
@@ -216,7 +224,7 @@ gw5b.sspd
 gw6.sspd
 
 
-gw = gw5a  # one of the above
+gw = gwp4  # one of the above
 # dir(gw)
 gw.method
 gw.sspd
@@ -233,7 +241,18 @@ np.round(gw.pdiff, 2)
 gw.whs_opt
 gw.whs_opt.sum(axis=1) - p.wh
 dir(gw.method_result)
-np.max(np.abs(gw.pdiff))
+
+np.max(np.abs(gwp1.pdiff))
+np.max(np.abs(gwp2.pdiff))
+np.max(np.abs(gwp3.pdiff))
+np.max(np.abs(gwp4.pdiff))
+np.max(np.abs(gwp6.pdiff))
+
+gwp1.sspd
+gwp2.sspd
+gwp3.sspd
+gwp4.sspd
+gwp6.sspd
 
 
 gw.whs_opt
