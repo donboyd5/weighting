@@ -115,7 +115,7 @@ def poisson(wh, xmat, geotargets, options=None):
         x0=betavec0,
         method='trf', jac=jacmethod, verbose=2,
         ftol=1e-7, xtol=1e-7,
-        # x_scale='jac',
+        x_scale='jac',
         loss='soft_l1',  # linear, soft_l1, huber, cauchy, arctan,
         max_nfev=100,
         args=(wh, xmat, geotargets, dw))

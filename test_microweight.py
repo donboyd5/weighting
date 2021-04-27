@@ -115,7 +115,7 @@ gwp3 = prob.geoweight(method='poisson', options=poisson_opts)
 gwp3.elapsed_seconds
 gwp3.sspd
 
-gwp4 = prob.geoweight(method='poisson-tpc', options=poisson_opts)
+gwp4 = prob.geoweight(method='poisson-newton', options=poisson_opts)
 gwp4.elapsed_seconds
 gwp4.sspd
 
