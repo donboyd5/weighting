@@ -101,9 +101,15 @@ poisson_opts = {
     'jacmethod': 'jvp',  # vjp, jvp, full, findiff
     'quiet': True}
 
+poisson_opts.update({'jacmethod': 'jvp'})  # default
 gwp1 = prob.geoweight(method='poisson', options=poisson_opts)
 gwp1.elapsed_seconds
 gwp1.sspd
+
+poisson_opts.update({'jacmethod': 'vjp'})  
+gwp1a = prob.geoweight(method='poisson', options=poisson_opts)
+gwp1a.elapsed_seconds
+gwp1a.sspd
 
 poisson_opts.update({'jacmethod': 'full'})
 gwp2 = prob.geoweight(method='poisson', options=poisson_opts)
@@ -118,6 +124,7 @@ gwp3.sspd
 gwp4 = prob.geoweight(method='poisson-newton', options=poisson_opts)
 gwp4.elapsed_seconds
 gwp4.sspd
+
 
 poisson_opts.update({'jacmethod': 'jvp'})
 poisson_opts.update({'scale_goal': 1e3})
@@ -156,6 +163,13 @@ geoipopt_opts
 gwip1 = prob.geoweight(method='geoipopt', options=geoipopt_opts)
 gwip1.elapsed_seconds
 gwip1.sspd
+
+geoipopt_opts.update({'linear_solver': 'ma77'})
+geoipopt_opts.update({'output_file': '/home/donboyd/Documents/test_sparse77.out'})
+gwip1a = prob.geoweight(method='geoipopt', options=geoipopt_opts)
+gwip1a.elapsed_seconds
+gwip1a.sspd
+
 
 
 # %% general qmatrix options

@@ -86,8 +86,10 @@ def poisson(wh, xmat, geotargets, options=None):
     
     if opts.jacmethod == 'jvp':
         jax_jacobian_basic = jax.jit(jac_jvp(jax_targets_diff))  # jax_jacobian_basic is a function -- the jax jacobian
+    elif opts.jacmethod == 'vjp':
+        jax_jacobian_basic = jax.jit(jac_vjp(jax_targets_diff))
     elif opts.jacmethod == 'full':
-        jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))
+        jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))        
     else:
         jax_jacobian_basic = None
 

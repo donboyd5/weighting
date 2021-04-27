@@ -44,6 +44,8 @@ def Newton_system(F, J, x, wh, xmat, geotargets, dw, eps=.01, maxpd=.01):
     while abs(F_norm) > eps and max_abs_pdiff > maxpd and iteration_counter < 10:
         jval = J(x, wh, xmat, geotargets, dw)
         delta = jnp.linalg.lstsq(jval, -F_value, rcond=None)[0] # , rcond=None)[0]
+        # hplgit's original line was the following but it is not numerically stable
+        # delta = np.linalg.solve(J(x), -F_value)  so I use lstsq
         x = x + delta
         F_value = F(x, wh, xmat, geotargets, dw)
         print(iteration_counter, F_norm, max_abs_pdiff)
