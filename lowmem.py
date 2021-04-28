@@ -3,7 +3,7 @@
 # https://github.com/hanrach/p2d_solver/blob/main/run_ex.py
 
 import jax
-import numpy as np
+# import numpy as np
 import jax.numpy as np
 import timeit
 
@@ -12,30 +12,8 @@ from numpy.linalg import norm
 from jax import jacfwd
 from jax import jvp
 
-import jax
-import jax.numpy as np
-from jax import jacfwd
 from jax.config import config
 config.update('jax_enable_x64', True)
-from jax.numpy.linalg import norm
-from jax.scipy.linalg import solve
-from p2d_param import get_battery_sections  # no
-import timeit
-from settings import Tref  # no 
-from unpack import unpack, unpack_fast  # no
-from scipy.sparse import csr_matrix, csc_matrix
-from unpack import unpack  # no
-
-import jax
-from jax.scipy.linalg import solve
-import jax.numpy as np
-from jax.numpy.linalg import norm
-from jax import jacrev
-from jax.config import config
-config.update('jax_enable_x64', True)
-from p2d_main_fn import p2d_fn
-#from res_fn_order2 import fn
-from residual import ResidualFunction
 
 def fn(x):
     return np.square(x - 1)
@@ -48,10 +26,12 @@ maxit = 20
 tol = 1e-6
 U0 = np.array([0., 1., 2., 3., 4])
 
-# djb
+# djb full jacobian approach
 U = U0
 count = 0
 res = 1e9
+
+start0 =timeit.default_timer()
 while(count < maxit and  res > tol):
     start1 =timeit.default_timer() 
     J =  jac_fn(U)
@@ -60,44 +40,50 @@ while(count < maxit and  res > tol):
     # delta = solve(J, y)
     delta = np.linalg.lstsq(J, y, rcond=None)[0]
     U = U - delta
-    count = count + 1
-    end1 =timeit.default_timer() 
+    count = count + 1    
     print(count, res)
 
+end0 =timeit.default_timer()
+time0 = end0 - start0
+time0
 U
 
-# djb2 this works
+# djb jacobian vector product approach -- this works
 # So in summary, if you replace delta = solve(J,y) with
 
 # jac_x_prod = lambda x: jvp(fn, y, x)
 # delta = jax.scipy.sparse.linalg.cg(jax_x_prod, y)[0]
-U = U0
+
+jac_x_prod = lambda x: jvp(fn, (U2,), (x,))[1]
+jac_x_prod = jax.jit(jac_x_prod)
+
+U2 = U0
+U2 = np.array([0., 1., 2., 3., 4., 5.])
 count = 0
 res = 1e9
+
+start1 =timeit.default_timer()
 while(count < maxit and  res > tol):
-    start1 =timeit.default_timer() 
-    # J =  jac_fn(U)
-    y = fn(U)
-    res = norm(y / norm(U, np.inf), np.inf)
-    # delta = solve(J, y)
-    # delta = np.linalg.lstsq(J, y, rcond=None)[0]
-    # djb jax.jvp(f, (x,), (s,))[1]
-    # jac_x_prod = lambda x: jvp(fn, y, x)
-    # delta = jax.scipy.sparse.linalg.cg(jax_x_prod, y)[0]
-    # x = U
-    # jac_x_prod = lambda x: jvp(fn, (y,), (x,))
-    jac_x_prod = lambda x: jvp(fn, (U,), (x,))[1]  # djb
-    # jac_x_prod(U)
-    # jac_x_prod = lambda x: jvp(fn, y, x) # what jax said
-    # jac_x_prod(y)[1] # returns 2 arrays of size 5
+    y = fn(U2)
+    res = norm(y / norm(U2, np.inf), np.inf)
+    # jac_x_prod = lambda x: jvp(fn, (U2,), (x,))[1]
+    # jac_x_prod = jax.jit(jac_x_prod)
     delta = jax.scipy.sparse.linalg.cg(jac_x_prod, y)[0]
-    U = U - delta
+    U2 = U2 - delta
     count = count + 1
-    end1 =timeit.default_timer() 
     print(count, res)
 
-jac_x_prod(U0)
-jac_x_prod(U)
+end1 = timeit.default_timer()
+time1 = end1 - start1
+time1
+U2
+np.round(fn(U2), 2)
+
+time0
+time1
+
+U
+U2
 
 # https://jax.readthedocs.io/en/latest/_autosummary/jax.scipy.sparse.linalg.cg.html
 # jax.scipy.sparse.linalg.cg(A, b, x0=None, *, tol=1e-05, atol=0.0, maxiter=None, M=None)
@@ -228,3 +214,29 @@ fn = jax.jit(fn)
 
 # djb full thing
 [sol, fail] = newton(fn, jac_fn, U)
+
+
+import jax
+import jax.numpy as np
+from jax import jacfwd
+from jax.config import config
+config.update('jax_enable_x64', True)
+from jax.numpy.linalg import norm
+from jax.scipy.linalg import solve
+from p2d_param import get_battery_sections  # no
+import timeit
+from settings import Tref  # no 
+from unpack import unpack, unpack_fast  # no
+from scipy.sparse import csr_matrix, csc_matrix
+from unpack import unpack  # no
+
+import jax
+from jax.scipy.linalg import solve
+import jax.numpy as np
+from jax.numpy.linalg import norm
+from jax import jacrev
+from jax.config import config
+config.update('jax_enable_x64', True)
+from p2d_main_fn import p2d_fn
+#from res_fn_order2 import fn
+from residual import ResidualFunction
