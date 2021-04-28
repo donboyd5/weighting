@@ -13,6 +13,7 @@ Created on Sun Oct  4 05:11:04 2020
 # %% imports
 
 import numpy as np
+from numpy.linalg import norm
 import jax
 import jax.numpy as jnp
 from timeit import default_timer as timer
@@ -85,11 +86,116 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
     if beta_object.ndim == 1:
         diffs = diffs.flatten()
 
-    return jax.device_put(diffs)
+    return diffs # np.array(diffs)  # note that this is np, not jnp!
+
+def jvp2(g):
+    f = lambda x: g(x, wh, xmat, geotargets, dw)
+    _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
+    return _jvp(g)
+
+f = lambda betavec: jax_targets_diff(betavec, wh, xmat, geotargets, dw)
+f(bv2)
+# Push forward the vector `v` along `f` evaluated at `W`
+y, u = jax.jvp(f, (betavec,), (bv2,))
+u
+
 
 
 # %% test on something small
+p = mtp.Problem(h=100, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=1000, s=3, k=3, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=10000, s=10, k=8, xsd=.1, ssd=.5, pctzero=.2)
+p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=30000, s=30, k=20, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=35000, s=40, k=25, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4) 
+p = mtp.Problem(h=50000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.2)
 
+wh = p.wh
+xmat = p.xmat
+geotargets = p.geotargets
+betavec0 = np.full(geotargets.size, 0.5, dtype='float64')  # 1e-13 or 1e-12 seems best
+
+np.random.seed(1)
+gnoise = np.random.normal(0, .01, p.k * p.s)
+gnoise = gnoise.reshape(p.geotargets.shape)
+ngtargets = p.geotargets * (1 + gnoise)
+
+ngtargets = p.geotargets
+
+dw = jax_get_diff_weights(ngtargets)
+
+# tmp = jax_targets_diff(betavec0, wh, xmat, geotargets, dw)
+
+# %% solve using jvp cg
+
+
+# jac_x_prod = lambda x: jvp(jax_targets_diff, (betavec,), (x,))[1]
+# jac_x_prod = lambda x: jvp2(jax_targets_diff, (betavec,), (x,))[1]
+# jac_x_prod = lambda x: jvp(jax_targets_diff, (betavec, wh, xmat, geotargets, dw), (x,))[1]
+# jac_x_prod = lambda x: jvp(jax_targets_diff, (betavec, wh, xmat, geotargets, dw), (x, wh, xmat, geotargets, dw))[1]
+
+
+
+
+# f(bv2)
+# # Push forward the vector `v` along `f` evaluated at `W`
+# jax.jvp(f, (betavec,), (bv2,))
+
+
+# djb this works
+f = lambda betavec: jax_targets_diff(betavec, wh, xmat, ngtargets, dw)
+jac_x_prod = lambda x: jvp(f, (betavec,), (x, ))[1]
+
+f(betavec0)
+jac_fn = lambda x: jacfwd(f, (betavec,), (x, ))
+jac_fn(betavec0)  # djb come back to this and get syntax right
+
+J =  jac_fn(betavec)
+
+# jac_x_prod = jax.jit(jac_x_prod)
+
+# bv2 = np.full(geotargets.size, 0.1) 
+# jac_x_prod(bv2)
+
+maxit = 10
+tol = 1e-4
+
+count = 0
+res = 1e9
+betavec = betavec0
+
+start = timer()
+while(count < maxit and  res > tol):
+    # print("\n", count)
+    print("betavec", betavec)
+    # print(jac_x_prod(betavec))
+    y = jax_targets_diff(betavec, wh, xmat, ngtargets, dw)
+
+    print("y", y)
+    # res = jnp.linalg.norm(y / jnp.linalg.norm(betavec, np.inf), np.inf)
+    res = np.square(y).sum()
+    print("res", res)
+
+    step = jax.scipy.sparse.linalg.cg(jac_x_prod, y)[0]
+
+    J =  jac_fn(betavec)
+    step = np.linalg.lstsq(J, y, rcond=None)[0]
+
+    print("step", step)
+
+    betavec = betavec - step
+    count = count + 1
+    print(count, res)
+
+end = timer()
+
+time = end - start
+time
+
+
+# U2
+# np.round(fn(U2), 2)
 
 
 
