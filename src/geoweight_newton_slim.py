@@ -93,11 +93,11 @@ def jvp2(g):
     _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
     return _jvp(g)
 
-f = lambda betavec: jax_targets_diff(betavec, wh, xmat, geotargets, dw)
-f(bv2)
-# Push forward the vector `v` along `f` evaluated at `W`
-y, u = jax.jvp(f, (betavec,), (bv2,))
-u
+# f = lambda betavec: jax_targets_diff(betavec, wh, xmat, geotargets, dw)
+# f(bv2)
+# # Push forward the vector `v` along `f` evaluated at `W`
+# y, u = jax.jvp(f, (betavec,), (bv2,))
+# u
 
 
 
@@ -151,9 +151,71 @@ f(betavec0)
 jac_fn = lambda x: jacfwd(f, (betavec,), (x, ))
 jac_fn(betavec0)  # djb come back to this and get syntax right
 
-J =  jac_fn(betavec)
+jax_jacobian_basic = jax.jacfwd(jax_targets_diff)
+J = jax_jacobian_basic(beta, wh, xmat, geotargets, dw)
+# J = np.array(J.reshape((dw.size, dw.size))
+
+
+# https://github.com/google/jax/tree/master/examples
+jvpf = lambda x: jax_targets_diff(x, wh, xmat, ngtargets, dw)
+jvpf2 = lambda s: jax.jvp(jvpf, (x, ), (s,))[1]
+
+jvpf = lambda betavec: jax_targets_diff(betavec, wh, xmat, ngtargets, dw)
+jvpf2 = lambda s: jax.jvp(jvpf, (betavec,), (s,))[1]
+jpbasic = jax.jvp(jvpf2)
+
+import inspect
+print(inspect.signature(jvpf))
+print(inspect.signature(jvpf2))
+jvpf2(y)
+jvpf2(betavec)
+
+
+lambda x: jvp(fn, (U2,), (x,))[1]
+
+jvpf(betavec) # targets_diff at this point
+jvpf2(betavec)
+jax.jvp(jvpf, (betavec,), (y, ))
+jax.jvp(jvpf, (betavec,), (y, ))
+jax.jvp(jvpf, (betavec,), (wh, xmat, geotargets, dw))
+jax.jvp(jvpf, (wh, xmat, geotargets, dw), (betavec,))
+
+jax.scipy.sparse.linalg.cg(jvpf2, y)[0]
 
 # jac_x_prod = jax.jit(jac_x_prod)
+# djb come back to this
+def f(x):
+    return jnp.square(x + 2)
+
+x = 2.
+f(x)  # 4.
+jax.jvp(f, (x,), (1.,))    
+
+x = jnp.array([2., 3.])
+s = jnp.array([7., 9])
+f(x)
+jfns = jax.jacfwd(f)
+jvals = jfns(x)
+jvals
+jfns(s)
+
+jvals.dot(s) # same as lf(s)
+jvals.dot(x)  # same as lf(x)
+
+yvals = f(x)
+step1 = jnp.linalg.lstsq(jvals, yvals, rcond=None)[0]
+step1
+
+# same result with jvp??
+lf = lambda z: jvp(f, (x,), (z,))[1]
+lf(x)
+lf(s)
+step2 = jax.scipy.sparse.linalg.cg(lf, yvals)[0]  # yes, same as linalg.lstsq
+step2
+
+jax.jvp(f, (x,), (s, ))
+
+tmp = jax.jvp(f, (x,), (s, ))[1]
 
 # bv2 = np.full(geotargets.size, 0.1) 
 # jac_x_prod(bv2)
@@ -174,13 +236,14 @@ while(count < maxit and  res > tol):
 
     print("y", y)
     # res = jnp.linalg.norm(y / jnp.linalg.norm(betavec, np.inf), np.inf)
-    res = np.square(y).sum()
+    res = jnp.square(y).sum()
     print("res", res)
 
     step = jax.scipy.sparse.linalg.cg(jac_x_prod, y)[0]
 
-    J =  jac_fn(betavec)
-    step = np.linalg.lstsq(J, y, rcond=None)[0]
+    J = jax_jacobian_basic(betavec, wh, xmat, geotargets, dw)
+    # J = np.array(J.reshape((dw.size, dw.size))
+    step = jnp.linalg.lstsq(J, y, rcond=None)[0]
 
     print("step", step)
 
