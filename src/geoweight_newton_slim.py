@@ -187,9 +187,8 @@ jax.scipy.sparse.linalg.cg(jvpf2, y)[0]
 def f(x):
     return jnp.square(x + 2)
 
-x = 2.
-f(x)  # 4.
-jax.jvp(f, (x,), (1.,))    
+lf = lambda z: jvp(f, (x,), (z,))[1]
+
 
 x = jnp.array([2., 3.])
 s = jnp.array([7., 9])
@@ -207,12 +206,30 @@ step1 = jnp.linalg.lstsq(jvals, yvals, rcond=None)[0]
 step1
 
 # same result with jvp??
-lf = lambda z: jvp(f, (x,), (z,))[1]
 lf(x)
 lf(s)
 step2 = jax.scipy.sparse.linalg.cg(lf, yvals)[0]  # yes, same as linalg.lstsq
 step2
 
+# repeat but add a variable
+def f2(x, mult):
+    return jnp.square(x + 2) * mult
+
+lf2 = lambda z: jvp(f2, (x,), (z,))[1]
+
+mult = 3.
+
+x2 = jnp.array([2., 3.])
+s2 = jnp.array([7., 9])
+f2(x2, mult)
+jfns2 = jax.jacfwd(f2)
+jvals2 = jfns2(x2, mult)
+jvals2
+jfns(s)
+
+
+
+# old
 jax.jvp(f, (x,), (s, ))
 
 tmp = jax.jvp(f, (x,), (s, ))[1]
