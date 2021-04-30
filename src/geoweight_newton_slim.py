@@ -11,6 +11,8 @@ Created on Sun Oct  4 05:11:04 2020
 
 
 # %% imports
+import inspect
+import scipy
 
 import numpy as np
 from numpy.linalg import norm
@@ -113,8 +115,7 @@ p = mtp.Problem(h=50000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.2)
 
 wh = p.wh
 xmat = p.xmat
-geotargets = p.geotargets
-betavec0 = np.full(geotargets.size, 0.5, dtype='float64')  # 1e-13 or 1e-12 seems best
+betavec0 = np.full(p.geotargets.size, 0.5, dtype='float64')  # 1e-13 or 1e-12 seems best
 
 np.random.seed(1)
 gnoise = np.random.normal(0, .01, p.k * p.s)
@@ -141,15 +142,185 @@ dw = jax_get_diff_weights(ngtargets)
 # f(bv2)
 # # Push forward the vector `v` along `f` evaluated at `W`
 # jax.jvp(f, (betavec,), (bv2,))
+obj =lambda x, y: x**2 + y**3
+obj(5, 7)
+f = lambda z: obj(z, y)
+f = lambda y: obj(z, y)
+y = 2
+z = 3
+inspect.getsource(f)
+f(2)
+f(3)
+x = 2.0
+z = 10.
 
+# now try with jacfwd
+obj =lambda x, y: x**2 + y**3
+f = lambda z: obj(z, y)  # just pass in the first argument, take y as given
+g = lambda x: jacfwd(f) # evaluate wrt arg 0, at point 
+# g is callable; it gets one argement, x, and we give it an argument which is z passed to f
+g(x)(11.) # with 11, we get jacfwd of obj wrt z iex, evaluated at 11, or 2 * x = 22
+# now change f so that we pass in y, so that jac should be 3 * y**2
+f = lambda y: obj(z, y)
+g(x)(11.)  # 3 * 11**2 = 3 * 121 = 363
+
+# now try with jvp
+
+# set up a function of 2 arguments
+obj =lambda x, y: x**2 + y**3
+f = lambda z: obj(z, y)  # lambda so that we only have to send one argument
+y = 4. # define y in the work space; 4^3 = 64
+f(2) # 68
+f(3) # 73
+# define the jacobian of the objective eval wrt x, which will be 2x
+# jac wrt y would be 3 * y^2
+jacfwd(obj)(5., 8.)  # 10 -- good
+jacfwd(obj, 1)(5., 10.)  # 3 * 10^2 -- good
+# now make a lambda fun that we only have to pass one argument to
+lobj = lambda x: obj(x, y)  # will require y in the workspace
+y = 2.
+lobj(7.)  # 7**2 + 2**3 = 49 + 8 = 57  # good
+# define jacobian wrt x, which is 2x
+j = jacfwd(lobj)
+y = None
+y = 83.
+j(7.)  # we must have y in the workspace; we'll always get j(x) = 2 * x
+j(12.)
+
+# use arrays
+x = np.array([2., 3., 4.])  # 4, 9, 16 if **2; 8, 27, 64 if cubed
+y = np.array([5., 4., 3.]) # 25, 16, 9 if **2; 125, 64, 27 if cubed
+lobj(x)  # returns x**2 + y**3
+lobj(y)  # returns y**2 + y**3
+
+# j is jac wrt x, or 2x
+j(x)  # jacobian of lobj wrt x where x=x, with y in environment
+j(y)  # jacobian of lobj wrt x where x=y, with y in environment
+j(x).dot(y) # jacobian vector product with vector y
+
+# now get the jacobian vector product
+# jax.jvp(fun, primals, tangents)
+fvals, jvpvals = jvp(lobj, (x,), (y, ))
+inspect.getsource(lobj)
+# evaluate the function at x: next 2 should be the same
+lobj(x)
+fvals
+# evaluate the jvp at y: next 2 should be the same
+j(x).dot(y)
+jvpvals
+
+# thus, we want
+ltargdiff = lambda x: jax_targets_diff(x, wh, xmat, ngtargets, dw) 
+inspect.getsource(ltargdiff)
+
+p = mtp.Problem(h=20, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
+wh = p.wh
+xmat = p.xmat
+np.random.seed(1)
+gnoise = np.random.normal(0, .01, p.k * p.s)
+gnoise = gnoise.reshape(p.geotargets.shape)
+ngtargets = p.geotargets * (1 + gnoise)
+
+betavec0 = jnp.full(p.geotargets.size, 0.5, dtype='float64')  
+# bv2 = np.full(p.geotargets.size, 0.0, dtype='float64')  
+bv2 = jnp.array([.1, .2, .3, .4, .5, .6])
+
+jax_targets_diff(betavec0, wh, xmat, ngtargets, dw) 
+ltargdiff(betavec0)
+
+jax_targets_diff(bv2, wh, xmat, ngtargets, dw) 
+ltargdiff(bv2)
+
+# check jacobian
+j = jacfwd(ltargdiff)
+j(betavec0)
+j(bv2)
+
+# jacobian dot product
+j(betavec0).dot(bv2)
+fvals, jvpvals = jvp(ltargdiff, (betavec0,), (bv2, ))
+fvals, jvpvals = jvp(ltargdiff, (betavec0,), (betavec0, ))
+fvals
+jvpvals
+ltargdiff(betavec0)
+inspect.getsource(ltargdiff)
+
+# now check step
+betavec = betavec0
+yvals = ltargdiff(betavec)
+jvals = j(betavec)
+step1 = jnp.linalg.lstsq(jvals, yvals, rcond=None)[0]
+step1
+
+# same result with jvp??
+ltargdiff(betavec0)
+ljvp = lambda yvals: jvp(ltargdiff, (betavec,), (yvals, ))[1]
+ljvp2 = lambda yvals: np.array(jvp(ltargdiff, (betavec,), (yvals, ))[1])
+
+ljvp(yvals)
+j(betavec).dot(yvals)
+
+step2 = jax.scipy.sparse.linalg.cg(ljvp, yvals)[0]  # yes, same as linalg.lstsq
+step2
+
+ljvp2(yvals)
+scipy.sparse.linalg.cg(np.array(j(betavec)), yvals)
+j(betavec).dot(yvals)
 
 # djb this works
-f = lambda betavec: jax_targets_diff(betavec, wh, xmat, ngtargets, dw)
+# lambda function that returns vector at a given point
+x = betavec0
+f = lambda x: jax_targets_diff(x, wh, xmat, ngtargets, dw)
+f(betavec0)
+
 jac_x_prod = lambda x: jvp(f, (betavec,), (x, ))[1]
 
-f(betavec0)
-jac_fn = lambda x: jacfwd(f, (betavec,), (x, ))
+# syntax https://jax.readthedocs.io/en/latest/jax.html
+# jax.eval_shape(f, A, x)  # get shape with no FLOPs
+# jax.jacfwd(fun, argnums=0, holomorphic=False)
+#   Jacobian of fun evaluated column-by-column using forward-mode AD.
+#   Parameters
+#       fun (Callable) – Function whose Jacobian is to be computed.
+#       argnums (Union[int, Sequence[int]]) – Optional, integer or sequence
+#           of integers. Specifies which positional argument(s) to differentiate with respect
+#           to (default 0).
+#       holomorphic (bool) – Optional, bool. Indicates whether fun is promised to be holomorphic. Default False.
+#   Return type Callable
+#   Returns
+#       A function with the same arguments as fun, that evaluates the Jacobian 
+#       of fun using forward-mode automatic differentiation.
+
+# jax.jvp(fun, primals, tangents)
+# Computes a (forward-mode) Jacobian-vector product of fun.
+# Parameters
+#   fun (Callable) – Function to be differentiated. Its arguments should be arrays,
+#       scalars, or standard Python containers of arrays or scalars. It should
+#       return an array, scalar, or standard Python container of arrays or scalars.
+#   primals – The primal values at which the Jacobian of fun should be evaluated.
+#       Should be either a tuple or a list of arguments, and its length should
+#       equal to the number of positional parameters of fun.
+#   tangents – The tangent vector for which the Jacobian-vector product should
+#       be evaluated. Should be either a tuple or a list of tangents, with
+#       the same tree structure and array shapes as primals.
+# Return type   Tuple[Any, Any]
+# Returns
+#   A (primals_out, tangents_out) pair, where primals_out is fun(*primals),
+#   and tangents_out is the Jacobian-vector product of function evaluated 
+#   at primals with tangents. The tangents_out value has the same Python
+#   tree structure and shapes as primals_out.
+
+
+jac_fn = lambda x: jacfwd(f, (0,))(x,)
+jac_fn = lambda x: jacfwd(f)(x,)
+jac_fn = lambda x: jacfwd(f)(x, wh, xmat, ntargets, dw)
+
+jac_fn = lambda x: jacfwd(f)
+
+inspect.getsource(jac_fn)
+
 jac_fn(betavec0)  # djb come back to this and get syntax right
+jac_fn(betavec)(betavec0)  # point to be evaluated comes AFTER function closing
+jac_fn()(betavec0)
 
 jax_jacobian_basic = jax.jacfwd(jax_targets_diff)
 J = jax_jacobian_basic(beta, wh, xmat, geotargets, dw)
