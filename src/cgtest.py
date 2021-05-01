@@ -163,6 +163,8 @@ from jax import jvp
 from jax.config import config
 config.update('jax_enable_x64', True)
 
+from timeit import default_timer as timer
+
 from collections import namedtuple
 
 import utilities as ut # src.utilities
@@ -357,6 +359,9 @@ p = mtp.Problem(h=10000, s=20, k=8, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=20000, s=25, k=20, xsd=.1, ssd=.5, pctzero=.4)    
 p = mtp.Problem(h=30000, s=35, k=30, xsd=.1, ssd=.5, pctzero=.4)    
 p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4) 
+p = mtp.Problem(h=50000, s=50, k=40, xsd=.1, ssd=.5, pctzero=.3) 
+p = mtp.Problem(h=60000, s=80, k=50, xsd=.1, ssd=.5, pctzero=.3) 
+p = mtp.Problem(h=100000, s=100, k=50, xsd=.1, ssd=.5, pctzero=.3) 
 
 p.h
 p.s
@@ -388,6 +393,9 @@ betavec0 = np.full(geotargets.size, 1e-10, dtype='float64')  # 1e-13 or 1e-12 se
 
 # %% Newton step
 
+# do this first as functions depend upon it
+bvec = betavec0.copy()
+
 # create lambda function
 ldiffs = lambda xbvec: jax_targets_diff(xbvec, wh, xmat, ngtargets, dw)
 
@@ -397,13 +405,13 @@ jdiffs = jacfwd(jax_targets_diff)
 # jvp lambda
 jvpfn3 = lambda yvar: jvp(ldiffs, (bvec,), (yvar,))[1]
 
-jvp_linop3a = scipy.sparse.linalg.LinearOperator((betavec0.size, betavec0.size), matvec=jvpfn3, rmatvec=jvpfn3)
+jvp_linop3a = scipy.sparse.linalg.LinearOperator((bvec.size, bvec.size), matvec=jvpfn3, rmatvec=jvpfn3)
 
-bvec = betavec0.copy()
+
 
 # start loop
 y3 = jax_targets_diff(bvec, wh, xmat, ngtargets, dw)  # resids
-ldiffs(bvec)  # good, same
+# ldiffs(bvec)  # good, same
 
 # res = jnp.linalg.norm(y / jnp.linalg.norm(betavec, np.inf), np.inf)
 res = jnp.square(y3).sum()
@@ -448,23 +456,26 @@ jvp_linop3 = scipy.sparse.linalg.LinearOperator((y3.size, y3.size), matvec=jvpfn
 scipy.sparse.linalg.cg(jvp_linop3, y3) # like lstsq
 # (array([-8.06123019e-04,  4.57304524e-04,  3.86365601e-04, -3.77587343e-04,    4.80842989e-04, -7.31356235e-05]),0)
 
-jvp_linop3a = scipy.sparse.linalg.LinearOperator((y3.size, y3.size), matvec=jvpfn3, rmatvec=jvpfn3)
+# jvp_linop3a = scipy.sparse.linalg.LinearOperator((y3.size, y3.size), matvec=jvpfn3, rmatvec=jvpfn3)
 # %timeit scipy.sparse.linalg.lsqr(jvp_linop3a, y3)
 # %timeit scipy.optimize.lsq_linear(jvp_linop3a, y3)
 
+start = timer()
 step_res = scipy.optimize.lsq_linear(jvp_linop3a, y3)
-dir(step_res)
-step_res.x
+end = timer()
+end - start
+# dir(step_res)
+# step_res.x
 step_res.success
 
 # scipy.sparse.linalg.gmres(jvp_linop3, y3)
 
 # jvp function using jax
-jax.scipy.sparse.linalg.cg(jvpfn3, y3)[0]
+# jax.scipy.sparse.linalg.cg(jvpfn3, y3)[0]
 
-step = jax.scipy.sparse.linalg.cg(jvpfn3, y3)[0]
+# step = jax.scipy.sparse.linalg.cg(jvpfn3, y3)[0]
 
-step = jnp.linalg.lstsq(jvals3, y3, rcond=None)[0]
+# step = jnp.linalg.lstsq(jvals3, y3, rcond=None)[0]
 
 step = step_res.x
 
