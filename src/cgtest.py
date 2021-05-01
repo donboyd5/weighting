@@ -28,6 +28,16 @@
 #   return res[0]
 
 
+# %% preconditioning
+# https://scicomp.stackexchange.com/questions/27450/correct-use-of-scipys-sparse-linalg-spilu
+# https://stackoverflow.com/questions/46876951/sparse-matrix-solver-with-preconditioner
+
+# from scipy.sparse.linalg import LinearOperator, spilu
+# ilu = spilu(A)
+# Mx = lambda x: ilu.solve(x)
+# M = LinearOperator((N, N), Mx)
+
+
 # %% jacfwd documentation
 # syntax https://jax.readthedocs.io/en/latest/jax.html
 # jax.eval_shape(f, A, x)  # get shape with no FLOPs
@@ -72,7 +82,9 @@
 
 # Parameters
 # A{sparse matrix, dense matrix, LinearOperator}
-# The real or complex N-by-N matrix of the linear system. A must represent a hermitian, positive definite matrix. Alternatively, A can be a linear operator which can produce Ax using, e.g., scipy.sparse.linalg.LinearOperator.
+# The real or complex N-by-N matrix of the linear system. A must represent a hermitian, 
+# positive definite matrix. Alternatively, A can be a linear operator which can produce Ax 
+# using, e.g., scipy.sparse.linalg.LinearOperator.
 
 # b{array, matrix}
 # Right hand side of the linear system. Has shape (N,) or (N,1).
@@ -99,7 +111,9 @@
 # Maximum number of iterations. Iteration will stop after maxiter steps even if the specified tolerance has not been achieved.
 
 # M{sparse matrix, dense matrix, LinearOperator}
-# Preconditioner for A. The preconditioner should approximate the inverse of A. Effective preconditioning dramatically improves the rate of convergence, which implies that fewer iterations are needed to reach a given error tolerance.
+# Preconditioner for A. The preconditioner should approximate the inverse of A. Effective 
+# preconditioning dramatically improves the rate of convergence, which implies that fewer 
+# iterations are needed to reach a given error tolerance.
 
 # callbackfunction
 # User-supplied function to call after each iteration. It is called as callback(xk), where xk is the current solution vector.
@@ -123,8 +137,11 @@
 # b (array or tree of arrays) – Right hand side of the linear system representing 
 # a single vector. Can be stored as an array or Python container of array(s) with any shape.
 
+# 
+
 
 # %% notes to self
+# possibly investigate preconditioning for conjugate gradient
 
 
 # %% imports
@@ -325,11 +342,125 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
 
     return diffs # np.array(diffs)  # note that this is np, not jnp!
 
+def scale_problem(xmat, geotargets, scale_goal):
+    scale_factors = xmat.sum(axis=0) / scale_goal
+    xmat = np.divide(xmat, scale_factors)
+    geotargets = np.divide(geotargets, scale_factors)
+    return xmat, geotargets, scale_factors
+
+
 # %% create problem
+p = mtp.Problem(h=30, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)    
+p = mtp.Problem(h=30, s=3, k=2, xsd=.1, ssd=.5, pctzero=.0)    
+p = mtp.Problem(h=1000, s=10, k=4, xsd=.1, ssd=.5, pctzero=.4)    
+p = mtp.Problem(h=10000, s=20, k=8, xsd=.1, ssd=.5, pctzero=.4)   
+
+p.h
+p.s
+p.k
+
+xmat, geotargets, scale_factors = scale_problem(p.xmat, p.geotargets, 1000.0)
+
+# xmat = p.xmat
+# geotargets = p.geotargets
+
+wh = p.wh
+
+np.random.seed(1)
+gnoise = np.random.normal(0, .01, p.k * p.s)
+gnoise = gnoise.reshape(geotargets.shape)
+ngtargets = geotargets * (1 + gnoise)
+ngtargets
+
+# ngtargets = geotargets
+
+dw = jax_get_diff_weights(ngtargets)
+
+betavec0 = np.full(geotargets.size, 0.5, dtype='float64')  # 1e-13 or 1e-12 seems best
+betavec0 = np.full(geotargets.size, 0.0, dtype='float64')  # 1e-13 or 1e-12 seems best
+betavec0 = np.full(geotargets.size, 1.0, dtype='float64')  # 1e-13 or 1e-12 seems best
+betavec0 = np.full(geotargets.size, 1e-10, dtype='float64')  # 1e-13 or 1e-12 seems best
+
 
 
 # %% Newton step
 
+# create lambda function
+ldiffs = lambda xbvec: jax_targets_diff(xbvec, wh, xmat, ngtargets, dw)
 
+# define jacobian
+jdiffs = jacfwd(jax_targets_diff)
 
+# jvp lambda
+jvpfn3 = lambda yvar: jvp(ldiffs, (bvec,), (yvar,))[1]
+
+bvec = betavec0.copy()
+
+# start loop
+y3 = jax_targets_diff(bvec, wh, xmat, ngtargets, dw)  # resids
+ldiffs(bvec)  # good, same
+
+# res = jnp.linalg.norm(y / jnp.linalg.norm(betavec, np.inf), np.inf)
+res = jnp.square(y3).sum()
+res
+
+# solve for step directly
+
+# jvals3 is jdiffs (jacobian) evaluated here
+jvals3 = jdiffs(bvec, wh, xmat, ngtargets, dw)
+jvals3
+# np.linalg.cholesky(jvals3) # error if not positive definite
+
+np.linalg.solve(jvals3, y3)
+# np.linalg.inv(jvals3) # what does the inverse look like?
+# array([-0.05050206, -0.07945673, -0.04930957, -0.08029163, -0.0492151 , -0.07998717])
+np.linalg.lstsq(jvals3, y3, rcond=None)[0]  # NOT!! same answer
+jnp.linalg.lstsq(jvals3, y3, rcond=None)[0]  # NOT!! same answer
+# array([-8.26486139e-04,  4.55111163e-04,  3.66004531e-04, -3.79782024e-04, 4.60481608e-04, -7.53291394e-05])
+np.linalg.cond(jvals3)  # condition number very high!!
+
+# use scipy cg to solve for step
+scipy.sparse.linalg.cg(np.array(jvals3), y3)[0] # similar to lstsq, not solve
+# array([-8.06123019e-04,  4.57304524e-04,  3.86365601e-04, -3.77587343e-04, 4.80842989e-04, -7.31356235e-05])
+
+# from scipy.sparse.linalg import LinearOperator, spilu
+# ilu = scipy.sparse.linalg.spilu(jvals3)
+# Mx = lambda x: ilu.solve(x)
+# M = scipy.sparse.linalg.LinearOperator((y3.size, y3.size), Mx)
+# scipy.sparse.linalg.cg(np.array(jvals3), y3, M=M)
+# M = np.linalg.inv(jvals3)
+# scipy.sparse.linalg.gmres(np.array(jvals3), y3)[0] 
+
+# use jax scipy cg to solve for step
+# first with matrix
+jax.scipy.sparse.linalg.cg(jvals3, y3)[0]  # similar to lstsq
+# DeviceArray([-8.06123019e-04,  4.57304524e-04,  3.86365601e-04, -3.77587343e-04,  4.80842989e-04, -7.31356235e-05],            dtype=float64)
+
+# jvp function using scipy (vars in the environment)
+# jvpfn3 = lambda yvar: jvp(ldiffs, (bvec,), (yvar,))[1]  # vars in environment
+# jvpfn3(y3)  # should be same as j2(xa, xb).dot(y2)
+jvp_linop3 = scipy.sparse.linalg.LinearOperator((y3.size, y3.size), matvec=jvpfn3)
+scipy.sparse.linalg.cg(jvp_linop3, y3) # like lstsq
+# (array([-8.06123019e-04,  4.57304524e-04,  3.86365601e-04, -3.77587343e-04,    4.80842989e-04, -7.31356235e-05]),0)
+
+jvp_linop3a = scipy.sparse.linalg.LinearOperator((y3.size, y3.size), matvec=jvpfn3, rmatvec=jvpfn3)
+%timeit scipy.sparse.linalg.lsqr(jvp_linop3a, y3)
+%timeit scipy.optimize.lsq_linear(jvp_linop3a, y3)
+step_res = scipy.optimize.lsq_linear(jvp_linop3a, y3)
+dir(step_res)
+step_res.x
+
+# scipy.sparse.linalg.gmres(jvp_linop3, y3)
+
+# jvp function using jax
+jax.scipy.sparse.linalg.cg(jvpfn3, y3)[0]
+
+step = jax.scipy.sparse.linalg.cg(jvpfn3, y3)[0]
+
+step = jnp.linalg.lstsq(jvals3, y3, rcond=None)[0]
+step = step_res.x
+
+step
+bvec = bvec - step
+bvec
 
