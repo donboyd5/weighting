@@ -354,6 +354,9 @@ p = mtp.Problem(h=30, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=30, s=3, k=2, xsd=.1, ssd=.5, pctzero=.0)    
 p = mtp.Problem(h=1000, s=10, k=4, xsd=.1, ssd=.5, pctzero=.4)    
 p = mtp.Problem(h=10000, s=20, k=8, xsd=.1, ssd=.5, pctzero=.4)   
+p = mtp.Problem(h=20000, s=25, k=20, xsd=.1, ssd=.5, pctzero=.4)    
+p = mtp.Problem(h=30000, s=35, k=30, xsd=.1, ssd=.5, pctzero=.4)    
+p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4) 
 
 p.h
 p.s
@@ -393,6 +396,8 @@ jdiffs = jacfwd(jax_targets_diff)
 
 # jvp lambda
 jvpfn3 = lambda yvar: jvp(ldiffs, (bvec,), (yvar,))[1]
+
+jvp_linop3a = scipy.sparse.linalg.LinearOperator((betavec0.size, betavec0.size), matvec=jvpfn3, rmatvec=jvpfn3)
 
 bvec = betavec0.copy()
 
@@ -444,11 +449,13 @@ scipy.sparse.linalg.cg(jvp_linop3, y3) # like lstsq
 # (array([-8.06123019e-04,  4.57304524e-04,  3.86365601e-04, -3.77587343e-04,    4.80842989e-04, -7.31356235e-05]),0)
 
 jvp_linop3a = scipy.sparse.linalg.LinearOperator((y3.size, y3.size), matvec=jvpfn3, rmatvec=jvpfn3)
-%timeit scipy.sparse.linalg.lsqr(jvp_linop3a, y3)
-%timeit scipy.optimize.lsq_linear(jvp_linop3a, y3)
+# %timeit scipy.sparse.linalg.lsqr(jvp_linop3a, y3)
+# %timeit scipy.optimize.lsq_linear(jvp_linop3a, y3)
+
 step_res = scipy.optimize.lsq_linear(jvp_linop3a, y3)
 dir(step_res)
 step_res.x
+step_res.success
 
 # scipy.sparse.linalg.gmres(jvp_linop3, y3)
 
@@ -458,6 +465,7 @@ jax.scipy.sparse.linalg.cg(jvpfn3, y3)[0]
 step = jax.scipy.sparse.linalg.cg(jvpfn3, y3)[0]
 
 step = jnp.linalg.lstsq(jvals3, y3, rcond=None)[0]
+
 step = step_res.x
 
 step
