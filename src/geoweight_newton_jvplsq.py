@@ -151,8 +151,40 @@ def poisson_newtjvplsq(wh, xmat, geotargets, options=None):
     # Used with l_jvp - see above.
     l_vjp = lambda diffs: vjp(ldiffs, bvec)[1](diffs)
 
-
-
+    # linear operator
+    # In concept, we need the inverse of the jacobian to compute a Newton step.
+    # However, we are avoiding creating the jacobian because we don't want to use
+    # that much memory or do such extensive calculations. 
+    # 
+    # To calculate the step, we need to solve the system:
+    #   Ax = b
+    #
+    # where:
+    #   A is the jacobian
+    #   b is the vector of differences from targets, evaluated at current bvec
+    #   x, to be solved for, is the next step we will take.
+    # 
+    # If we were to create the jacobian (A in this example), we could invert it
+    # (if invertible). However, we avoid creating the jacobian through use of
+    # the l_jvp and l_vjp functions. Furthermore, this jacobian often seems 
+    # extremely ill-conditioned, and so we don't use one of the methods that
+    # can solve for x iteratively, such as conjugate gradient 
+    # (jax.scipy.sparse.linalg.cg) or gmres (scipy.sparse.linalg.gmres). I have
+    # tried these methods and they generally either fail because the jacobian is
+    # so ill-conditioned, or cannot be used because it is not positive semidefinite.
+    # 
+    # Thus, as an alternative to solving for x directly (by constructing a large,
+    # difficult to calculate, ill-conditioned jacobian) or solving for x iteratively
+    # (by using an interative method such as cg or gmres), instead we solve for x
+    # approximately using least squares.
+    #
+    # Furthermore, we can solve approximately for x this way without creating the
+    # jacobian (matrix A in the system notation) by using the two vector-product
+    # functions l_jvp and l_vjp, and wrapping them in a linear operator. That's
+    # what this next line does. This lets us solve for approximate x quickly
+    # and robustly (without numerical problems), with very little memory usage.
+    lsq_linop = scipy.sparse.linalg.LinearOperator((betavec0.size, betavec0.size),
+     matvec=l_jvp, rmatvec=l_vjp)
     
     # if opts.jacmethod == 'jvp':
     #     jax_jacobian_basic = jax.jit(jac_jvp(jax_targets_diff))  # jax_jacobian_basic is a function -- the jax jacobian
@@ -162,12 +194,22 @@ def poisson_newtjvplsq(wh, xmat, geotargets, options=None):
     #     jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))        
     # else:
     #     jax_jacobian_basic = None
+    # begin Newton iterations
+    count = 0
+    tol = 1e-4
+    bvec = betavec0
+    while count < opts.max_iter and error > tol:
+        count += 1
+        diffs = jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+        error = jnp.square(diffs).sum()
+        print(count, error)
+        step_results = scipy.optimize.lsq_linear(jvp_linop3b, y3)
+        if not step_results.success: print("Failure in getting step!! Check results carefully.")
+        bvec = bvec - step_results.x
 
-
-
-
+    print("Done with Newton iterations.")
     # get return values
-    beta_opt = spo_result.x.reshape(geotargets.shape)
+    beta_opt = bvec.reshape(geotargets.shape)
     delta_opt = get_delta(wh, beta_opt, xmat)
     whs_opt = get_geoweights(beta_opt, delta_opt, xmat)
     geotargets_opt = get_geotargets(beta_opt, wh, xmat)
@@ -185,11 +227,11 @@ def poisson_newtjvplsq(wh, xmat, geotargets, options=None):
               'delta_opt')
     Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
 
-    res = Result(elapsed_seconds=b - a,
-                 whs_opt=whs_opt,
-                 geotargets_opt=geotargets_opt,
-                 beta_opt=beta_opt,
-                 delta_opt=delta_opt)
+    result = Result(elapsed_seconds=b - a,
+                    whs_opt=whs_opt,
+                    geotargets_opt=geotargets_opt,
+                    beta_opt=beta_opt,
+                    delta_opt=delta_opt)
 
-    return res
+    return result
 
