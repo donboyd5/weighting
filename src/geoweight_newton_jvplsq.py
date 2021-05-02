@@ -9,6 +9,7 @@
 import scipy
 
 import numpy as np
+from numpy.linalg import norm # jax??
 import jax
 import jax.numpy as jnp
 from timeit import default_timer as timer
@@ -201,8 +202,10 @@ def poisson_newtjvplsq(wh, xmat, geotargets, options=None):
     while count < opts.max_iter and error > tol:
         count += 1
         diffs = jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+        l2norm = norm(diffs, 2)
+        maxabs = norm(jnp.abs(diffs), inf)
         error = jnp.square(diffs).sum()
-        print(count, error)
+        print(count, error, l2norm, maxabs)
         step_results = scipy.optimize.lsq_linear(jvp_linop3b, y3)
         if not step_results.success: print("Failure in getting step!! Check results carefully.")
         bvec = bvec - step_results.x
