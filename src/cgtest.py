@@ -75,6 +75,68 @@
 #   at primals with tangents. The tangents_out value has the same Python
 #   tree structure and shapes as primals_out.
 
+# %% jax vjp documentation
+# https://jax.readthedocs.io/en/latest/jax.html#jax.vjp
+# source https://jax.readthedocs.io/en/latest/_modules/jax/_src/api.html#vjp
+# jax.vjp(fun: Callable[[…], Any], *primals: Any, has_aux: bool) → Union[Tuple[Any, Callable], Tuple[Any, Callable, Any]]
+# Compute a (reverse-mode) vector-Jacobian product of fun.
+
+# grad() is implemented as a special case of vjp().
+
+# Parameters
+#   fun (Callable) – Function to be differentiated. Its arguments should be arrays, scalars, or 
+#       standard Python containers of arrays or scalars. It should return an array, scalar, or standard
+#        Python container of arrays or scalars.
+
+#   primals – A sequence of primal values at which the Jacobian of fun should be evaluated. The length 
+#       of primals should be equal to the number of positional parameters to fun. Each primal value 
+#       should be a tuple of arrays, scalar, or standard Python containers thereof.
+
+#   has_aux (bool) – Optional, bool. Indicates whether fun returns a pair where the first element is 
+#       considered the output of the mathematical function to be differentiated and the second element 
+#       is auxiliary data. Default False.
+
+# Return type  Union[Tuple[Any, Callable], Tuple[Any, Callable, Any]]
+
+# Returns
+#   If has_aux is False, returns a (primals_out, vjpfun) pair, where primals_out is fun(*primals). 
+#   vjpfun is a function from a cotangent vector with the same shape as primals_out to a tuple of 
+#   cotangent vectors with the same shape as primals, representing the vector-Jacobian product of 
+#   fun evaluated at primals. If has_aux is True, returns a (primals_out, vjpfun, aux) tuple where 
+#   aux is the auxiliary data returned by fun.
+
+# >>> import jax
+# >>>
+# >>> def f(x, y):
+# ...   return jax.numpy.sin(x), jax.numpy.cos(y)
+# ...
+# >>> primals, f_vjp = jax.vjp(f, 0.5, 1.0)
+# >>> xbar, ybar = f_vjp((-0.7, 0.3))
+# >>> print(xbar)
+# -0.61430776
+# >>> print(ybar)
+# -0.2524413
+
+# def f(x, y):
+#     return jax.numpy.sin(x), jax.numpy.cos(y)
+
+# jax.numpy.sin(0.5)
+# f(0.5, 1.0)
+# primals, f_vjp = jax.vjp(f, 0.5, 1.0)
+# xbar, ybar = f_vjp((-0.7, 0.3))
+
+a = 0.5
+b = 1.0
+a = -0.7
+b = 0.3
+c = 2.0
+d = 3.0
+vp = jax.vjp(f, a, b)
+vp((c, d))
+
+
+
+
 # %% scipy cg documentation
 # https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.cg.html
 # scipy.sparse.linalg.cg(A, b, x0=None, tol=1e-05, maxiter=None, M=None, callback=None, atol=None)
@@ -157,7 +219,7 @@ from timeit import default_timer as timer
 # from numpy.linalg import solve
 # from numpy.linalg import norm
 from jax import jacfwd
-from jax import jvp
+from jax import jvp, vjp
 
 # this next line is CRUCIAL or we will lose precision
 from jax.config import config
@@ -396,7 +458,8 @@ betavec0 = np.full(geotargets.size, 1e-10, dtype='float64')  # 1e-13 or 1e-12 se
 # do this first as functions depend upon it
 bvec = betavec0.copy()
 
-# create lambda function
+# create lambda function of xbvec, which will vary within the loop
+# wh, xmat, ngtargets, dw do not change within the loop so we can define outside loop
 ldiffs = lambda xbvec: jax_targets_diff(xbvec, wh, xmat, ngtargets, dw)
 
 # define jacobian
@@ -404,8 +467,22 @@ jdiffs = jacfwd(jax_targets_diff)
 
 # jvp lambda
 jvpfn3 = lambda yvar: jvp(ldiffs, (bvec,), (yvar,))[1]
+# vjb lambda note different signature and syntax
+vjpfn3 = lambda yvar: vjp(ldiffs, bvec)[1](yvar)
+
+
+ldiffs(bvec)
+jvpfn3(bvec)
+vjpfn3(bvec)
+
+jvp(ldiffs, bvec)(bvec)
+vjp(ldiffs, bvec)
 
 jvp_linop3a = scipy.sparse.linalg.LinearOperator((bvec.size, bvec.size), matvec=jvpfn3, rmatvec=jvpfn3)
+jvp_linop3b = scipy.sparse.linalg.LinearOperator((bvec.size, bvec.size), matvec=jvpfn3, rmatvec=vjpfn3)
+
+# vjp lambda
+# J2T_op = lambda v: jax.vjp(f, x2)[1](v)[0]
 
 
 
@@ -460,13 +537,20 @@ scipy.sparse.linalg.cg(jvp_linop3, y3) # like lstsq
 # %timeit scipy.sparse.linalg.lsqr(jvp_linop3a, y3)
 # %timeit scipy.optimize.lsq_linear(jvp_linop3a, y3)
 
+# jnp.linalg.lstsq(jvals3, y3, rcond=None)[0]
+
 start = timer()
-step_res = scipy.optimize.lsq_linear(jvp_linop3a, y3)
+# %timeit step_res = scipy.optimize.lsq_linear(jvp_linop3a, y3)
+# %timeit step_resb = scipy.optimize.lsq_linear(jvp_linop3b, y3)
+# step_res = scipy.optimize.lsq_linear(jvp_linop3a, y3)
+step_resb = scipy.optimize.lsq_linear(jvp_linop3b, y3)
 end = timer()
 end - start
 # dir(step_res)
 # step_res.x
 step_res.success
+step_resb.success
+step_resb.x
 
 # scipy.sparse.linalg.gmres(jvp_linop3, y3)
 
@@ -478,6 +562,7 @@ step_res.success
 # step = jnp.linalg.lstsq(jvals3, y3, rcond=None)[0]
 
 step = step_res.x
+step = step_resb.x
 
 step
 bvec = bvec - step
