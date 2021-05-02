@@ -203,18 +203,18 @@ def poisson(wh, xmat, geotargets, options=None):
     tol = 1e-4
     error = 1e99
     
+    print("iteration        sspd        l2norm      maxabs_error")
     while count < opts.max_iter and error > tol:
         count += 1
         diffs = jax_targets_diff(bvec, wh, xmat, geotargets, dw)
         l2norm = norm(diffs, 2)
         maxabs = norm(jnp.abs(diffs), jnp.inf)
         error = jnp.square(diffs).sum()
-        print(count, error, l2norm, maxabs)
+        print(f'{count: 6}   {error: 12.1f}  {l2norm: 12.1f}      {maxabs: 12.1f}')
         step_results = scipy.optimize.lsq_linear(lsq_linop, diffs)
         if not step_results.success: print("Failure in getting step!! Check results carefully.")
         bvec = bvec - step_results.x
-
-    print("Done with Newton iterations.")
+    
     # get return values
     beta_opt = bvec.reshape(geotargets.shape)
     delta_opt = jax_get_delta(wh, beta_opt, xmat)
@@ -225,6 +225,8 @@ def poisson(wh, xmat, geotargets, options=None):
         geotargets_opt = np.multiply(geotargets_opt, scale_factors)
 
     b = timer()
+
+    print(f'Done with Newton iterations. Elapsed seconds: {b - a: 9.1f}')
 
     # create a named tuple of items to return
     fields = ('elapsed_seconds',

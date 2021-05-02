@@ -128,6 +128,9 @@ gwp4 = prob.geoweight(method='poisson-newton', options=poisson_opts)
 gwp4.elapsed_seconds
 gwp4.sspd
 
+poisson_opts.update({'init_beta': 1.0})
+poisson_opts.update({'init_beta': 0.5})
+poisson_opts.update({'max_iter': 5})
 gwp5 = prob.geoweight(method='poisson-newton_jvplsq', options=poisson_opts)
 gwp5.elapsed_seconds
 gwp5.sspd
@@ -233,7 +236,7 @@ gwqm_rake = prob.geoweight(method='qmatrix', options=uoqr)
 
 # %% check geoweight results
 
-gw = gwp5  # gwp1, ..., 
+gw = gwp4  # gwp1, ..., 
 gw = gwip1  # gwip1, ...
 gw = gwqm_lsq  # gwqm1, ...
 gw = gwqm_ip
