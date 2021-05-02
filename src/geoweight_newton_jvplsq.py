@@ -38,8 +38,6 @@ options_defaults = {
 # options_defaults = {**solver_defaults, **user_defaults}
 
 
-
-
 # %% functions needed for residuals
 def jax_get_delta(wh, beta, xmat):
     beta_x = jnp.exp(jnp.dot(beta, xmat.T))
@@ -120,9 +118,40 @@ def poisson_newtjvplsq(wh, xmat, geotargets, options=None):
     betavec0 = np.full(geotargets.size, opts.init_beta)  # 1e-13 or 1e-12 seems best
     dw = get_diff_weights(geotargets)
 
-    # define the different functions that can be used to construct the jacobian
-    # these are alternative to each other - we'll only use one
-    # I have not succeeded in moving them outside of the poisson function
+    # define lambda functions that each will take only one argument, and that
+    # will otherwise use items in the environment
+
+    # l_diffs: lambda function that gets differences from targets, as a vector
+    #   parameter: a beta vector
+    #     (In addition, it assumes existence of, and uses, values in the
+    #      environment: wh, xmat, geotargets, and dw. These do not change
+    #      within the loop.)
+    #   returns: vector of differences from targets
+    l_diffs = lambda bvec: jax_targets_diff(bvec, wh, xmat, ngtargets, dw)
+
+    # l_jvp: lambda function that evaluates the following jacobian vector product
+    #    (the dot product of a jacobian matrix and a vector)
+    #     matrix:
+    #      jacobian of l_diffs evaluated at the current bvec values,
+    #     vector:
+    #       differences from targets when l_diffs is evaluated at bvec
+    #   returns: a jacobian-vector-product vector
+    # This is used, in conjunction with l_vjp, to compute the step vector in the
+    # Newton method. It allows us to avoid computing the full jacobian, thereby
+    # saving considerable memory use and computation.
+    l_jvp = lambda diffs: jvp(l_diffs, (bvec,), (diffs,))[1]
+
+    # l_vjp: lambda function that evaluates the following vector jacobian product
+    #    (the dot product of the transpose of a jacobian matrix and a vector)
+    #     matrix:
+    #      transpose of jacobian of l_diffs evaluated at the current bvec values,
+    #     vector:
+    #       differences from targets when l_diffs is evaluated at bvec
+    #   returns: a vector-jacobian-product vector
+    # Used with l_jvp - see above.
+    l_vjp = lambda diffs: vjp(ldiffs, bvec)[1](diffs)
+
+
 
     
     # if opts.jacmethod == 'jvp':
@@ -134,18 +163,6 @@ def poisson_newtjvplsq(wh, xmat, geotargets, options=None):
     # else:
     #     jax_jacobian_basic = None
 
-
-
-    def jax_jacobian(beta, wh, xmat, geotargets, dw):
-        jac_values = jax_jacobian_basic(beta, wh, xmat, geotargets, dw)
-        jac_values = np.array(jac_values).reshape((dw.size, dw.size))
-        return jac_values
-
-    # jax_jacobian_basic = jax.jit(jac_jvp(jax_targets_diff))  # jax_jacobian_basic is a function -- the jax jacobian
-    if opts.jacmethod == 'findiff':
-        jacmethod = '2-point'
-    else:
-        jacmethod = jax_jacobian
 
 
 
