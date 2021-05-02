@@ -21,8 +21,6 @@ Functions:
 
 
 # %% imports
-# needed for ipopt:
-# from __future__ import print_function, unicode_literals
 
 import importlib
 
@@ -41,6 +39,8 @@ import src.utilities as ut
 import src.geoweight_ipopt as gwip
 import src.geoweight_poisson as gwps
 import src.geoweight_newton as gwnewt
+import src.geoweight_newton_jvplsq as gwnewt_jvpslq
+# import geoweight_newton_jvplsq as gwnewt_jvpslq
 import src.geoweight_qmatrix as gwqm
 
 import src.reweight_empcalib as rwec
@@ -55,6 +55,7 @@ import src.reweight_raking as rwrk
 importlib.reload(gwip)
 importlib.reload(gwps)
 importlib.reload(gwnewt)
+importlib.reload(gwnewt_jvpslq)
 importlib.reload(gwqm)
 
 importlib.reload(rwec)
@@ -188,6 +189,9 @@ class Microweight:
                                          options=options)
         elif method == 'poisson-newton':
             method_result = gwnewt.poisson(self.wh, self.xmat, self.geotargets,
+                                         options=options)   
+        elif method == 'poisson-newton_jvplsq':
+            method_result = gwnewt_jvpslq.poisson(self.wh, self.xmat, self.geotargets,
                                          options=options)                                                                             
 
         # calculate sum of squared percentage differences

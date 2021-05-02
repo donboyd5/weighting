@@ -24,7 +24,7 @@ from timeit import default_timer as timer
 
 from collections import namedtuple
 
-import utilities as ut # src.utilities
+import src.utilities as ut # src.utilities
 # import make_test_problems as mtp  # src.make_test_problems
 
 
@@ -34,6 +34,7 @@ options_defaults = {
     'scale_goal': 1e3,
     'init_beta': 0.5,
     'jacmethod': 'jvp',  # vjp, jvp, full, finite-diff
+    'max_iter': 5,
     'quiet': True}
 
 # options_defaults = {**solver_defaults, **user_defaults}
@@ -104,7 +105,7 @@ def scale_problem(xmat, geotargets, scale_goal):
     return xmat, geotargets, scale_factors
 
 # %% main function
-def poisson_newtjvplsq(wh, xmat, geotargets, options=None):
+def poisson(wh, xmat, geotargets, options=None):
     # TODO: implement options
     a = timer()
 
@@ -117,7 +118,8 @@ def poisson_newtjvplsq(wh, xmat, geotargets, options=None):
 
     # betavec0 = np.zeros(geotargets.size)
     betavec0 = np.full(geotargets.size, opts.init_beta)  # 1e-13 or 1e-12 seems best
-    dw = get_diff_weights(geotargets)
+    bvec = betavec0
+    dw = jax_get_diff_weights(geotargets)
 
     # define lambda functions that each will take only one argument, and that
     # will otherwise use items in the environment
@@ -128,7 +130,7 @@ def poisson_newtjvplsq(wh, xmat, geotargets, options=None):
     #      environment: wh, xmat, geotargets, and dw. These do not change
     #      within the loop.)
     #   returns: vector of differences from targets
-    l_diffs = lambda bvec: jax_targets_diff(bvec, wh, xmat, ngtargets, dw)
+    l_diffs = lambda bvec: jax_targets_diff(bvec, wh, xmat, geotargets, dw)
 
     # l_jvp: lambda function that evaluates the following jacobian vector product
     #    (the dot product of a jacobian matrix and a vector)
@@ -150,7 +152,7 @@ def poisson_newtjvplsq(wh, xmat, geotargets, options=None):
     #       differences from targets when l_diffs is evaluated at bvec
     #   returns: a vector-jacobian-product vector
     # Used with l_jvp - see above.
-    l_vjp = lambda diffs: vjp(ldiffs, bvec)[1](diffs)
+    l_vjp = lambda diffs: vjp(l_diffs, bvec)[1](diffs)
 
     # linear operator
     # In concept, we need the inverse of the jacobian to compute a Newton step.
@@ -195,27 +197,29 @@ def poisson_newtjvplsq(wh, xmat, geotargets, options=None):
     #     jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))        
     # else:
     #     jax_jacobian_basic = None
+
     # begin Newton iterations
     count = 0
     tol = 1e-4
-    bvec = betavec0
+    error = 1e99
+    
     while count < opts.max_iter and error > tol:
         count += 1
         diffs = jax_targets_diff(bvec, wh, xmat, geotargets, dw)
         l2norm = norm(diffs, 2)
-        maxabs = norm(jnp.abs(diffs), inf)
+        maxabs = norm(jnp.abs(diffs), jnp.inf)
         error = jnp.square(diffs).sum()
         print(count, error, l2norm, maxabs)
-        step_results = scipy.optimize.lsq_linear(jvp_linop3b, y3)
+        step_results = scipy.optimize.lsq_linear(lsq_linop, diffs)
         if not step_results.success: print("Failure in getting step!! Check results carefully.")
         bvec = bvec - step_results.x
 
     print("Done with Newton iterations.")
     # get return values
     beta_opt = bvec.reshape(geotargets.shape)
-    delta_opt = get_delta(wh, beta_opt, xmat)
-    whs_opt = get_geoweights(beta_opt, delta_opt, xmat)
-    geotargets_opt = get_geotargets(beta_opt, wh, xmat)
+    delta_opt = jax_get_delta(wh, beta_opt, xmat)
+    whs_opt = jax_get_geoweights(beta_opt, delta_opt, xmat)
+    geotargets_opt = jax_get_geotargets(beta_opt, wh, xmat)
 
     if opts.scaling:
         geotargets_opt = np.multiply(geotargets_opt, scale_factors)
