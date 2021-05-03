@@ -86,7 +86,7 @@ def scale_problem(xmat, geotargets, scale_goal):
 #      environment: wh, xmat, geotargets, and dw. These do not change
 #      within the loop.)
 #   returns: vector of differences from targets
-l_diffs = lambda bvec: jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+# l_diffs = lambda bvec: jax_targets_diff(bvec, wh, xmat, geotargets, dw)
 
 # l_jvp: lambda function that evaluates the following jacobian vector product
 #    (the dot product of a jacobian matrix and a vector)
@@ -98,7 +98,7 @@ l_diffs = lambda bvec: jax_targets_diff(bvec, wh, xmat, geotargets, dw)
 # This is used, in conjunction with l_vjp, to compute the step vector in the
 # Newton method. It allows us to avoid computing the full jacobian, thereby
 # saving considerable memory use and computation.
-l_jvp = lambda diffs: jvp(l_diffs, (bvec,), (diffs,))[1]
+# l_jvp = lambda diffs: jvp(l_diffs, (bvec,), (diffs,))[1]
 
 # l_vjp: lambda function that evaluates the following vector jacobian product
 #    (the dot product of the transpose of a jacobian matrix and a vector)
@@ -108,7 +108,7 @@ l_jvp = lambda diffs: jvp(l_diffs, (bvec,), (diffs,))[1]
 #       differences from targets when l_diffs is evaluated at bvec
 #   returns: a vector-jacobian-product vector
 # Used with l_jvp - see above.
-l_vjp = lambda diffs: vjp(l_diffs, bvec)[1](diffs)
+# l_vjp = lambda diffs: vjp(l_diffs, bvec)[1](diffs)
 
 
 # %% linear operator
@@ -150,5 +150,14 @@ l_vjp = lambda diffs: vjp(l_diffs, bvec)[1](diffs)
 def get_lsq_linop(bvsize, l_jvp, l_vjp):
     lsq_linop = scipy.sparse.linalg.LinearOperator((bvsize, bvsize),
         matvec=l_jvp, rmatvec=l_vjp)
+
+def get_lsq_linop2(bvec, wh, xmat, geotargets, dw):
+    l_diffs = lambda bvec: jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+    l_jvp = lambda diffs: jvp(l_diffs, (bvec,), (diffs,))[1]
+    l_vjp = lambda diffs: vjp(l_diffs, bvec)[1](diffs)
+    lsq_linop = scipy.sparse.linalg.LinearOperator((bvec.size, bvec.size),
+        matvec=l_jvp, rmatvec=l_vjp)
+
+
 
 
