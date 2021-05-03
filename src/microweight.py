@@ -37,10 +37,8 @@ import src.utilities as ut
 # import src.common as common
 
 import src.geoweight_ipopt as gwip
-import src.geoweight_poisson as gwps
-import src.geoweight_newton as gwnewt
-import src.geoweight_newton_jvplsq as gwnewt_jvpslq
-# import geoweight_newton_jvplsq as gwnewt_jvpslq
+import src.geoweight_poisson_lsq as gwpl
+import src.geoweight_poisson_newton as gwpn
 import src.geoweight_qmatrix as gwqm
 
 import src.reweight_empcalib as rwec
@@ -53,9 +51,8 @@ import src.reweight_raking as rwrk
 
 # %% reimports
 importlib.reload(gwip)
-importlib.reload(gwps)
-importlib.reload(gwnewt)
-importlib.reload(gwnewt_jvpslq)
+importlib.reload(gwpl)
+importlib.reload(gwpn)
 importlib.reload(gwqm)
 
 importlib.reload(rwec)
@@ -184,15 +181,12 @@ class Microweight:
         elif method == 'geoipopt':
             method_result = gwip.ipopt_geo(self.wh, self.xmat, self.geotargets, 
                                           options=options)
-        elif method == 'poisson':
-            method_result = gwps.poisson(self.wh, self.xmat, self.geotargets,
-                                         options=options)
         elif method == 'poisson-newton':
-            method_result = gwnewt.poisson(self.wh, self.xmat, self.geotargets,
-                                         options=options)   
-        elif method == 'poisson-newton_jvplsq':
-            method_result = gwnewt_jvpslq.poisson(self.wh, self.xmat, self.geotargets,
-                                         options=options)                                                                             
+            method_result = gwpn.poisson(self.wh, self.xmat, self.geotargets,
+                                         options=options)                                             
+        elif method == 'poisson-lsq':
+            method_result = gwpl.poisson(self.wh, self.xmat, self.geotargets,
+                                         options=options)                                                                          
 
         # calculate sum of squared percentage differences
         diff = method_result.geotargets_opt - self.geotargets

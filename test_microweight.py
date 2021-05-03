@@ -100,51 +100,47 @@ poisson_opts = {
     'scaling': True,
     'scale_goal': 1e3,
     'init_beta': 0.5,
-    'jacmethod': 'jvp',  # vjp, jvp, full, findiff
+    'stepmethod': 'jvp',  # jac or jvp for newton; also vjp, findiff if lsq
     'quiet': True}
 
 
 # %% geoweight: poisson
 
-
-poisson_opts.update({'jacmethod': 'jvp'})  # default
-gwp1 = prob.geoweight(method='poisson', options=poisson_opts)
+poisson_opts.update({'stepmethod': 'jvp'})  # default
+gwp1 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp1.elapsed_seconds
 gwp1.sspd
 
-poisson_opts.update({'jacmethod': 'vjp'})  
-gwp1a = prob.geoweight(method='poisson', options=poisson_opts)
+poisson_opts.update({'stepmethod': 'vjp'})  
+gwp1a = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp1a.elapsed_seconds
 gwp1a.sspd
 
-poisson_opts.update({'jacmethod': 'full'})
-gwp2 = prob.geoweight(method='poisson', options=poisson_opts)
+poisson_opts.update({'stepmethod': 'jac'})
+gwp2 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp2.elapsed_seconds
 gwp2.sspd
 
-poisson_opts.update({'jacmethod': 'findiff'})
-gwp3 = prob.geoweight(method='poisson', options=poisson_opts)
+poisson_opts.update({'stepmethod': 'findiff'})
+gwp3 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp3.elapsed_seconds
 gwp3.sspd
 
+poisson_opts.update({'stepmethod': 'jac'})
+poisson_opts.update({'stepmethod': 'jvp'})
 gwp4 = prob.geoweight(method='poisson-newton', options=poisson_opts)
 gwp4.elapsed_seconds
 gwp4.sspd
 
+poisson_opts.update({'scale_goal': 1e3})
 poisson_opts.update({'init_beta': 1.0})
 poisson_opts.update({'init_beta': 0.5})
 poisson_opts.update({'max_iter': 5})
-gwp5 = prob.geoweight(method='poisson-newton_jvplsq', options=poisson_opts)
-gwp5.elapsed_seconds
-gwp5.sspd
+poisson_opts.update({'stepmethod': 'jvp'})
+poisson_opts.update({'stepmethod': 'jac'})
+poisson_opts = None
+poisson_opts = {}
 
-
-
-poisson_opts.update({'jacmethod': 'jvp'})
-poisson_opts.update({'scale_goal': 1e3})
-poisson_opts.update({'init_beta': 1e-6})
-poisson_opts.update({'init_beta': 0.5})
-poisson_opts.update({'init_beta': 1.0})
 
 
 # %% geoweight: geoipopt
@@ -168,7 +164,7 @@ geoipopt_opts.update({'addup': False})
 geoipopt_opts.update({'addup': True})
 geoipopt_opts.update({'scaling': True})
 geoipopt_opts.update({'scale_goal': 1e3})
-geoipopt_opts.update({'crange': .04})
+geoipopt_opts.update({'crange': .022})
 geoipopt_opts.update({'addup_range': .005})
 geoipopt_opts.update({'xlb': .01})
 geoipopt_opts.update({'xub': 10.0})

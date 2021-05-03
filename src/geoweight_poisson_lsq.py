@@ -25,7 +25,7 @@ options_defaults = {
     'scaling': True,
     'scale_goal': 1e3,
     'init_beta': 0.5,
-    'jacmethod': 'jvp',  # vjp, jvp, full, finite-diff
+    'stepmethod': 'jvp',  # vjp, jvp, full, finite-diff
     'quiet': True}
 
 # options_defaults = {**solver_defaults, **user_defaults}
@@ -84,11 +84,11 @@ def poisson(wh, xmat, geotargets, options=None):
 
     # determine which jacobian method to use
     
-    if opts.jacmethod == 'jvp':
+    if opts.stepmethod == 'jvp':
         jax_jacobian_basic = jax.jit(jac_jvp(jax_targets_diff))  # jax_jacobian_basic is a function -- the jax jacobian
-    elif opts.jacmethod == 'vjp':
+    elif opts.stepmethod == 'vjp':
         jax_jacobian_basic = jax.jit(jac_vjp(jax_targets_diff))
-    elif opts.jacmethod == 'full':
+    elif opts.stepmethod == 'jac':
         jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))        
     else:
         jax_jacobian_basic = None
@@ -107,15 +107,15 @@ def poisson(wh, xmat, geotargets, options=None):
         return jac_values
 
     # jax_jacobian_basic = jax.jit(jac_jvp(jax_targets_diff))  # jax_jacobian_basic is a function -- the jax jacobian
-    if opts.jacmethod == 'findiff':
-        jacmethod = '2-point'
+    if opts.stepmethod == 'findiff':
+        stepmethod = '2-point'
     else:
-        jacmethod = jax_jacobian
+        stepmethod = jax_jacobian
 
     spo_result = spo.least_squares(
         fun=targets_diff,
         x0=betavec0,
-        method='trf', jac=jacmethod, verbose=2,
+        method='trf', jac=stepmethod, verbose=2,
         ftol=1e-7, xtol=1e-7,
         x_scale='jac',
         loss='soft_l1',  # linear, soft_l1, huber, cauchy, arctan,
