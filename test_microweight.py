@@ -10,14 +10,17 @@
 # DONE: add poisson tpc method (Newton)
 # DONE: make sure qmatrix approach is working properly
 # DONE: geoipopt basic target scaling
+# DONE: use jax to construct jacobian for poisson method
+# DONE: use jax jvp to solve for Newton step without constructing jacobian
+# reorganize poisson methods to avoid duplicate code
 # run puf geoweighting
 # run puf analysis
 # possibly implement jvp and jit for tpc approach
 # investigate improvements to empirical calibration - robustness
 # clean up target scaling and make it more consistent
 # openblas
-# Ceres
 # contact Matt J.
+# Ceres???
 
 
 
