@@ -92,14 +92,17 @@ ngtargets = p.geotargets * (1 + gnoise)
 
 prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets, geotargets=ngtargets)
 
-
-# %% geoweight: poisson
+# %% define poisson options
 poisson_opts = {
     'scaling': True,
     'scale_goal': 1e3,
     'init_beta': 0.5,
     'jacmethod': 'jvp',  # vjp, jvp, full, findiff
     'quiet': True}
+
+
+# %% geoweight: poisson
+
 
 poisson_opts.update({'jacmethod': 'jvp'})  # default
 gwp1 = prob.geoweight(method='poisson', options=poisson_opts)
@@ -124,6 +127,14 @@ gwp3.sspd
 gwp4 = prob.geoweight(method='poisson-newton', options=poisson_opts)
 gwp4.elapsed_seconds
 gwp4.sspd
+
+poisson_opts.update({'init_beta': 1.0})
+poisson_opts.update({'init_beta': 0.5})
+poisson_opts.update({'max_iter': 5})
+gwp5 = prob.geoweight(method='poisson-newton_jvplsq', options=poisson_opts)
+gwp5.elapsed_seconds
+gwp5.sspd
+
 
 
 poisson_opts.update({'jacmethod': 'jvp'})
