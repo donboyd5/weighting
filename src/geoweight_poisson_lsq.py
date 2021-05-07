@@ -6,6 +6,7 @@ Created on Sun Oct  4 05:11:04 2020
 """
 
 # %% imports
+import scipy
 import scipy.optimize as spo
 import gc
 import numpy as np
@@ -28,6 +29,7 @@ options_defaults = {
     'stepmethod': 'jvp',  # vjp, jvp, full, finite-diff
     'max_nfev': 100,
     'ftol': 1e-7,
+    'x_scale': 'jac',
     'quiet': True}
 
 # options_defaults = {**solver_defaults, **user_defaults}
@@ -84,76 +86,47 @@ def poisson(wh, xmat, geotargets, options=None):
             return jnp.transpose(Jt)
         return jacfun
 
-        # linear operator approach
-    # def jvp_linop(bvec, wh, xmat, geotargets, dw, diffs):
-    #     l_diffs = lambda bvec: jax_targets_diff(bvec, wh, xmat, geotargets, dw)
-    #     l_diffs = jax.jit(l_diffs)
-    #     l_jvp = lambda diffs: jvp(l_diffs, (bvec,), (diffs,))[1]
-    #     l_vjp = lambda diffs: vjp(l_diffs, bvec)[1](diffs)
-    #     linop = scipy.sparse.linalg.LinearOperator((bvec.size, bvec.size),
-    #         matvec=l_jvp, rmatvec=l_vjp)
-    #     return linop
-
-    # linop = scipy.sparse.linalg.LinearOperator(shape=(diffs.size, diffs.size),
-    #     matvec=l_jvp, rmatvec=l_vjp)
-
-
-    # Shape tuple
-    # Matrix dimensions (M, N).
-
-    # matveccallable f(v)
-    # Returns returns A * v.
-
-    # rmatveccallable f(v)
-    # Returns A^H * v, where A^H is the conjugate transpose of A.
-
-    # matmatcallable f(V)
-    # Returns A * V, where V is a dense matrix with dimensions (N, K).
-
-    # dtypedtype
-    # Data type of the matrix.
-
-    # rmatmatcallable f(V)
-    # Returns A^H * V, where V is a dense matrix with dimensions (M, K).
-
     # determine which jacobian method to use
-    
     if opts.stepmethod == 'jvp':
         jax_jacobian_basic = jax.jit(jac_jvp(jax_targets_diff))  # jax_jacobian_basic is a function -- the jax jacobian
     elif opts.stepmethod == 'vjp':
         jax_jacobian_basic = jax.jit(jac_vjp(jax_targets_diff))
     elif opts.stepmethod == 'jac':
-        jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))
-    elif opts.stepmethod == 'jvp_linop':
-        jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))        
+        jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))  # jit definitely faster
     else:
         jax_jacobian_basic = None
-
-    # jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))
-    # jax_jacobian_basic = jax.jacfwd(jax_targets_diff)
-    # jax_jacobian_basic = jax.jit(jac_jvp(jax_targets_diff))  # jax_jacobian_basic is a function -- the jax jacobian
-    # jax_jacobian_basic = jax.jit(jac_jvpgc(jax_targets_diff)) 
-    # jax_jacobian_basic = jac_jvp(jax_targets_diff) 
-    # jax_jacobian_basic = jac_vjp(jax_targets_diff) 
-    # jax_jacobian_basic = jax.jit(jac_vjp(jax_targets_diff))
-    # scipy.sparse.linalg.LinearOperator((dim,dim), matvec=A_mvp)
 
     def jax_jacobian(beta, wh, xmat, geotargets, dw):
         jac_values = jax_jacobian_basic(beta, wh, xmat, geotargets, dw)
         jac_values = np.array(jac_values).reshape((dw.size, dw.size))
         return jac_values
 
+    # linear operator approach
+    # CAUTION: This does NOT work well because scipy least_squares does not allow the option x_scale='jac' when using a linear operator
+    # This is fast and COULD be very good if a good scaling vector is developed but without that it iterates quickly but reduces
+    # cost very slowly.
+    def jvp_linop(beta, wh, xmat, geotargets, dw):
+        l_diffs = lambda beta: jax_targets_diff(beta, wh, xmat, geotargets, dw)
+        # l_diffs = jax.jit(l_diffs)  # jit is slower
+        # l_jvp = lambda diffs: jax.jvp(l_diffs, (beta,), (diffs,))[1]  # need to reshape
+        l_vjp = lambda diffs: jax.vjp(l_diffs, beta)[1](diffs)
+
+        def f_jvp(diffs):
+            diffs = diffs.reshape(diffs.size)            
+            return jax.jvp(l_diffs, (beta,), (diffs,))[1]
+        
+        # f_jvp = jax.jit(f_jvp)  # jit is slower
+
+        linop = scipy.sparse.linalg.LinearOperator((beta.size, beta.size),
+            matvec=f_jvp, rmatvec=l_vjp)
+        return linop
+
+
     # jax_jacobian_basic = jax.jit(jac_jvp(jax_targets_diff))  # jax_jacobian_basic is a function -- the jax jacobian
     if opts.stepmethod == 'findiff':
         stepmethod = '2-point'
-    elif opts.stepmethod == 'jvp_linop':
-        l_diffs = lambda bvec: jax_targets_diff(bvec, wh, xmat, geotargets, dw)
-        l_diffs = jax.jit(l_diffs)
-        l_jvp = lambda diffs: jvp(l_diffs, (bvec,), (diffs,))[1]
-        l_vjp = lambda diffs: vjp(l_diffs, bvec)[1](diffs)
-        linop = scipy.sparse.linalg.LinearOperator((bvec.size, bvec.size),
-            matvec=l_jvp, rmatvec=l_vjp)
-        stepmethod = linop
+    elif opts.stepmethod == 'jvp-linop':
+        stepmethod = jvp_linop
     else:
         stepmethod = jax_jacobian
 
@@ -162,7 +135,7 @@ def poisson(wh, xmat, geotargets, options=None):
         x0=betavec0,
         method='trf', jac=stepmethod, verbose=2,
         ftol=opts.ftol, xtol=1e-7,
-        x_scale='jac',
+        x_scale=opts.x_scale,
         loss='soft_l1',  # linear, soft_l1, huber, cauchy, arctan,
         max_nfev=opts.max_nfev,
         args=(wh, xmat, geotargets, dw))
