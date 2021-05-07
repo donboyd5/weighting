@@ -105,6 +105,8 @@ poisson_opts = {
 
 
 # %% geoweight: poisson
+poisson_opts
+# AttributeError: module 'jax.scipy' has no attribute 'optimize'
 
 poisson_opts.update({'stepmethod': 'jvp'})  # default
 gwp1 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
@@ -116,21 +118,38 @@ gwp1a = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp1a.elapsed_seconds
 gwp1a.sspd
 
-poisson_opts.update({'stepmethod': 'jac'})
+poisson_opts.update({'stepmethod': 'findiff'})
 gwp2 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp2.elapsed_seconds
 gwp2.sspd
 
-poisson_opts.update({'stepmethod': 'findiff'})
+poisson_opts.update({'stepmethod': 'jac'})
 gwp3 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp3.elapsed_seconds
 gwp3.sspd
+np.round(np.quantile(gwp3.pdiff, qtiles), 2)
 
 poisson_opts.update({'stepmethod': 'jac'})
 poisson_opts.update({'stepmethod': 'jvp'})
 gwp4 = prob.geoweight(method='poisson-newton', options=poisson_opts)
 gwp4.elapsed_seconds
 gwp4.sspd
+
+
+opts = {
+    'scaling': True,
+    'scale_goal': 10.0,  # this is an important parameter!
+    'maxiter': 2000,
+    'disp': True}
+opts    
+gwp5 = prob.geoweight(method='poisson-bfgs', options=opts)
+gwp5.elapsed_seconds
+gwp5.sspd
+gwp5.method_result.result.success
+gwp5.method_result.result.nfev
+gwp5.method_result.result.nit
+np.round(np.quantile(gwp5.pdiff, qtiles), 2)
+
 
 poisson_opts.update({'scale_goal': 1e3})
 poisson_opts.update({'init_beta': 1.0})

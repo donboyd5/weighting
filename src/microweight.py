@@ -37,6 +37,7 @@ import src.utilities as ut
 # import src.common as common
 
 import src.geoweight_ipopt as gwip
+import src.geoweight_poisson_bfgs as gwpb
 import src.geoweight_poisson_lsq as gwpl
 import src.geoweight_poisson_newton as gwpn
 import src.geoweight_qmatrix as gwqm
@@ -51,6 +52,7 @@ import src.reweight_raking as rwrk
 
 # %% reimports
 importlib.reload(gwip)
+importlib.reload(gwpb)
 importlib.reload(gwpl)
 importlib.reload(gwpn)
 importlib.reload(gwqm)
@@ -186,7 +188,10 @@ class Microweight:
                                          options=options)                                             
         elif method == 'poisson-lsq':
             method_result = gwpl.poisson(self.wh, self.xmat, self.geotargets,
-                                         options=options)                                                                          
+                                         options=options)    
+        elif method == 'poisson-bfgs':
+            method_result = gwpb.poisson(self.wh, self.xmat, self.geotargets,
+                                         options=options)                                                                                                                   
 
         # calculate sum of squared percentage differences
         diff = method_result.geotargets_opt - self.geotargets
