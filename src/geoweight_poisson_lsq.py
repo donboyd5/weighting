@@ -113,8 +113,7 @@ def poisson(wh, xmat, geotargets, options=None):
 
         def f_jvp(diffs):
             diffs = diffs.reshape(diffs.size)            
-            return jax.jvp(l_diffs, (beta,), (diffs,))[1]
-        
+            return jax.jvp(l_diffs, (beta,), (diffs,))[1]        
         # f_jvp = jax.jit(f_jvp)  # jit is slower
 
         linop = scipy.sparse.linalg.LinearOperator((beta.size, beta.size),
@@ -126,7 +125,7 @@ def poisson(wh, xmat, geotargets, options=None):
     if opts.stepmethod == 'findiff':
         stepmethod = '2-point'
     elif opts.stepmethod == 'jvp-linop':
-        stepmethod = jvp_linop
+        stepmethod = jvp_linop  # CAUTION: this method does not allow x_scale='jac' and reduces costs slowly
     else:
         stepmethod = jax_jacobian
 
