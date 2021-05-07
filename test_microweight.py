@@ -127,7 +127,6 @@ poisson_opts.update({'stepmethod': 'jac'})
 gwp3 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp3.elapsed_seconds
 gwp3.sspd
-np.round(np.quantile(gwp3.pdiff, qtiles), 2)
 
 poisson_opts.update({'stepmethod': 'jac'})
 poisson_opts.update({'stepmethod': 'jvp'})
@@ -139,16 +138,13 @@ gwp4.sspd
 opts = {
     'scaling': True,
     'scale_goal': 10.0,  # this is an important parameter!
-    'maxiter': 2000,
+    'maxiter': 200,
     'disp': True}
-opts    
 gwp5 = prob.geoweight(method='poisson-bfgs', options=opts)
 gwp5.elapsed_seconds
 gwp5.sspd
-gwp5.method_result.result.success
-gwp5.method_result.result.nfev
-gwp5.method_result.result.nit
-np.round(np.quantile(gwp5.pdiff, qtiles), 2)
+
+np.quantile(gwp5.pdiff, qtiles)
 
 
 poisson_opts.update({'scale_goal': 1e3})
