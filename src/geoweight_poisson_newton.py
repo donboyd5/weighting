@@ -7,6 +7,7 @@
 import importlib
 
 import scipy
+import pickle
 
 import numpy as np
 from numpy.linalg import norm # jax??
@@ -31,7 +32,7 @@ importlib.reload(fgp)
 # %% option defaults
 options_defaults = {
     'scaling': True,
-    'scale_goal': 1e3,
+    'scale_goal': 10.0,  # this is an important parameter!!
     'init_beta': 0.5,
     'stepmethod': 'jvp',  # jvp or jac
     'max_iter': 5,
@@ -51,8 +52,12 @@ def poisson(wh, xmat, geotargets, options=None):
     if opts.scaling:
         xmat, geotargets, scale_factors = fgp.scale_problem(xmat, geotargets, opts.scale_goal)
 
-    betavec0 = np.full(geotargets.size, opts.init_beta)  # 1e-13 or 1e-12 seems best
-    bvec = betavec0
+    if np.size(opts.init_beta)==1:
+        betavec0 = np.full(geotargets.size, opts.init_beta)  # 1e-13 or 1e-12 seems best
+    else:
+        betavec0 = opts.init_beta
+
+    bvec = betavec0.copy()
     dw = fgp.jax_get_diff_weights(geotargets)
 
     # define functions for getting the step: linear operator approach, or full jacobian
@@ -103,11 +108,26 @@ def poisson(wh, xmat, geotargets, options=None):
         diffs = fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
         l2norm = norm(diffs, 2)
         maxabs = norm(jnp.abs(diffs), jnp.inf)
+        # maxpdiff = jnp.max(jnp.abs(diffs.flatten() / geotargets.flatten() * 100.))
+        maxpdiff = jnp.max(jnp.abs(diffs))
         error = jnp.square(diffs).sum()
-        print(f'{count: 6}   {error: 12.2f}  {l2norm: 12.2f}      {maxabs: 12.2f}')
+        print(f'{count: 6}   {error: 12.2f}  {l2norm: 12.2f}      {maxpdiff: 12.2f}')
+
+        # save_list = [bvec, wh, xmat, geotargets, dw, diffs]
+        # save_name = '/home/donboyd/Documents/bvwhxmgtdwdf.pkl'
+        # open_file = open(save_name, "wb")
+        # pickle.dump(save_list, open_file)
+        # open_file.close()
 
         step = get_step(bvec, wh, xmat, geotargets, dw, diffs)
         bvec = bvec - step
+                
+        # print(bvec.dtype)
+        # jax.ops.index_update(x, jax.ops.index[::2, 3:], 6.)
+        # jax.ops.index_update(bvec, jax.ops.index[bvec < -7e3], -7.3)
+        # jax.ops.index_update(bvec, jax.ops.index[bvec > 7e3], 7.3)
+        # bvec[bvec < -7e3] = -7e3
+        # bvec[bvec > 7e3] = 7e3
     
     # get return values
     beta_opt = bvec.reshape(geotargets.shape)

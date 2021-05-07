@@ -23,9 +23,11 @@ import src.utilities as ut
 # %% option defaults
 options_defaults = {
     'scaling': True,
-    'scale_goal': 1e3,
+    'scale_goal': 10.0,  # this is an important parameter!
     'init_beta': 0.5,
     'stepmethod': 'jvp',  # vjp, jvp, full, finite-diff
+    'max_nfev': 100,
+    'ftol': 1e-7,
     'quiet': True}
 
 # options_defaults = {**solver_defaults, **user_defaults}
@@ -82,6 +84,38 @@ def poisson(wh, xmat, geotargets, options=None):
             return jnp.transpose(Jt)
         return jacfun
 
+        # linear operator approach
+    # def jvp_linop(bvec, wh, xmat, geotargets, dw, diffs):
+    #     l_diffs = lambda bvec: jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+    #     l_diffs = jax.jit(l_diffs)
+    #     l_jvp = lambda diffs: jvp(l_diffs, (bvec,), (diffs,))[1]
+    #     l_vjp = lambda diffs: vjp(l_diffs, bvec)[1](diffs)
+    #     linop = scipy.sparse.linalg.LinearOperator((bvec.size, bvec.size),
+    #         matvec=l_jvp, rmatvec=l_vjp)
+    #     return linop
+
+    # linop = scipy.sparse.linalg.LinearOperator(shape=(diffs.size, diffs.size),
+    #     matvec=l_jvp, rmatvec=l_vjp)
+
+
+    # Shape tuple
+    # Matrix dimensions (M, N).
+
+    # matveccallable f(v)
+    # Returns returns A * v.
+
+    # rmatveccallable f(v)
+    # Returns A^H * v, where A^H is the conjugate transpose of A.
+
+    # matmatcallable f(V)
+    # Returns A * V, where V is a dense matrix with dimensions (N, K).
+
+    # dtypedtype
+    # Data type of the matrix.
+
+    # rmatmatcallable f(V)
+    # Returns A^H * V, where V is a dense matrix with dimensions (M, K).
+
     # determine which jacobian method to use
     
     if opts.stepmethod == 'jvp':
@@ -89,6 +123,8 @@ def poisson(wh, xmat, geotargets, options=None):
     elif opts.stepmethod == 'vjp':
         jax_jacobian_basic = jax.jit(jac_vjp(jax_targets_diff))
     elif opts.stepmethod == 'jac':
+        jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))
+    elif opts.stepmethod == 'jvp_linop':
         jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))        
     else:
         jax_jacobian_basic = None
@@ -100,6 +136,7 @@ def poisson(wh, xmat, geotargets, options=None):
     # jax_jacobian_basic = jac_jvp(jax_targets_diff) 
     # jax_jacobian_basic = jac_vjp(jax_targets_diff) 
     # jax_jacobian_basic = jax.jit(jac_vjp(jax_targets_diff))
+    # scipy.sparse.linalg.LinearOperator((dim,dim), matvec=A_mvp)
 
     def jax_jacobian(beta, wh, xmat, geotargets, dw):
         jac_values = jax_jacobian_basic(beta, wh, xmat, geotargets, dw)
@@ -109,6 +146,14 @@ def poisson(wh, xmat, geotargets, options=None):
     # jax_jacobian_basic = jax.jit(jac_jvp(jax_targets_diff))  # jax_jacobian_basic is a function -- the jax jacobian
     if opts.stepmethod == 'findiff':
         stepmethod = '2-point'
+    elif opts.stepmethod == 'jvp_linop':
+        l_diffs = lambda bvec: jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+        l_diffs = jax.jit(l_diffs)
+        l_jvp = lambda diffs: jvp(l_diffs, (bvec,), (diffs,))[1]
+        l_vjp = lambda diffs: vjp(l_diffs, bvec)[1](diffs)
+        linop = scipy.sparse.linalg.LinearOperator((bvec.size, bvec.size),
+            matvec=l_jvp, rmatvec=l_vjp)
+        stepmethod = linop
     else:
         stepmethod = jax_jacobian
 
@@ -116,10 +161,10 @@ def poisson(wh, xmat, geotargets, options=None):
         fun=targets_diff,
         x0=betavec0,
         method='trf', jac=stepmethod, verbose=2,
-        ftol=1e-7, xtol=1e-7,
+        ftol=opts.ftol, xtol=1e-7,
         x_scale='jac',
         loss='soft_l1',  # linear, soft_l1, huber, cauchy, arctan,
-        max_nfev=100,
+        max_nfev=opts.max_nfev,
         args=(wh, xmat, geotargets, dw))
 
     # get return values
@@ -171,7 +216,18 @@ def get_delta(wh, beta, xmat):
 
     This will generate runtime warnings of overflow or divide by zero.
     """
+    # print("before betax")
+    # print(np.quantile(beta, [0, .1, .25, .5, .75, .9, 1]))
+
+    # import pickle
+    # save_list = [beta, xmat]
+    # save_name = '/home/donboyd/Documents/beta_xmat.pkl'
+    # open_file = open(save_name, "wb")
+    # pickle.dump(save_list, open_file)
+    # open_file.close()
+
     beta_x = np.exp(np.dot(beta, xmat.T))
+    # print("after betax")
 
     # beta_x[beta_x == 0] = 0.1  # experimental
     # beta_x[np.isnan(beta_x)] = 0.1
@@ -298,7 +354,8 @@ def targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
 
     geotargets_calc = get_geotargets(beta, wh, xmat)
     diffs = geotargets_calc - geotargets
-    diffs = diffs * diff_weights
+    # diffs = diffs * diff_weights
+    diffs = np.divide(diffs, geotargets) * 100.0  # can't have zero geotargets
 
     # return a matrix or vector, depending on the shape of beta_object
     if beta_object.ndim == 1:
@@ -414,7 +471,8 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
 
     geotargets_calc = jax_get_geotargets(beta, wh, xmat)
     diffs = geotargets_calc - geotargets
-    diffs = diffs * diff_weights
+    # diffs = diffs * diff_weights
+    diffs = jnp.divide(diffs, geotargets) * 100.0  # can't have zero geotargets
 
     # return a matrix or vector, depending on the shape of beta_object
     if beta_object.ndim == 1:

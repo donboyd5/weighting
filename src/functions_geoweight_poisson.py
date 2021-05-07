@@ -18,6 +18,8 @@ def jax_get_delta(wh, beta, xmat):
 
 
 def jax_get_diff_weights(geotargets, goal=100):
+    # establish a weight for each target that, prior to application of any
+    # other weights, will give each target equal priority
     goalmat = jnp.full(geotargets.shape, goal)
     # djb note there is no jnp.errstate so I use np.errstate  
     # with np.errstate(divide='ignore'):  # turn off divide-by-zero warning
@@ -58,7 +60,8 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
 
     geotargets_calc = jax_get_geotargets(beta, wh, xmat)
     diffs = geotargets_calc - geotargets
-    diffs = diffs * diff_weights
+    # diffs = diffs * diff_weights
+    diffs = jnp.divide(diffs, geotargets) * 100.0  # can't have zero geotargets
 
     # return a matrix or vector, depending on the shape of beta_object
     if beta_object.ndim == 1:
