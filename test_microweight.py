@@ -98,7 +98,7 @@ prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets, geotargets=ngtarge
 # %% define poisson options
 poisson_opts = {
     'scaling': True,
-    'scale_goal': 1e3,
+    'scale_goal': 1e1,
     'init_beta': 0.5,
     'stepmethod': 'jvp',  # jac or jvp for newton; also vjp, findiff if lsq
     'quiet': True}

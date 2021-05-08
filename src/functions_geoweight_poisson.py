@@ -1,13 +1,13 @@
 # %% imports
-import numpy as np
-import jax
-import jax.numpy as jnp
-import scipy
-from jax import jvp, vjp
+# import numpy as np
+# import jax
+# import jax.numpy as jnp
+# import scipy
+# from jax import jvp, vjp
 
-# this next line is CRUCIAL or we will lose precision
-from jax.config import config
-config.update('jax_enable_x64', True)
+# # this next line is CRUCIAL or we will lose precision
+# from jax.config import config
+# config.update('jax_enable_x64', True)
 
 
 # %% functions needed for residuals
