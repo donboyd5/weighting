@@ -12,6 +12,8 @@
 # DONE: geoipopt basic target scaling
 # DONE: use jax to construct jacobian for poisson method
 # DONE: use jax jvp to solve for Newton step without constructing jacobian
+# DONE: use jvp/vjp linear operator for least_squares
+# DONE: use jax BFGS to minimize sum of squared errors
 # reorganize poisson methods to avoid duplicate code
 # run puf geoweighting
 # run puf analysis
@@ -106,33 +108,43 @@ poisson_opts = {
 
 # %% geoweight: poisson
 poisson_opts
-# AttributeError: module 'jax.scipy' has no attribute 'optimize'
 
-poisson_opts.update({'stepmethod': 'jvp'})  # default
+poisson_opts.update({'stepmethod': 'jac'})
+poisson_opts.update({'stepmethod': 'jvp'})
+poisson_opts.update({'stepmethod': 'vjp'})
+poisson_opts.update({'stepmethod': 'jvp-linop'})
+poisson_opts.update({'stepmethod': 'findiff'})
+poisson_opts.update({'x_scale': 'jac'})
+poisson_opts.update({'x_scale': 1.0})
 gwp1 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp1.elapsed_seconds
 gwp1.sspd
 
-poisson_opts.update({'stepmethod': 'vjp'})  
 gwp1a = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp1a.elapsed_seconds
 gwp1a.sspd
 
-poisson_opts.update({'stepmethod': 'findiff'})
+
 gwp2 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp2.elapsed_seconds
 gwp2.sspd
 
-poisson_opts.update({'stepmethod': 'jac'})
 gwp3 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp3.elapsed_seconds
 gwp3.sspd
 
+# now try newton method
 poisson_opts.update({'stepmethod': 'jac'})
 poisson_opts.update({'stepmethod': 'jvp'})
 gwp4 = prob.geoweight(method='poisson-newton', options=poisson_opts)
 gwp4.elapsed_seconds
 gwp4.sspd
+
+
+gwp = gwp1
+gwp = gwp4
+np.quantile(np.abs(gwp.pdiff), qtiles)
+
 
 
 opts = {

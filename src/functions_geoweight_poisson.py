@@ -1,13 +1,13 @@
 # %% imports
 # import numpy as np
 # import jax
-# import jax.numpy as jnp
+import jax.numpy as jnp
 # import scipy
 # from jax import jvp, vjp
 
 # # this next line is CRUCIAL or we will lose precision
-# from jax.config import config
-# config.update('jax_enable_x64', True)
+from jax.config import config
+config.update('jax_enable_x64', True)
 
 
 # %% functions needed for residuals
@@ -73,8 +73,8 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
 # %% utility functions
 def scale_problem(xmat, geotargets, scale_goal):
     scale_factors = xmat.sum(axis=0) / scale_goal
-    xmat = np.divide(xmat, scale_factors)
-    geotargets = np.divide(geotargets, scale_factors)
+    xmat = jnp.divide(xmat, scale_factors)
+    geotargets = jnp.divide(geotargets, scale_factors)
     return xmat, geotargets, scale_factors
 
 
