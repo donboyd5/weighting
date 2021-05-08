@@ -102,7 +102,7 @@ poisson_opts = {
     'scaling': True,
     'scale_goal': 1e1,
     'init_beta': 0.5,
-    'stepmethod': 'jvp',  # jac or jvp for newton; also vjp, findiff if lsq
+    'stepmethod': 'jac',  # jac or jvp for newton; also vjp, findiff if lsq
     'quiet': True}
 
 
@@ -139,6 +139,8 @@ poisson_opts.update({'stepmethod': 'jvp'})
 gwp4 = prob.geoweight(method='poisson-newton', options=poisson_opts)
 gwp4.elapsed_seconds
 gwp4.sspd
+
+gwp6 = prob.geoweight(method='poisson-lbfgs', options={})
 
 
 gwp = gwp1
