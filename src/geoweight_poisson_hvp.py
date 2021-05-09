@@ -32,6 +32,7 @@ options_defaults = {
     'scale_goal': 10.0,  # this is an important parameter!
     'init_beta': 0.5,
     'objscale': 1.0,
+    'method': 'trust-ncg',  # trust-ncg, trust-krylov, or maybe Newton-CG
     'maxiter': 100,
     'quiet': True}
 
@@ -56,18 +57,22 @@ def poisson(wh, xmat, geotargets, options=None):
 
     ljax_sspd = lambda bvec: jax_sspd(bvec, wh, xmat, geotargets, dw) # * opts.objscale   # jax_sspd = jax.jit(jax_sspd)
 
-
+    # https://docs.scipy.org/doc/scipy/reference/tutorial/optimize.html
+    # https://jax.readthedocs.io/en/latest/notebooks/autodiff_cookbook.html
     # forward-over-reverse
     def hvp(f, primals, tangents):
         return jax.jvp(jax.grad(f), primals, tangents)[1]
+
+    lhvp = lambda x, p: hvp(ljax_sspd, (x, ), (p, ))
+    # rosen_hess_p(x, p):
 
     # hvp(f, (X,), (V,))
 
     result = minimize(ljax_sspd,
             betavec0,
-            method='trust-ncg',
+            method=opts.method,
             jac=jax.grad(ljax_sspd),
-            hessp=hvp(ljax_sspd),
+            hessp=lhvp,
             options={'gtol': 1e-8, 'disp': True})
 
     # get additional return values

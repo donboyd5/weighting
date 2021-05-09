@@ -133,6 +133,12 @@ gwp3 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp3.elapsed_seconds
 gwp3.sspd
 
+gwp4 = prob.geoweight(method='poisson-hvp', options=poisson_opts)
+gwp4.elapsed_seconds
+gwp4.sspd
+
+
+
 # now try newton method
 poisson_opts.update({'stepmethod': 'jac'})
 poisson_opts.update({'stepmethod': 'jvp'})
