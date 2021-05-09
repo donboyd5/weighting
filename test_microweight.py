@@ -25,7 +25,6 @@
 # Ceres???
 
 
-
 # %% imports
 # for checking:
 # import sys; print(sys.executable)
@@ -95,7 +94,8 @@ gnoise = np.random.normal(0, .05, p.k * p.s)
 gnoise = gnoise.reshape(p.geotargets.shape)
 ngtargets = p.geotargets * (1 + gnoise)
 
-prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets, geotargets=ngtargets)
+prob = mw.Microweight(wh=p.wh, xmat=p.xmat,
+                      targets=ntargets, geotargets=ngtargets)
 
 # %% define poisson options
 poisson_opts = {
@@ -133,10 +133,33 @@ gwp3 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp3.elapsed_seconds
 gwp3.sspd
 
-gwp4 = prob.geoweight(method='poisson-hvp', options=poisson_opts)
+opts = {
+    'scaling': True,
+    'scale_goal': 10.0,  # this is an important parameter!
+    'init_beta': 0.5,
+    'objscale': 1.0,
+    'method': 'trust-ncg',  # Newton-CG, trust-ncg, trust-krylov
+    'maxiter': 100,
+    'quiet': True}
+opts.update({'method': 'Newton-CG'})
+opts.update({'method': 'trust-ncg'})
+opts.update({'method': 'trust-krylov'})  # a lot of output
+opts
+gwp4 = prob.geoweight(method='poisson-hvp', options=opts)
 gwp4.elapsed_seconds
 gwp4.sspd
 
+ncg = gwp4
+tncg = gwp4
+tk = gwp4
+
+ncg.elapsed_seconds
+tncg.elapsed_seconds
+tk.elapsed_seconds
+
+ncg.sspd
+tncg.sspd
+tk.sspd
 
 
 # now try newton method
@@ -165,7 +188,6 @@ gwp = gwp6
 np.quantile(np.abs(gwp.pdiff), qtiles)
 
 
-
 opts = {
     'scaling': True,
     'scale_goal': 10.0,  # this is an important parameter!
@@ -188,22 +210,21 @@ poisson_opts = None
 poisson_opts = {}
 
 
-
 # %% geoweight: geoipopt
 # geoipopt options
 geoipopt_base = {
-        'xlb': .1, 'xub': 10., # default 0.1, 10.0
-         'crange': 0.0,  # default 0.0
-         # 'print_level': 0,
-        'file_print_level': 5,
-        # 'scaling': True,
-        # 'scale_goal': 1e3,
-         # 'ccgoal': 10000,
-         'addup': True,  # default is false
-         'output_file': '/home/donboyd/Documents/test_sparse.out',
-         'max_iter': 100,
-         'linear_solver': 'ma86',  # ma27, ma77, ma57, ma86 work, not ma97
-         'quiet': False}
+    'xlb': .1, 'xub': 10.,  # default 0.1, 10.0
+    'crange': 0.0,  # default 0.0
+    # 'print_level': 0,
+    'file_print_level': 5,
+    # 'scaling': True,
+    # 'scale_goal': 1e3,
+    # 'ccgoal': 10000,
+    'addup': True,  # default is false
+    'output_file': '/home/donboyd/Documents/test_sparse.out',
+    'max_iter': 100,
+    'linear_solver': 'ma86',  # ma27, ma77, ma57, ma86 work, not ma97
+    'quiet': False}
 
 geoipopt_opts = geoipopt_base.copy()
 geoipopt_opts.update({'addup': False})
@@ -221,11 +242,11 @@ gwip1.elapsed_seconds
 gwip1.sspd
 
 geoipopt_opts.update({'linear_solver': 'ma77'})
-geoipopt_opts.update({'output_file': '/home/donboyd/Documents/test_sparse77.out'})
+geoipopt_opts.update(
+    {'output_file': '/home/donboyd/Documents/test_sparse77.out'})
 gwip1a = prob.geoweight(method='geoipopt', options=geoipopt_opts)
 gwip1a.elapsed_seconds
 gwip1a.sspd
-
 
 
 # %% general qmatrix options
@@ -317,9 +338,7 @@ np.corrcoef(gwp4.whs_opt.flatten(), gwqm_rake.whs_opt.flatten())
 np.corrcoef(gwp4.whs_opt.flatten(), gwqm_ec.whs_opt.flatten())
 
 
-
 # %% END GEOWEIGHT START REWEIGHT
-
 
 
 # %% reweight the problem
@@ -344,12 +363,14 @@ rw3 = prob.reweight(method='rake', options={'max_rake_iter': 20})
 rw3.sspd
 
 opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'trf', 'max_iter': 20}
-opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'trf', 'scaling': True, 'max_iter': 50}
+opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'trf',
+        'scaling': True, 'max_iter': 50}
 opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'trf',
         'lsmr_tol': 1e-6, 'scaling': True, 'max_iter': 20}
 
 opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'bvls', 'max_iter': 20}
-opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'bvls', 'scaling': True, 'max_iter': 200}
+opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'bvls',
+        'scaling': True, 'max_iter': 200}
 
 opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'bvls',
         'lsmr_tol': 1e-6,
@@ -454,7 +475,8 @@ prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=targets)
 
 scale = np.abs(targets / 100)
 targets / scale
-prob2 = mw.Microweight(wh=p.wh, xmat=np.divide(p.xmat, scale), targets=targets / scale)
+prob2 = mw.Microweight(wh=p.wh, xmat=np.divide(
+    p.xmat, scale), targets=targets / scale)
 
 # %% ..solve
 ipo = {'crange': 0.0001, 'quiet': False}

@@ -64,6 +64,7 @@ def poisson(wh, xmat, geotargets, options=None):
         return jax.jvp(jax.grad(f), primals, tangents)[1]
 
     lhvp = lambda x, p: hvp(ljax_sspd, (x, ), (p, ))
+    lhessian = lambda x: jax.hessian(ljax_sspd)(x)
     # rosen_hess_p(x, p):
 
     # hvp(f, (X,), (V,))
@@ -72,7 +73,8 @@ def poisson(wh, xmat, geotargets, options=None):
             betavec0,
             method=opts.method,
             jac=jax.grad(ljax_sspd),
-            hessp=lhvp,
+            hess=lhessian,
+            # hessp=lhvp,
             options={'gtol': 1e-8, 'disp': True})
 
     # get additional return values
