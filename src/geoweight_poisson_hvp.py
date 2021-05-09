@@ -14,10 +14,9 @@ import gc
 import jax
 import jax.numpy as jnp
 # from jax.scipy.optimize import minimize
-from tensorflow_probability.substrates import jax as tfp
 
 # import numpy as jnp
-# from scipy.optimize import minimize
+from scipy.optimize import minimize
 
 # this next line is CRUCIAL or we will lose precision
 from jax.config import config; config.update("jax_enable_x64", True)
@@ -34,10 +33,6 @@ options_defaults = {
     'init_beta': 0.5,
     'objscale': 1.0,
     'maxiter': 100,
-    'tolerance': 1e-8,
-    'num_correction_pairs': 10,
-    'max_line_search_iterations': 50,
-    'max_iterations': 100,
     'quiet': True}
 
 # options_defaults = {**solver_defaults, **user_defaults}
@@ -58,33 +53,25 @@ def poisson(wh, xmat, geotargets, options=None):
 
     betavec0 = jnp.full(geotargets.size, opts.init_beta)  # 1e-13 or 1e-12 seems best
     dw = jax_get_diff_weights(geotargets)
-    
-    ljax_sspd = lambda bvec: jax_sspd(bvec, wh, xmat, geotargets, dw) * opts.objscale   # jax_sspd = jax.jit(jax_sspd)
 
-    # result = minimize(fun=jax_sspd,
-    #     x0=betavec0, 
-    #     args=(wh, xmat, geotargets, dw), 
-    #     method='BFGS',
-    #     tol=opts.tol,
-    #     options={'maxiter': opts.maxiter,
-    #              'gtol': opts.gtol,
-    #              'line_search_maxiter': opts.line_search_maxiter})
-    
-    result = tfp.optimizer.lbfgs_minimize(
-        jax.value_and_grad(ljax_sspd),
-        initial_position=betavec0,
-        tolerance=opts.tolerance,
-        num_correction_pairs=opts.num_correction_pairs,
-        max_line_search_iterations=opts.max_line_search_iterations,
-        max_iterations=opts.max_iterations)
-        
-    beta_opt = result.position.reshape(geotargets.shape)
+    ljax_sspd = lambda bvec: jax_sspd(bvec, wh, xmat, geotargets, dw) # * opts.objscale   # jax_sspd = jax.jit(jax_sspd)
 
-    # result = tfp.optimizer.nelder_mead_minimize(
-    #   sqrt_quadratic, initial_vertex=start, func_tolerance=1e-8,
-    #   batch_evaluate_objective=True)
 
-    # get additional return values    
+    # forward-over-reverse
+    def hvp(f, primals, tangents):
+        return jax.jvp(jax.grad(f), primals, tangents)[1]
+
+    # hvp(f, (X,), (V,))
+
+    result = minimize(ljax_sspd,
+            betavec0,
+            method='trust-ncg',
+            jac=jax.grad(ljax_sspd),
+            hessp=hvp(ljax_sspd),
+            options={'gtol': 1e-8, 'disp': True})
+
+    # get additional return values
+    beta_opt = result.x.reshape(geotargets.shape)
     delta_opt = jax_get_delta(wh, beta_opt, xmat)
     whs_opt = jax_get_geoweights(beta_opt, delta_opt, xmat)
     geotargets_opt = jax_get_geotargets(beta_opt, wh, xmat)
@@ -124,7 +111,7 @@ def jax_get_delta(wh, beta, xmat):
 
 def jax_get_diff_weights(geotargets, goal=100):
     goalmat = jnp.full(geotargets.shape, goal)
-    # djb note there is no jnp.errstate so I use np.errstate  
+    # djb note there is no jnp.errstate so I use np.errstate
     # with np.errstate(divide='ignore'):  # turn off divide-by-zero warning
     diff_weights = jnp.where(geotargets != 0, goalmat / geotargets, 1)
     return diff_weights
@@ -185,7 +172,7 @@ def jax_get_geotargets(beta, wh, xmat):
     delta = jax_get_delta(wh, beta, xmat)
     whs = jax_get_geoweights(beta, delta, xmat)
     targets_mat = jnp.dot(whs.T, xmat)
-    return targets_mat    
+    return targets_mat
 
 
 def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):

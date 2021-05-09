@@ -73,10 +73,10 @@ p = mtp.Problem(h=10000, s=10, k=8, xsd=.1, ssd=.5, pctzero=.2)
 p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=30000, s=30, k=20, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=35000, s=40, k=25, xsd=.1, ssd=.5, pctzero=.4)
-p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4) 
+p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=50000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.2)
 
-p = mtp.Problem(h=10000, s=15, k=10, xsd=.1, ssd=.5, pctzero=.4)    
+p = mtp.Problem(h=10000, s=15, k=10, xsd=.1, ssd=.5, pctzero=.4)
 
 
 # %% add noise and set problem up
@@ -140,11 +140,22 @@ gwp4 = prob.geoweight(method='poisson-newton', options=poisson_opts)
 gwp4.elapsed_seconds
 gwp4.sspd
 
-gwp6 = prob.geoweight(method='poisson-lbfgs', options={})
+poisson_opts
+poisson_opts.update({'tolerance': 1e-4})
+poisson_opts.update({'max_iterations': 100})
+gwp6 = prob.geoweight(method='poisson-lbfgs', options=poisson_opts)
+gwp6.elapsed_seconds
+gwp6.sspd
+gwp6.method_result.result.num_iterations
+
+dir(gwp6.method_result.result)
 
 
 gwp = gwp1
+gwp = gwp2
+gwp = gwp3
 gwp = gwp4
+gwp = gwp6
 np.quantile(np.abs(gwp.pdiff), qtiles)
 
 
@@ -264,7 +275,7 @@ gwqm_rake = prob.geoweight(method='qmatrix', options=uoqr)
 
 # %% check geoweight results
 
-gw = gwp4  # gwp1, ..., 
+gw = gwp4  # gwp1, ...,
 gw = gwip1  # gwip1, ...
 gw = gwqm_lsq  # gwqm1, ...
 gw = gwqm_ip
