@@ -7,7 +7,7 @@ qtiles = (0, .01, .1, .25, .5, .75, .9, .99, 1)
 
 opts = {'scaling': False}
 
-
+# create problem
 # p = mtp.Problem(h=1000, s=10, k=5, xsd=.1, ssd=.5)
 p = mtp.Problem(h=10, s=3, k=2, xsd=.1, ssd=.5)
 beta0 = np.full(p.geotargets.shape, 0.0)
@@ -17,6 +17,8 @@ beta0.dot(xmat.T)
 beta05.dot(xmat.T) # around 100
 beta1.dot(xmat.T) # around 200
 
+
+# %% solve unscaled
 prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=p.targets, geotargets=p.geotargets)
 gw = prob.geoweight(method='poisson-lsq', options=opts)
 dir(gw.method_result)
@@ -44,9 +46,9 @@ targs.shape # (k, )
 targs
 wh.dot(xmat)  # (k, )
 
-beta.dot(xmat.T)  # around 400, we want this to be small positive or small negative and give right results
+beta.dot(xmat.T)  # around 100, we want this to be small positive or small negative and give right results
 
-# now let's scale
+# %% now let's scale
 scale = 1 / xmat.sum(axis=0)
 xmat2 = np.multiply(xmat, scale)
 xmat2
