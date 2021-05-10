@@ -2,8 +2,6 @@
 """
 Created on Sun Oct  4 05:11:04 2020
 
-https://www.tensorflow.org/probability/api_docs/python/tfp/substrates/jax/optimizer/lbfgs_minimize
-
 @author: donbo
 """
 
@@ -11,10 +9,10 @@ https://www.tensorflow.org/probability/api_docs/python/tfp/substrates/jax/optimi
 
 import gc
 
-import jax
 import jax.numpy as jnp
-# from jax.scipy.optimize import minimize
-from tensorflow_probability.substrates import jax as tfp
+from scipy.optimize import minimize
+import cyipopt as cy
+from cyipopt import minimize_ipopt
 
 # import numpy as jnp
 # from scipy.optimize import minimize
@@ -28,17 +26,22 @@ import src.utilities as ut
 
 
 # %% option defaults
-options_defaults = {
+user_defaults = {
     'scaling': True,
     'scale_goal': 10.0,  # this is an important parameter!
     'init_beta': 0.5,
-    'objscale': 1.0,
-    'maxiter': 100,
-    'tolerance': 1e-8,
-    'num_correction_pairs': 10,
-    'max_line_search_iterations': 50,
-    'max_iterations': 100,
+    'objgoal': 100,
     'quiet': True}
+
+solver_defaults = {
+    'print_level': 0,
+    'file_print_level': 5,
+    'max_iter': 100,
+    'linear_solver': 'ma86'
+}
+
+options_defaults = {**solver_defaults, **user_defaults}
+
 
 # options_defaults = {**solver_defaults, **user_defaults}
 
@@ -58,38 +61,23 @@ def poisson(wh, xmat, geotargets, options=None):
 
     betavec0 = jnp.full(geotargets.size, opts.init_beta)  # 1e-13 or 1e-12 seems best
     dw = jax_get_diff_weights(geotargets)
+    # jax_sspd = jax.jit(jax_sspd)
+    ljax_sspd = lambda bvec: jax_sspd(bvec, wh, xmat, geotargets, dw)
+    g = jax.grad(ljax_sspd)
 
-    ljax_sspd = lambda bvec: jax_sspd(bvec, wh, xmat, geotargets, dw) * opts.objscale   # jax_sspd = jax.jit(jax_sspd)
+    # nlp = cy.Problem(
+    #     n=n,
+    #     m=m,
+    #     problem_obj=RW(cc, n, opts.quiet),
+    #     lb=lb,
+    #     ub=ub,
+    #     cl=cl,
+    #     cu=cu)
 
-    # result = minimize(fun=jax_sspd,
-    #     x0=betavec0,
-    #     args=(wh, xmat, geotargets, dw),
-    #     method='BFGS',
-    #     tol=opts.tol,
-    #     options={'maxiter': opts.maxiter,
-    #              'gtol': opts.gtol,
-    #              'line_search_maxiter': opts.line_search_maxiter})
+    result = minimize_ipopt(ljax_sspd, betavec0, jac=g)
 
-    # result = tfp.optimizer.lbfgs_minimize(
-    #     jax.value_and_grad(ljax_sspd),
-    #     initial_position=betavec0,
-    #     tolerance=opts.tolerance,
-    #     num_correction_pairs=opts.num_correction_pairs,
-    #     max_line_search_iterations=opts.max_line_search_iterations,
-    #     max_iterations=opts.max_iterations)
-
-    result = tfp.optimizer.bfgs_minimize(
-        jax.value_and_grad(ljax_sspd),
-        initial_position=betavec0,
-        tolerance=opts.tolerance)
-
-    beta_opt = result.position.reshape(geotargets.shape)
-
-    # result = tfp.optimizer.nelder_mead_minimize(
-    #   sqrt_quadratic, initial_vertex=start, func_tolerance=1e-8,
-    #   batch_evaluate_objective=True)
-
-    # get additional return values
+    # get return values
+    beta_opt = result.x.reshape(geotargets.shape)
     delta_opt = jax_get_delta(wh, beta_opt, xmat)
     whs_opt = jax_get_geoweights(beta_opt, delta_opt, xmat)
     geotargets_opt = jax_get_geotargets(beta_opt, wh, xmat)
