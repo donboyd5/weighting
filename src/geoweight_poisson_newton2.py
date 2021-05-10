@@ -36,7 +36,7 @@ options_defaults = {
     'scale_goal': 10.0,  # this is an important parameter!!
     'init_beta': 0.5,
     'stepmethod': 'jac',  # jvp or jac, jac seems to work better
-    'max_iter': 5,
+    'max_iter': 20,
     'step_mult': 0.75,  # less than 1 seems important
     'maxp_tol': .01,  # .01 is 1/100 of 1% for the max % difference from target
     'quiet': True}
