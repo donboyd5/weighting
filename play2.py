@@ -76,16 +76,17 @@ np.round(np.dot(whs3.T, xmat) - geotargets, 2)
 pdiffs = np.dot(whs3.T, xmat) / geotargets * 100. - 100.
 np.quantile(pdiffs, qtiles)
 
-def get_whs_logs(beta, xmat, wh, adjust=False):
+def get_whs_logs(beta, xmat, wh, s):
     # note beta is an s x k matrix
-    # beta = beta.reshape((s, k))
+    k = xmat.shape[(1)]
+    beta = beta.reshape((s, k))
     betax = beta.dot(xmat.T)
     # adjust betax to make exponentiation more stable numerically
     # subtract column-specific constant (the max) from each column of betax
     const = betax.max(axis=0)
     betax = np.subtract(betax, const)
     ebetax = np.exp(betax)
-    print(ebetax)
+    # print(ebetax.min())
     # print(np.log(ebetax))
     logdiffs = betax - np.log(ebetax.sum(axis=0))
     shares = np.exp(logdiffs)
@@ -94,7 +95,7 @@ def get_whs_logs(beta, xmat, wh, adjust=False):
     whs = np.multiply(wh, shares).T
     return whs
 
-whs4 = get_whs_logs(beta, xmat, wh)
+whs4 = get_whs_logs(beta, xmat, wh, s=geotargets.shape[(0)])
 pdiffs = np.dot(whs4.T, xmat) / geotargets * 100. - 100.
 np.quantile(pdiffs, qtiles)
 

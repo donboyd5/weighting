@@ -116,6 +116,7 @@ poisson_opts.update({'stepmethod': 'jvp-linop'})
 poisson_opts.update({'stepmethod': 'findiff'})
 poisson_opts.update({'x_scale': 'jac'})
 poisson_opts.update({'x_scale': 1.0})
+poisson_opts.update({'max_nfev': 200})
 gwp1 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp1.elapsed_seconds
 gwp1.sspd
