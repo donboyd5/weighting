@@ -1,4 +1,15 @@
 
+
+# IMPORTANT
+# http://gregorygundersen.com/blog/2020/02/09/log-sum-exp/
+
+# also useful
+# https://math.stackexchange.com/questions/172190/can-this-function-be-rewritten-to-improve-numerical-stability
+# https://stats.stackexchange.com/questions/237264/alternative-to-log-sum-exponential-trick
+# https://numpy.org/doc/stable/reference/generated/numpy.expm1.html
+
+
+# %% imports
 import numpy as np
 import src.make_test_problems as mtp
 import src.microweight as mw
@@ -16,6 +27,8 @@ iwhs = p.whs
 np.dot(iwhs.T, xmat)
 
 prob = mw.Microweight(wh=wh, xmat=xmat, geotargets=geotargets)
+
+gw = prob.geoweight(method='poisson-lsq', options={'scaling': False})
 
 opts = {'scaling': True,
         'max_nfev': 200}
@@ -37,19 +50,24 @@ def get_whs(beta, xmat, wh, adjust=False):
     # adjust betax to make exponentiation more stable
     # we can add a column-specific constant to each column of betax
     # the best constant will make the max absolute value of the column the lowest possible
-    bmax = betax.max(axis=0)
-    bmin = betax.min(axis=0)
-    mid = (bmax - bmin) / 2.0
-    const = np.subtract(mid, bmax)
+    # bmax = betax.max(axis=0)
+    # bmin = betax.min(axis=0)
+    # mid = (bmax - bmin) / 2.0
+    # const = np.subtract(mid, bmax)
     if adjust:
-        betax = np.add(betax, const)
+        const = betax.max(axis=0)
+        betax = np.subtract(betax, const)
+
     ebetax = np.exp(betax)
-    worst = np.abs(ebetax).max()
-    if worst > 100.:
+    worst = ebetax.max()
+    if True: # worst > 100.:
         print('Warning, worst exponent is > 100:', np.abs(ebetax).max())
     shares = np.divide(ebetax, ebetax.sum(axis=0))
     whs = np.multiply(wh, shares).T
     return whs
+
+whs3 = get_whs(beta, xmat, wh)
+whs3 = get_whs(beta, xmat, wh, adjust=True)
 
 whs3 = get_whs(beta, xmat2, wh)
 whs3 = get_whs(beta, xmat2, wh, adjust=True)
@@ -57,6 +75,30 @@ whs3
 np.round(np.dot(whs3.T, xmat) - geotargets, 2)
 pdiffs = np.dot(whs3.T, xmat) / geotargets * 100. - 100.
 np.quantile(pdiffs, qtiles)
+
+def get_whs_logs(beta, xmat, wh, adjust=False):
+    # note beta is an s x k matrix
+    # beta = beta.reshape((s, k))
+    betax = beta.dot(xmat.T)
+    # adjust betax to make exponentiation more stable numerically
+    # subtract column-specific constant (the max) from each column of betax
+    const = betax.max(axis=0)
+    betax = np.subtract(betax, const)
+    ebetax = np.exp(betax)
+    print(ebetax)
+    # print(np.log(ebetax))
+    logdiffs = betax - np.log(ebetax.sum(axis=0))
+    shares = np.exp(logdiffs)
+    # print(elogdiffs)
+    # shares = np.divide(ebetax, ebetax.sum(axis=0))
+    whs = np.multiply(wh, shares).T
+    return whs
+
+whs4 = get_whs_logs(beta, xmat, wh)
+pdiffs = np.dot(whs4.T, xmat) / geotargets * 100. - 100.
+np.quantile(pdiffs, qtiles)
+
+
 
 beta
 
