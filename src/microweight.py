@@ -37,7 +37,7 @@ import src.utilities as ut
 # import src.common as common
 
 import src.geoweight_ipopt as gwip
-import src.geoweight_poisson_bfgs2 as gwpb
+import src.geoweight_poisson_bfgs2sp as gwpb
 import src.geoweight_poisson_hvp2 as gwph
 import src.geoweight_poisson_ipopt as gwpi
 import src.geoweight_poisson_lbfgs as gwplb

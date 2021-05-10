@@ -164,9 +164,13 @@ tk.sspd
 
 
 # now try newton method
-poisson_opts.update({'stepmethod': 'jac'})
-poisson_opts.update({'stepmethod': 'jvp'})
-gwp4 = prob.geoweight(method='poisson-newton', options=poisson_opts)
+opts = {}
+opts.update({'stepmethod': 'jvp'})   # jvp or jac
+opts.update({'max_iter': 20})
+opts.update({'step_mult': 0.5})
+opts.update({'maxp_tol': 0.01})
+opts
+gwp4 = prob.geoweight(method='poisson-newton', options=opts)
 gwp4.elapsed_seconds
 gwp4.sspd
 
@@ -176,7 +180,10 @@ poisson_opts.update({'max_iterations': 100})
 gwp6 = prob.geoweight(method='poisson-lbfgs', options=poisson_opts)
 gwp6.elapsed_seconds
 gwp6.sspd
+dir(gwp6.method_result.result)
+gwp6.method_result.result.converged
 gwp6.method_result.result.num_iterations
+gwp6.method_result.result.num_objective_evaluations
 
 dir(gwp6.method_result.result)
 
@@ -194,9 +201,20 @@ opts = {
     'scale_goal': 10.0,  # this is an important parameter!
     'maxiter': 200,
     'disp': True}
+opts
+# hvp available only for Newton-CG, trust-ncg, trust-krylov, trust-constr
+# Newton-CG does not scale up well so stop using it
+# BFGS does not use hessian or hvp
+# trust-krylov doesn't work on reasonable sized problems
+# trust-ncg seems to work but a bit slow
+# L-BFGS-B does not use hess or hessp errors?
+
 gwp5 = prob.geoweight(method='poisson-bfgs', options=opts)
 gwp5.elapsed_seconds
 gwp5.sspd
+dir(gwp5.method_result.result)
+gwp5.method_result.result.message
+
 
 np.quantile(gwp5.pdiff, qtiles)
 
