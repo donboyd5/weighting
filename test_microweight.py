@@ -24,6 +24,11 @@
 # contact Matt J.
 # Ceres???
 
+# NOTES:
+# to free up swap space
+# sudo swapoff -a
+# sudo swapon -a
+
 
 # %% imports
 # for checking:
@@ -134,59 +139,18 @@ gwp3 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp3.elapsed_seconds
 gwp3.sspd
 
-opts = {
-    'scaling': True,
-    'scale_goal': 10.0,  # this is an important parameter!
-    'init_beta': 0.5,
-    'objscale': 1.0,
-    'method': 'trust-ncg',  # Newton-CG, trust-ncg, trust-krylov
-    'maxiter': 100,
-    'quiet': True}
-opts.update({'method': 'Newton-CG'})
-opts.update({'method': 'trust-ncg'})
-opts.update({'method': 'trust-krylov'})  # a lot of output
-opts
-gwp4 = prob.geoweight(method='poisson-hvp', options=opts)
-gwp4.elapsed_seconds
-gwp4.sspd
 
-ncg = gwp4
-tncg = gwp4
-tk = gwp4
-
-ncg.elapsed_seconds
-tncg.elapsed_seconds
-tk.elapsed_seconds
-
-ncg.sspd
-tncg.sspd
-tk.sspd
-
-
-# now try newton method
+# newton method
 opts = {}
 opts.update({'stepmethod': 'jvp'})   # jvp or jac
-opts.update({'max_iter': 20})
-opts.update({'step_mult': 0.5})
+# opts.update({'stepmethod': 'jac'})
+opts.update({'max_iter': 10})
+opts.update({'step_mult': 0.75})
 opts.update({'maxp_tol': 0.01})
 opts
 gwp4 = prob.geoweight(method='poisson-newton', options=opts)
 gwp4.elapsed_seconds
 gwp4.sspd
-
-poisson_opts
-poisson_opts.update({'tolerance': 1e-4})
-poisson_opts.update({'max_iterations': 100})
-gwp6 = prob.geoweight(method='poisson-lbfgs', options=poisson_opts)
-gwp6.elapsed_seconds
-gwp6.sspd
-dir(gwp6.method_result.result)
-gwp6.method_result.result.converged
-gwp6.method_result.result.num_iterations
-gwp6.method_result.result.num_objective_evaluations
-
-dir(gwp6.method_result.result)
-
 
 gwp = gwp1
 gwp = gwp2
@@ -196,37 +160,56 @@ gwp = gwp6
 np.quantile(np.abs(gwp.pdiff), qtiles)
 
 
+# test scipy minimization, which allows multiple approaches
+# best so far:
+#   trust-constr with hessp; uses a LOT of memory in initializationm then little
+#   trust-krylov with hessp; consider adding the exact option
+
 opts = {
     'scaling': True,
     'scale_goal': 10.0,  # this is an important parameter!
     'maxiter': 200,
+    'method': 'BFGS',  # BFGS L-BFGS-B Newton-CG trust-krylov, trust-ncg
+    'hesstype': None,  # None, hessian, or hvp
     'disp': True}
-opts
-# hvp available only for Newton-CG, trust-ncg, trust-krylov, trust-constr
-# Newton-CG does not scale up well so stop using it
-# BFGS does not use hessian or hvp
-# trust-krylov doesn't work on reasonable sized problems
-# trust-ncg seems to work but a bit slow
-# L-BFGS-B does not use hess or hessp errors?
 
-gwp5 = prob.geoweight(method='poisson-bfgs', options=opts)
+opts.update({'method': 'L-BFGS-B'})  # not yet working with jax - explore
+
+opts.update({'method': 'BFGS'})  # SLOW when large; does not use hessian or hvp
+opts.update({'method': 'Newton-CG'}) # SLOW when large; allows None, hessian, or hvp
+opts.update({'method': 'trust-ncg'})  # SLOW when large; requires hessian or hvp
+opts.update({'method': 'trust-krylov'})  # FAILS when too large; GOOD with hessp when large; requires hessian or hvp; a lot of output
+opts.update({'method': 'Powell'})  # SLOW when large; does not use jac or hess
+opts.update({'method': 'CG'})  # SLOW when large; does not use hess or hessp
+opts.update({'method': 'TNC'}) # SLOW when large; does not use hess or hessp; Truncated Newton Conjugate
+opts.update({'method': 'COBYLA'})  # did not converge on large; does not use jac or hess
+opts.update({'method': 'SLSQP'})  # SLOW when large; does not use hess or hessp
+opts.update({'method': 'trust-constr'})  # LARGE breaks it; GOOD with hessp; not clear if it uses hess/hessp, no message, but slower with hessp
+opts.update({'method': 'trust-exact'})  # requires hess, cannot use hessp
+opts.update({'method': 'dogleg'})  # requies hessian, MUST be psd; cannot use hessp
+
+
+opts.update({'hesstype': None})
+opts.update({'hesstype': 'hessian'})
+opts.update({'hesstype': 'hvp'})  # hvp always uses more hessian evaluations than hessian does
+
+opts.update({'maxiter': 2000})  # COBYLA default is 1000
+
+opts
+
+gwp5 = prob.geoweight(method='poisson-minscipy', options=opts)
 gwp5.elapsed_seconds
 gwp5.sspd
 dir(gwp5.method_result.result)
 gwp5.method_result.result.message
 
+tkhess = gwp5
+tkhessp = gwp5
+tkhess.elapsed_seconds
+tkhessp.elapsed_seconds
+
 
 np.quantile(gwp5.pdiff, qtiles)
-
-
-poisson_opts.update({'scale_goal': 1e3})
-poisson_opts.update({'init_beta': 1.0})
-poisson_opts.update({'init_beta': 0.5})
-poisson_opts.update({'max_iter': 5})
-poisson_opts.update({'stepmethod': 'jvp'})
-poisson_opts.update({'stepmethod': 'jac'})
-poisson_opts = None
-poisson_opts = {}
 
 
 # %% geoweight: geoipopt

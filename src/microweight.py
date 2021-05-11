@@ -37,13 +37,15 @@ import src.utilities as ut
 # import src.common as common
 
 import src.geoweight_ipopt as gwip
-import src.geoweight_poisson_bfgs2sp as gwpb
-import src.geoweight_poisson_hvp2 as gwph
-import src.geoweight_poisson_ipopt as gwpi
-import src.geoweight_poisson_lbfgs as gwplb
-import src.geoweight_poisson_lsq2 as gwpl
-import src.geoweight_poisson_newton2 as gwpn
-import src.geoweight_poisson_nelder as gwpneld
+
+import src.geoweight_poisson_ipopt as gwp_ipopt
+import src.geoweight_poisson_lsq as gwp_lsq
+import src.geoweight_poisson_minimize_scipy as gwp_minsp
+import src.geoweight_poisson_minimize_jax as gwp_minjax
+import src.geoweight_poisson_minimize_tflowjax as gwp_mintfjax
+
+import src.geoweight_poisson_newton as gwpn
+# import src.geoweight_poisson_nelder as gwpneld
 
 import src.geoweight_qmatrix as gwqm
 
@@ -57,11 +59,12 @@ import src.reweight_raking as rwrk
 
 # %% reimports
 importlib.reload(gwip)
-importlib.reload(gwpb)
-importlib.reload(gwph)
-importlib.reload(gwpi)
-importlib.reload(gwplb)
-importlib.reload(gwpl)
+
+importlib.reload(gwp_ipopt)
+importlib.reload(gwp_lsq)
+importlib.reload(gwp_minsp)
+importlib.reload(gwp_minjax)
+importlib.reload(gwp_mintfjax)
 importlib.reload(gwpn)
 importlib.reload(gwqm)
 
@@ -173,6 +176,7 @@ class Microweight:
         gc.collect()  # just to be safe
         print("method input: ", method)
 
+
         if method == 'qmatrix':
             method_result = gwqm.qmatrix(self.wh, self.xmat, self.geotargets,
                                        method='raking',
@@ -192,26 +196,24 @@ class Microweight:
         elif method == 'geoipopt':
             method_result = gwip.ipopt_geo(self.wh, self.xmat, self.geotargets,
                                           options=options)
+
         elif method == 'poisson-newton':
             method_result = gwpn.poisson(self.wh, self.xmat, self.geotargets,
                                          options=options)
         elif method == 'poisson-lsq':
-            method_result = gwpl.poisson(self.wh, self.xmat, self.geotargets,
+            method_result = gwp_lsq.poisson(self.wh, self.xmat, self.geotargets,
                                          options=options)
-        elif method == 'poisson-bfgs':
-            method_result = gwpb.poisson(self.wh, self.xmat, self.geotargets,
+        elif method == 'poisson-minscipy':
+            method_result = gwp_minsp.poisson(self.wh, self.xmat, self.geotargets,
                                          options=options)
-        elif method == 'poisson-lbfgs':
-            method_result = gwplb.poisson(self.wh, self.xmat, self.geotargets,
+        elif method == 'poisson-minjax':
+            method_result = gwp_minjax.poisson(self.wh, self.xmat, self.geotargets,
                                          options=options)
-        elif method == 'poisson-hvp':
-            method_result = gwph.poisson(self.wh, self.xmat, self.geotargets,
+        elif method == 'poisson-mintfjax':
+            method_result = gwp_mintfjax.poisson(self.wh, self.xmat, self.geotargets,
                                          options=options)
         elif method == 'poisson-ipopt':
-            method_result = gwpi.poisson(self.wh, self.xmat, self.geotargets,
-                                         options=options)
-        elif method == 'poisson-nelder':
-            method_result = gwpneld.poisson(self.wh, self.xmat, self.geotargets,
+            method_result = gwp_ipopt.poisson(self.wh, self.xmat, self.geotargets,
                                          options=options)
 
         # calculate sum of squared percentage differences
