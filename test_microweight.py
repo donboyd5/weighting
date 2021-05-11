@@ -12,6 +12,8 @@
 # DONE: geoipopt basic target scaling
 # DONE: use jax to construct jacobian for poisson method
 # DONE: use jax jvp to solve for Newton step without constructing jacobian
+# DONE: use jvp/vjp linear operator for least_squares
+# DONE: use jax BFGS to minimize sum of squared errors
 # reorganize poisson methods to avoid duplicate code
 # run puf geoweighting
 # run puf analysis
@@ -21,7 +23,6 @@
 # openblas
 # contact Matt J.
 # Ceres???
-
 
 
 # %% imports
@@ -71,10 +72,10 @@ p = mtp.Problem(h=10000, s=10, k=8, xsd=.1, ssd=.5, pctzero=.2)
 p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=30000, s=30, k=20, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=35000, s=40, k=25, xsd=.1, ssd=.5, pctzero=.4)
-p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4) 
+p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=50000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.2)
 
-p = mtp.Problem(h=10000, s=15, k=10, xsd=.1, ssd=.5, pctzero=.4)    
+p = mtp.Problem(h=10000, s=15, k=10, xsd=.1, ssd=.5, pctzero=.4)
 
 
 # %% add noise and set problem up
@@ -93,46 +94,106 @@ gnoise = np.random.normal(0, .05, p.k * p.s)
 gnoise = gnoise.reshape(p.geotargets.shape)
 ngtargets = p.geotargets * (1 + gnoise)
 
-prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=ntargets, geotargets=ngtargets)
+prob = mw.Microweight(wh=p.wh, xmat=p.xmat,
+                      targets=ntargets, geotargets=ngtargets)
 
 # %% define poisson options
 poisson_opts = {
     'scaling': True,
-    'scale_goal': 1e3,
+    'scale_goal': 1e1,
     'init_beta': 0.5,
-    'stepmethod': 'jvp',  # jac or jvp for newton; also vjp, findiff if lsq
+    'stepmethod': 'jac',  # jac or jvp for newton; also vjp, findiff if lsq
     'quiet': True}
 
 
 # %% geoweight: poisson
 poisson_opts
-# AttributeError: module 'jax.scipy' has no attribute 'optimize'
 
-poisson_opts.update({'stepmethod': 'jvp'})  # default
+poisson_opts.update({'stepmethod': 'jac'})
+poisson_opts.update({'stepmethod': 'jvp'})
+poisson_opts.update({'stepmethod': 'vjp'})
+poisson_opts.update({'stepmethod': 'jvp-linop'})
+poisson_opts.update({'stepmethod': 'findiff'})
+poisson_opts.update({'x_scale': 'jac'})
+poisson_opts.update({'x_scale': 1.0})
+poisson_opts.update({'max_nfev': 200})
 gwp1 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp1.elapsed_seconds
 gwp1.sspd
 
-poisson_opts.update({'stepmethod': 'vjp'})  
 gwp1a = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp1a.elapsed_seconds
 gwp1a.sspd
 
-poisson_opts.update({'stepmethod': 'findiff'})
+
 gwp2 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp2.elapsed_seconds
 gwp2.sspd
 
-poisson_opts.update({'stepmethod': 'jac'})
 gwp3 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp3.elapsed_seconds
 gwp3.sspd
 
-poisson_opts.update({'stepmethod': 'jac'})
-poisson_opts.update({'stepmethod': 'jvp'})
-gwp4 = prob.geoweight(method='poisson-newton', options=poisson_opts)
+opts = {
+    'scaling': True,
+    'scale_goal': 10.0,  # this is an important parameter!
+    'init_beta': 0.5,
+    'objscale': 1.0,
+    'method': 'trust-ncg',  # Newton-CG, trust-ncg, trust-krylov
+    'maxiter': 100,
+    'quiet': True}
+opts.update({'method': 'Newton-CG'})
+opts.update({'method': 'trust-ncg'})
+opts.update({'method': 'trust-krylov'})  # a lot of output
+opts
+gwp4 = prob.geoweight(method='poisson-hvp', options=opts)
 gwp4.elapsed_seconds
 gwp4.sspd
+
+ncg = gwp4
+tncg = gwp4
+tk = gwp4
+
+ncg.elapsed_seconds
+tncg.elapsed_seconds
+tk.elapsed_seconds
+
+ncg.sspd
+tncg.sspd
+tk.sspd
+
+
+# now try newton method
+opts = {}
+opts.update({'stepmethod': 'jvp'})   # jvp or jac
+opts.update({'max_iter': 20})
+opts.update({'step_mult': 0.5})
+opts.update({'maxp_tol': 0.01})
+opts
+gwp4 = prob.geoweight(method='poisson-newton', options=opts)
+gwp4.elapsed_seconds
+gwp4.sspd
+
+poisson_opts
+poisson_opts.update({'tolerance': 1e-4})
+poisson_opts.update({'max_iterations': 100})
+gwp6 = prob.geoweight(method='poisson-lbfgs', options=poisson_opts)
+gwp6.elapsed_seconds
+gwp6.sspd
+dir(gwp6.method_result.result)
+gwp6.method_result.result.converged
+gwp6.method_result.result.num_iterations
+gwp6.method_result.result.num_objective_evaluations
+
+dir(gwp6.method_result.result)
+
+
+gwp = gwp1
+gwp = gwp2
+gwp = gwp3
+gwp = gwp4
+gwp = gwp6
+np.quantile(np.abs(gwp.pdiff), qtiles)
 
 
 opts = {
@@ -140,9 +201,20 @@ opts = {
     'scale_goal': 10.0,  # this is an important parameter!
     'maxiter': 200,
     'disp': True}
+opts
+# hvp available only for Newton-CG, trust-ncg, trust-krylov, trust-constr
+# Newton-CG does not scale up well so stop using it
+# BFGS does not use hessian or hvp
+# trust-krylov doesn't work on reasonable sized problems
+# trust-ncg seems to work but a bit slow
+# L-BFGS-B does not use hess or hessp errors?
+
 gwp5 = prob.geoweight(method='poisson-bfgs', options=opts)
 gwp5.elapsed_seconds
 gwp5.sspd
+dir(gwp5.method_result.result)
+gwp5.method_result.result.message
+
 
 np.quantile(gwp5.pdiff, qtiles)
 
@@ -157,22 +229,21 @@ poisson_opts = None
 poisson_opts = {}
 
 
-
 # %% geoweight: geoipopt
 # geoipopt options
 geoipopt_base = {
-        'xlb': .1, 'xub': 10., # default 0.1, 10.0
-         'crange': 0.0,  # default 0.0
-         # 'print_level': 0,
-        'file_print_level': 5,
-        # 'scaling': True,
-        # 'scale_goal': 1e3,
-         # 'ccgoal': 10000,
-         'addup': True,  # default is false
-         'output_file': '/home/donboyd/Documents/test_sparse.out',
-         'max_iter': 100,
-         'linear_solver': 'ma86',  # ma27, ma77, ma57, ma86 work, not ma97
-         'quiet': False}
+    'xlb': .1, 'xub': 10.,  # default 0.1, 10.0
+    'crange': 0.0,  # default 0.0
+    # 'print_level': 0,
+    'file_print_level': 5,
+    # 'scaling': True,
+    # 'scale_goal': 1e3,
+    # 'ccgoal': 10000,
+    'addup': True,  # default is false
+    'output_file': '/home/donboyd/Documents/test_sparse.out',
+    'max_iter': 100,
+    'linear_solver': 'ma86',  # ma27, ma77, ma57, ma86 work, not ma97
+    'quiet': False}
 
 geoipopt_opts = geoipopt_base.copy()
 geoipopt_opts.update({'addup': False})
@@ -190,11 +261,11 @@ gwip1.elapsed_seconds
 gwip1.sspd
 
 geoipopt_opts.update({'linear_solver': 'ma77'})
-geoipopt_opts.update({'output_file': '/home/donboyd/Documents/test_sparse77.out'})
+geoipopt_opts.update(
+    {'output_file': '/home/donboyd/Documents/test_sparse77.out'})
 gwip1a = prob.geoweight(method='geoipopt', options=geoipopt_opts)
 gwip1a.elapsed_seconds
 gwip1a.sspd
-
 
 
 # %% general qmatrix options
@@ -250,7 +321,7 @@ gwqm_rake = prob.geoweight(method='qmatrix', options=uoqr)
 
 # %% check geoweight results
 
-gw = gwp4  # gwp1, ..., 
+gw = gwp4  # gwp1, ...,
 gw = gwip1  # gwip1, ...
 gw = gwqm_lsq  # gwqm1, ...
 gw = gwqm_ip
@@ -286,9 +357,7 @@ np.corrcoef(gwp4.whs_opt.flatten(), gwqm_rake.whs_opt.flatten())
 np.corrcoef(gwp4.whs_opt.flatten(), gwqm_ec.whs_opt.flatten())
 
 
-
 # %% END GEOWEIGHT START REWEIGHT
-
 
 
 # %% reweight the problem
@@ -313,12 +382,14 @@ rw3 = prob.reweight(method='rake', options={'max_rake_iter': 20})
 rw3.sspd
 
 opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'trf', 'max_iter': 20}
-opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'trf', 'scaling': True, 'max_iter': 50}
+opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'trf',
+        'scaling': True, 'max_iter': 50}
 opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'trf',
         'lsmr_tol': 1e-6, 'scaling': True, 'max_iter': 20}
 
 opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'bvls', 'max_iter': 20}
-opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'bvls', 'scaling': True, 'max_iter': 200}
+opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'bvls',
+        'scaling': True, 'max_iter': 200}
 
 opts = {'xlb': 0.0, 'xub': 100.0, 'method': 'bvls',
         'lsmr_tol': 1e-6,
@@ -423,7 +494,8 @@ prob = mw.Microweight(wh=p.wh, xmat=p.xmat, targets=targets)
 
 scale = np.abs(targets / 100)
 targets / scale
-prob2 = mw.Microweight(wh=p.wh, xmat=np.divide(p.xmat, scale), targets=targets / scale)
+prob2 = mw.Microweight(wh=p.wh, xmat=np.divide(
+    p.xmat, scale), targets=targets / scale)
 
 # %% ..solve
 ipo = {'crange': 0.0001, 'quiet': False}
