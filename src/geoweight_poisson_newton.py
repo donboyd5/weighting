@@ -35,8 +35,10 @@ options_defaults = {
     'scaling': True,
     'scale_goal': 10.0,  # this is an important parameter!!
     'init_beta': 0.5,
-    'stepmethod': 'jvp',  # jvp or jac
-    'max_iter': 5,
+    'stepmethod': 'jac',  # jvp or jac, jac seems to work better
+    'max_iter': 20,
+    'step_mult': 0.75,  # less than 1 seems important
+    'maxp_tol': .01,  # .01 is 1/100 of 1% for the max % difference from target
     'quiet': True}
 
 # options_defaults = {**solver_defaults, **user_defaults}
@@ -98,13 +100,15 @@ def poisson(wh, xmat, geotargets, options=None):
     elif opts.stepmethod == 'jac':
         get_step = jac_step
 
+
+
     # begin Newton iterations
     count = 0
-    tol = 1e-4
     error = 1e99
-    
+    maxpdiff = 1e99
+
     print("iteration        sspd        l2norm      maxabs_error")
-    while count < opts.max_iter and error > tol:
+    while count < opts.max_iter and maxpdiff > opts.maxp_tol:
         count += 1
         diffs = fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
         l2norm = norm(diffs, 2)
@@ -121,20 +125,20 @@ def poisson(wh, xmat, geotargets, options=None):
         # open_file.close()
 
         step = get_step(bvec, wh, xmat, geotargets, dw, diffs)
-        bvec = bvec - step
-                
+        bvec = bvec - step * opts.step_mult
+
         # print(bvec.dtype)
         # jax.ops.index_update(x, jax.ops.index[::2, 3:], 6.)
         # jax.ops.index_update(bvec, jax.ops.index[bvec < -7e3], -7.3)
         # jax.ops.index_update(bvec, jax.ops.index[bvec > 7e3], 7.3)
         # bvec[bvec < -7e3] = -7e3
         # bvec[bvec > 7e3] = 7e3
-    
+
     # get return values
     beta_opt = bvec.reshape(geotargets.shape)
-    delta_opt = fgp.jax_get_delta(wh, beta_opt, xmat)
-    whs_opt = fgp.jax_get_geoweights(beta_opt, delta_opt, xmat)
-    geotargets_opt = fgp.jax_get_geotargets(beta_opt, wh, xmat)
+    delta_opt = 'Not reported'  # get_delta(wh, beta_opt, xmat)
+    whs_opt = get_whs_logs(beta_opt, wh, xmat, geotargets) # jax_get_geoweights(beta_opt, delta_opt, xmat)
+    geotargets_opt = jnp.dot(whs_opt.T, xmat)
 
     if opts.scaling:
         geotargets_opt = np.multiply(geotargets_opt, scale_factors)
@@ -158,4 +162,58 @@ def poisson(wh, xmat, geotargets, options=None):
                     delta_opt=delta_opt)
 
     return result
+
+
+
+# %% scaling
+def scale_problem(xmat, geotargets, scale_goal):
+    scale_factors = xmat.sum(axis=0) / scale_goal
+    xmat = jnp.divide(xmat, scale_factors)
+    geotargets = jnp.divide(geotargets, scale_factors)
+    return xmat, geotargets, scale_factors
+
+
+# %% new functions
+def get_whs_logs(beta_object, wh, xmat, geotargets):
+    # note beta is an s x k matrix
+    # beta must be a matrix so if beta_object is a vector, reshape it
+    if beta_object.ndim == 1:
+        beta = beta_object.reshape(geotargets.shape)
+    elif beta_object.ndim == 2:
+        beta = beta_object
+
+    betax = beta.dot(xmat.T)
+    # adjust betax to make exponentiation more stable numerically
+    # subtract column-specific constant (the max) from each column of betax
+    const = betax.max(axis=0)
+    betax = jnp.subtract(betax, const)
+    ebetax = jnp.exp(betax)
+    # print(ebetax.min())
+    # print(np.log(ebetax))
+    logdiffs = betax - jnp.log(ebetax.sum(axis=0))
+    shares = jnp.exp(logdiffs)
+    whs = jnp.multiply(wh, shares).T
+    return whs
+
+
+def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
+    # beta must be a matrix so if beta_object is a vector, reshape it
+    if beta_object.ndim == 1:
+        beta = beta_object.reshape(geotargets.shape)
+    elif beta_object.ndim == 2:
+        beta = beta_object
+
+    # geotargets_calc = jax_get_geotargets(beta, wh, xmat)
+    whs = get_whs_logs(beta_object, wh, xmat, geotargets)
+    geotargets_calc = jnp.dot(whs.T, xmat)
+    diffs = geotargets_calc - geotargets
+    # diffs = diffs * diff_weights
+    diffs = jnp.divide(diffs, geotargets) * 100.0  # can't have zero geotargets
+
+    # return a matrix or vector, depending on the shape of beta_object
+    if beta_object.ndim == 1:
+        diffs = diffs.flatten()
+
+    return diffs
+
 

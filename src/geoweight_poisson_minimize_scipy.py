@@ -38,6 +38,8 @@ options_defaults = {
     'ftol': 1e-7,
     'line_search_maxiter': 10,
     'x_scale': 'jac',
+    'method': 'BFGS',  # BFGS L-BFGS-B Newton-CG trust-krylov, trust-ncg
+    'hesstype': None,  # None, hessian, or hvp
     'disp': True,
     'quiet': True}
 
@@ -54,18 +56,23 @@ def poisson(wh, xmat, geotargets, options=None):
     options_all.update(options)
     opts = ut.dict_nt(options_all)  # convert dict to named tuple for ease of use
 
+    # TODO: input checking
+
     if opts.scaling:
         xmat, geotargets, scale_factors = scale_problem(xmat, geotargets, opts.scale_goal)
 
     betavec0 = jnp.full(geotargets.size, opts.init_beta)  # 1e-13 or 1e-12 seems best
     dw = jax_get_diff_weights(geotargets)
     # jax_sspd = jax.jit(jax_sspd)
-    # optimize.minimize(fun, x0, args=(), method='BFGS', jac=None, tol=None,
-    # callback=None, options={'gtol': 1e-05, 'norm': inf,
-    # 'eps': 1.4901161193847656e-08, 'maxiter': None, 'disp': False, 'return_all': False, 'finite_diff_rel_step': None})
 
     def hvp(f, primals, tangents):
         return jax.jvp(jax.grad(f), primals, tangents)[1]
+
+    # this is an alternative syntax that works; note where tuples are imposed
+    # def hvp(f, primals, tangents):
+    #     ret = jax.jvp(jax.grad(f), (primals,), (tangents,))[1]
+    #     return ret
+    # lhvp = lambda x, p: hvp(ljax_sspd, x, p)
 
     # use one of the next 2 versions of ljax_sspd
     # ljax_sspd = lambda bvec: jax_sspd(bvec, wh, xmat, geotargets, dw) # * opts.objscale   # jax_sspd = jax.jit(jax_sspd)
@@ -73,27 +80,29 @@ def poisson(wh, xmat, geotargets, options=None):
         sspd = jax_sspd(bvec, wh, xmat, geotargets, dw) # * opts.objscale   # jax_sspd = jax.jit(jax_sspd)
         return jnp.asarray(sspd)
 
-    # def ljac(f):
-    #     fres = jax.jacfwd(f)
+    lhvp = lambda x, p: hvp(ljax_sspd, (x, ), (p, ))  # GOOD
 
-
-    lhvp = lambda x, p: hvp(ljax_sspd, (x, ), (p, ))
     lhessian = lambda x: jax.hessian(ljax_sspd)(x)
+
+    hess = None
+    hessp = None
+    if opts.hesstype=='hessian':
+        hess = lhessian
+    elif opts.hesstype=='hvp':
+        hessp = lhvp
 
     result = minimize(fun=ljax_sspd,
         x0=betavec0,
-        # args=(wh, xmat, geotargets, dw),
-        method='L-BFGS-B',  # BFGS L-BFGS-B Newton-CG trust-krylov, trust-ncg
+        method=opts.method,  # BFGS L-BFGS-B Newton-CG trust-krylov, trust-ncg
         jac=jax.jacfwd(ljax_sspd),
-        # hess=lhessian,
-        # hessp=lhvp,
+        hess=hess,
+        hessp=hessp,
         tol=opts.tol,
         options={'maxiter': opts.maxiter,
-            'disp': opts.disp})
+                 'disp': opts.disp})
 
     # get return values
     beta_opt = result.x.reshape(geotargets.shape)
-    # delta_opt = jax_get_delta(wh, beta_opt, xmat)
     delta_opt = "Not provided"
     whs_opt = get_whs_logs(beta_opt, wh, xmat, geotargets)
     geotargets_opt = jnp.dot(whs_opt.T, xmat)
