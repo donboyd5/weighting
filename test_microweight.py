@@ -102,16 +102,16 @@ ngtargets = p.geotargets * (1 + gnoise)
 prob = mw.Microweight(wh=p.wh, xmat=p.xmat,
                       targets=ntargets, geotargets=ngtargets)
 
-# %% define poisson options
+
+# %% GEOWEIGHT POISSON APPROACH
+
+# %% geoweight: poisson scipy least squares
 poisson_opts = {
     'scaling': True,
     'scale_goal': 1e1,
     'init_beta': 0.5,
     'stepmethod': 'jac',  # jac or jvp for newton; also vjp, findiff if lsq
     'quiet': True}
-
-
-# %% geoweight: poisson
 poisson_opts
 
 poisson_opts.update({'stepmethod': 'jac'})
@@ -122,45 +122,14 @@ poisson_opts.update({'stepmethod': 'findiff'})
 poisson_opts.update({'x_scale': 'jac'})
 poisson_opts.update({'x_scale': 1.0})
 poisson_opts.update({'max_nfev': 200})
+
 gwp1 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp1.elapsed_seconds
 gwp1.sspd
 
-gwp1a = prob.geoweight(method='poisson-lsq', options=poisson_opts)
-gwp1a.elapsed_seconds
-gwp1a.sspd
 
-
-gwp2 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
-gwp2.elapsed_seconds
-gwp2.sspd
-
-gwp3 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
-gwp3.elapsed_seconds
-gwp3.sspd
-
-
-# newton method
-opts = {}
-opts.update({'stepmethod': 'jvp'})   # jvp or jac
-# opts.update({'stepmethod': 'jac'})
-opts.update({'max_iter': 10})
-opts.update({'step_mult': 0.75})
-opts.update({'maxp_tol': 0.01})
-opts
-gwp4 = prob.geoweight(method='poisson-newton', options=opts)
-gwp4.elapsed_seconds
-gwp4.sspd
-
-gwp = gwp1
-gwp = gwp2
-gwp = gwp3
-gwp = gwp4
-gwp = gwp6
-np.quantile(np.abs(gwp.pdiff), qtiles)
-
-
-# test scipy minimization, which allows multiple approaches
+# %% geoweight: poisson scipy minimize
+# scipy minimization, which allows multiple approaches
 # best so far:
 #   trust-constr with hessp; uses a LOT of memory in initializationm then little
 #   trust-krylov with hessp; consider adding the exact option
@@ -197,20 +166,46 @@ opts.update({'maxiter': 2000})  # COBYLA default is 1000
 
 opts
 
-gwp5 = prob.geoweight(method='poisson-minscipy', options=opts)
-gwp5.elapsed_seconds
-gwp5.sspd
-dir(gwp5.method_result.result)
-gwp5.method_result.result.message
-
-tkhess = gwp5
-tkhessp = gwp5
-tkhess.elapsed_seconds
-tkhessp.elapsed_seconds
+gwp2 = prob.geoweight(method='poisson-minscipy', options=opts)
+gwp2.elapsed_seconds
+gwp2.sspd
+dir(gwp2.method_result.result)
+gwp2.method_result.result.message
+np.quantile(gwp2.pdiff, qtiles)
 
 
-np.quantile(gwp5.pdiff, qtiles)
+# %% poisson jax minimize
 
+
+
+# %% poisson tensor flow jax minimize
+# we can do either BFGS or LBFGS
+# both work very well on test problems, use minimal memory
+opts = {
+    'scaling': True,
+    'scale_goal': 10.0,  # this is an important parameter!
+    'init_beta': 0.5,
+    'objscale': 1.0,
+    'method': 'BFGS',  # BFGS or LBFGS
+    'max_iterations': 50,
+    'max_line_search_iterations': 50,
+    'num_correction_pairs': 10,
+    'parallel_iterations': 1,
+    'tolerance': 1e-8,
+    'quiet': True}
+opts.update({'method': 'BFGS'})
+opts.update({'method': 'LBFGS'})
+opts.update({'parallel_iterations': 1})
+opts
+gwp4 = prob.geoweight(method='poisson-mintfjax', options=opts)
+gwp4.elapsed_seconds
+gwp4.sspd
+
+
+
+
+# %% GEOWEIGHT IPOPT DIRECT APPROACH
+# in this approach we solve directly for the state weights
 
 # %% geoweight: geoipopt
 # geoipopt options
@@ -251,6 +246,7 @@ gwip1a.elapsed_seconds
 gwip1a.sspd
 
 
+# %% GEOWEIGHT QMATRIX APPROACH
 # %% general qmatrix options
 # uo = {'qmax_iter': 1, 'independent': True}
 # uo = {'qmax_iter': 3, 'quiet': True, 'verbose': 2}

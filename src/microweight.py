@@ -174,8 +174,6 @@ class Microweight:
         # input checks:
         # geotargets must by s x k
         gc.collect()  # just to be safe
-        print("method input: ", method)
-
 
         if method == 'qmatrix':
             method_result = gwqm.qmatrix(self.wh, self.xmat, self.geotargets,
