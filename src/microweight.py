@@ -14,10 +14,7 @@ Functions:
 """
 
 # TODO:
-# options function
-# least-squares reweighting
-# weight from scratch
-# fsolve geographic weighting
+
 
 
 # %% imports
@@ -26,17 +23,14 @@ import importlib
 
 import gc
 import numpy as np
-import pandas as pd
+# import pandas as pd
 from collections import namedtuple
 from timeit import default_timer as timer
-
-# import scipy.optimize as spo
-# from scipy.optimize import least_squares
 
 import src.utilities as ut
 # import src.common as common
 
-import src.geoweight_ipopt as gwip
+import src.geoweight_direct_ipopt as gwd_ipopt
 
 import src.geoweight_poisson_ipopt as gwp_ipopt
 import src.geoweight_poisson_lsq as gwp_lsq
@@ -58,7 +52,7 @@ import src.reweight_raking as rwrk
 
 
 # %% reimports
-importlib.reload(gwip)
+importlib.reload(gwd_ipopt)
 
 importlib.reload(gwp_ipopt)
 importlib.reload(gwp_lsq)
@@ -191,12 +185,13 @@ class Microweight:
             method_result = gwqm.qmatrix(self.wh, self.xmat, self.geotargets,
                                        method='least_squares',
                                        options=options)
-        elif method == 'geoipopt':
-            method_result = gwip.ipopt_geo(self.wh, self.xmat, self.geotargets,
+
+        elif method == 'direct_ipopt':
+            method_result = gwd_ipopt.ipopt_geo(self.wh, self.xmat, self.geotargets,
                                           options=options)
 
-        elif method == 'poisson-newton':
-            method_result = gwpn.poisson(self.wh, self.xmat, self.geotargets,
+        elif method == 'poisson-ipopt':
+            method_result = gwp_ipopt.poisson(self.wh, self.xmat, self.geotargets,
                                          options=options)
         elif method == 'poisson-lsq':
             method_result = gwp_lsq.poisson(self.wh, self.xmat, self.geotargets,
@@ -210,9 +205,10 @@ class Microweight:
         elif method == 'poisson-mintfjax':
             method_result = gwp_mintfjax.poisson(self.wh, self.xmat, self.geotargets,
                                          options=options)
-        elif method == 'poisson-ipopt':
-            method_result = gwp_ipopt.poisson(self.wh, self.xmat, self.geotargets,
+        elif method == 'poisson-newton':
+            method_result = gwpn.poisson(self.wh, self.xmat, self.geotargets,
                                          options=options)
+
 
         # calculate sum of squared percentage differences
         diff = method_result.geotargets_opt - self.geotargets

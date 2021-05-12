@@ -9,7 +9,7 @@
 # DONE: consolidate all poisson methods in one file
 # DONE: add poisson tpc method (Newton)
 # DONE: make sure qmatrix approach is working properly
-# DONE: geoipopt basic target scaling
+# DONE: direct_ipopt basic target scaling
 # DONE: use jax to construct jacobian for poisson method
 # DONE: use jax jvp to solve for Newton step without constructing jacobian
 # DONE: use jvp/vjp linear operator for least_squares
@@ -127,6 +127,11 @@ gwp1 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
 gwp1.elapsed_seconds
 gwp1.sspd
 
+# %% geoweight poisson ipopt
+gwpi = prob.geoweight(method='poisson-mintfjax', options=opts)
+gwpi.elapsed_seconds
+gwpi.sspd
+
 
 # %% geoweight: poisson scipy minimize
 # scipy minimization, which allows multiple approaches
@@ -191,6 +196,7 @@ opts = {
     'max_line_search_iterations': 50,
     'num_correction_pairs': 10,
     'parallel_iterations': 1,
+    'stopping_condition':
     'tolerance': 1e-8,
     'quiet': True}
 opts.update({'method': 'BFGS'})
@@ -207,9 +213,11 @@ gwp4.sspd
 # %% GEOWEIGHT IPOPT DIRECT APPROACH
 # in this approach we solve directly for the state weights
 
-# %% geoweight: geoipopt
-# geoipopt options
-geoipopt_base = {
+
+
+# %% geoweight: direct_ipopt
+# direct_ipopt options
+opts = {
     'xlb': .1, 'xub': 10.,  # default 0.1, 10.0
     'crange': 0.0,  # default 0.0
     # 'print_level': 0,
@@ -223,25 +231,24 @@ geoipopt_base = {
     'linear_solver': 'ma86',  # ma27, ma77, ma57, ma86 work, not ma97
     'quiet': False}
 
-geoipopt_opts = geoipopt_base.copy()
-geoipopt_opts.update({'addup': False})
-geoipopt_opts.update({'addup': True})
-geoipopt_opts.update({'scaling': True})
-geoipopt_opts.update({'scale_goal': 1e3})
-geoipopt_opts.update({'crange': .022})
-geoipopt_opts.update({'addup_range': .005})
-geoipopt_opts.update({'xlb': .01})
-geoipopt_opts.update({'xub': 10.0})
-geoipopt_opts
+opts.update({'addup': False})
+opts.update({'addup': True})
+opts.update({'scaling': True})
+opts.update({'scale_goal': 1e3})
+opts.update({'crange': .022})
+opts.update({'addup_range': .005})
+opts.update({'xlb': .01})
+opts.update({'xub': 10.0})
+opts
 
-gwip1 = prob.geoweight(method='geoipopt', options=geoipopt_opts)
+gwip1 = prob.geoweight(method='direct_ipopt', options=opts)
 gwip1.elapsed_seconds
 gwip1.sspd
 
-geoipopt_opts.update({'linear_solver': 'ma77'})
-geoipopt_opts.update(
+opts.update({'linear_solver': 'ma77'})
+opts.update(
     {'output_file': '/home/donboyd/Documents/test_sparse77.out'})
-gwip1a = prob.geoweight(method='geoipopt', options=geoipopt_opts)
+gwip1a = prob.geoweight(method='direct_ipopt', options=opts)
 gwip1a.elapsed_seconds
 gwip1a.sspd
 

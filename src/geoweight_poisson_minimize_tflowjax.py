@@ -70,17 +70,23 @@ def poisson(wh, xmat, geotargets, options=None):
     ljax_sspd = lambda bvec: jax_sspd(bvec, wh, xmat, geotargets, dw) * opts.objscale
 
 
+    def loss_and_gradient(x):
+        return tfp.math.value_and_gradient(lambda x: ljax_sspd(x), x)
+
+# tfp.math.value_and_gradient
 
     if opts.method == 'BFGS':
         result = tfp.optimizer.bfgs_minimize(
-            jax.value_and_grad(ljax_sspd),
+            # jax.value_and_grad(ljax_sspd),
+            loss_and_gradient,
             initial_position=betavec0,
             tolerance=opts.tolerance,
             max_iterations=opts.max_iterations,
             max_line_search_iterations=opts.max_line_search_iterations)
     elif opts.method == 'LBFGS':
         result = tfp.optimizer.lbfgs_minimize(
-            jax.value_and_grad(ljax_sspd),
+            # jax.value_and_grad(ljax_sspd),
+            loss_and_gradient,
             initial_position=betavec0,
             tolerance=opts.tolerance,
             num_correction_pairs=opts.num_correction_pairs,

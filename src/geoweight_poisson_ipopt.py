@@ -9,8 +9,9 @@ Created on Sun Oct  4 05:11:04 2020
 
 import gc
 
+import jax
 import jax.numpy as jnp
-from scipy.optimize import minimize
+
 import cyipopt as cy
 from cyipopt import minimize_ipopt
 
@@ -64,20 +65,18 @@ def poisson(wh, xmat, geotargets, options=None):
     # jax_sspd = jax.jit(jax_sspd)
     ljax_sspd = lambda bvec: jax_sspd(bvec, wh, xmat, geotargets, dw)
     g = jax.grad(ljax_sspd)
+    h = jax.hessian(ljax_sspd)
 
-    # nlp = cy.Problem(
-    #     n=n,
-    #     m=m,
-    #     problem_obj=RW(cc, n, opts.quiet),
-    #     lb=lb,
-    #     ub=ub,
-    #     cl=cl,
-    #     cu=cu)
+    # cyipopt.Problem.jacobian() and cyipopt.Problem.hessian() methods should return the non-zero values
+    # of the respective matrices as flattened arrays. The hessian should return a flattened lower
+    # triangular matrix. The Jacobian and Hessian can be dense or sparse
+    # cyipopt.minimize_ipopt(fun, x0, args=(), kwargs=None, method=None, jac=None,
+    #   hess=None, hessp=None, bounds=None, constraints=(), tol=None, callback=None, options=None)[source]¶
 
     result = minimize_ipopt(ljax_sspd, betavec0, jac=g)
 
     # get return values
-    beta_opt = result.x.reshape(geotargets.shape)
+    beta_opt = g.reshape(geotargets.shape)
     delta_opt = jax_get_delta(wh, beta_opt, xmat)
     whs_opt = jax_get_geoweights(beta_opt, delta_opt, xmat)
     geotargets_opt = jax_get_geotargets(beta_opt, wh, xmat)
@@ -136,7 +135,7 @@ def jax_get_geoweights(beta, delta, xmat):
     Parameters
     ----------
     beta : matrix
-        s x k matrix of coefficients for the poisson function that generates
+        s x k matrix of coefficients for the poisson fun.ction that generates
         state weights.
     delta : vector
         h-length vector of constants (one per household) for the poisson
@@ -235,4 +234,68 @@ def scale_problem(xmat, geotargets, scale_goal):
     xmat = jnp.divide(xmat, scale_factors)
     geotargets = jnp.divide(geotargets, scale_factors)
     return xmat, geotargets, scale_factors
+
+# %% reweight class
+class RW:
+
+    def __init__(self, cc, n, quiet):
+        self.cc = cc  # is this making an unnecessary copy??
+        self.jstruct = np.nonzero(cc.T)
+        # consider sps.find as possibly faster than np.nonzero, not sure
+        self.jnz = cc.T[self.jstruct]
+        # self.jnz = sps.find(cc)[2]
+
+        hidx = np.arange(0, n, dtype='int64')
+        self.hstruct = (hidx, hidx)
+        self.hnz = np.full(n, 2)
+
+        self.quiet = quiet
+
+    def objective(self, x):
+        """Returns the scalar value of the objective given x."""
+        return np.sum((x - 1)**2)
+
+    def gradient(self, x):
+        """Returns the gradient of the objective with respect to x."""
+        return 2*x - 2
+
+    def constraints(self, x):
+        """Returns the constraints."""
+        # np.dot(x, self.cc)  # dense calculation
+        # self.cc.T.dot(x)  # sparse calculation
+        return np.dot(x, self.cc)
+
+    def jacobian(self, x):
+        """Returns the Jacobian of the constraints with respect to x."""
+        return self.jnz
+
+    def jacobianstructure(self):
+        """ Define sparse structure of Jacobian. """
+        return self.jstruct
+
+    def hessian(self, x, lagrange, obj_factor):
+        """Returns the non-zero values of the Hessian."""
+        return obj_factor * self.hnz
+
+    def hessianstructure(self):
+        """ Define sparse structure of Hessian. """
+        return self.hstruct
+
+    def intermediate(
+            self,
+            alg_mod,
+            iter_count,
+            obj_value,
+            inf_pr,
+            inf_du,
+            mu,
+            d_norm,
+            regularization_size,
+            alpha_du,
+            alpha_pr,
+            ls_trials
+            ):
+
+        if(not self.quiet):
+            print(f'{"":10} {iter_count:5d} {"":15} {obj_value:13.7e} {"":15} {inf_pr:13.7e}')
 
