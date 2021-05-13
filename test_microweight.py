@@ -106,31 +106,77 @@ prob = mw.Microweight(wh=p.wh, xmat=p.xmat,
 # %% GEOWEIGHT POISSON APPROACH
 
 # %% geoweight: poisson scipy least squares
-poisson_opts = {
+opts = {
     'scaling': True,
     'scale_goal': 1e1,
     'init_beta': 0.5,
     'stepmethod': 'jac',  # jac or jvp for newton; also vjp, findiff if lsq
     'quiet': True}
-poisson_opts
+opts
 
-poisson_opts.update({'stepmethod': 'jac'})
-poisson_opts.update({'stepmethod': 'jvp'})
-poisson_opts.update({'stepmethod': 'vjp'})
-poisson_opts.update({'stepmethod': 'jvp-linop'})
-poisson_opts.update({'stepmethod': 'findiff'})
-poisson_opts.update({'x_scale': 'jac'})
-poisson_opts.update({'x_scale': 1.0})
-poisson_opts.update({'max_nfev': 200})
+opts.update({'stepmethod': 'jac'})
+opts.update({'stepmethod': 'jvp'})
+opts.update({'stepmethod': 'vjp'})
+opts.update({'stepmethod': 'jvp-linop'})
+opts.update({'stepmethod': 'findiff'})
+opts.update({'x_scale': 'jac'})
+opts.update({'x_scale': 1.0})
+opts.update({'max_nfev': 200})
 
-gwp1 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
+gwp1 = prob.geoweight(method='poisson-lsq', options=opts)
 gwp1.elapsed_seconds
 gwp1.sspd
+np.round(np.quantile(gwp1.pdiff, qtiles), 3)
+
 
 # %% geoweight poisson ipopt
-gwpi = prob.geoweight(method='poisson-mintfjax', options=opts)
+ipopts = {
+    'output_file': '/home/donboyd/Documents/gwpi2.out',
+    'print_user_options': 'yes',
+    'file_print_level': 5,
+    'max_iter': 1000,
+    'hessian_approximation': 'limited-memory',
+    'limited_memory_update_type': 'SR1',  # BFGS, SR1
+    'linear_solver': 'ma57',  # ma27, ma77, ma57, ma86 work, not ma97
+    'ma57_automatic_scaling': 'yes'
+}
+opts = {
+    'scaling': True,
+    'scale_goal': 1e1,
+    'init_beta': 0.5,
+    'ipopts': ipopts}
+opts
+gwpi = prob.geoweight(method='poisson-ipopt', options=opts)
 gwpi.elapsed_seconds
 gwpi.sspd
+
+
+# %% geoweight poisson newton
+# now try newton method
+opts = {
+    'scaling': True,
+    'scale_goal': 10.0,  # this is an important parameter!
+    'init_beta': 0.5,
+    # 'max_iter': 20,
+    'stepmethod': 'jac',  # jac or jvp for newton; also vjp, findiff if lsq
+    'quiet': True}
+opts.update({'stepmethod': 'jac'})
+opts.update({'stepmethod': 'jvp'})
+opts.update({'max_iter': 50})
+opts.update({'step_mult': 1.0})
+opts.update({'step_mult': 0.75})
+opts.update({'step_mult': 0.6})
+opts.update({'step_mult': 0.5})
+opts.update({'step_mult': 0.4})
+opts.update({'step_mult': 0.25})
+opts.update({'init_beta': 0.0})
+opts.update({'maxp_tol': 0.01}) # max pct diff tolerance .01 is 1/100 percent
+opts
+gwpn = prob.geoweight(method='poisson-newton', options=opts)
+gwpn.elapsed_seconds
+gwpn.sspd
+np.round(np.quantile(gwpn.pdiff, qtiles), 3)
+
 
 
 # %% geoweight: poisson scipy minimize

@@ -7,6 +7,7 @@ Created on Sun Oct  4 05:11:04 2020
 
 # %% imports
 
+import importlib
 import gc
 
 import jax
@@ -23,7 +24,13 @@ from jax.config import config; config.update("jax_enable_x64", True)
 
 from timeit import default_timer as timer
 from collections import namedtuple
+
 import src.utilities as ut
+import src.functions_geoweight_poisson as fgp
+
+
+# %% reimports
+importlib.reload(fgp)
 
 
 # %% option defaults
@@ -34,17 +41,37 @@ user_defaults = {
     'objgoal': 100,
     'quiet': True}
 
-solver_defaults = {
+ipopts = {
     'print_level': 0,
     'file_print_level': 5,
     'max_iter': 100,
-    'linear_solver': 'ma86'
+    'linear_solver': 'ma86',
+    'print_user_options': 'yes'
 }
 
-options_defaults = {**solver_defaults, **user_defaults}
+options_defaults = {**ipopts, **user_defaults}
 
 
 # options_defaults = {**solver_defaults, **user_defaults}
+
+# %% problem class
+class ipprob:
+    def __init__(self, f, g, h):
+        self.f = f
+        self.g = g
+        self.h = h
+
+    def objective(self, x):
+        """Returns the scalar value of the objective given x."""
+        return self.f(x)
+
+    def gradient(self, x):
+        """Returns the gradient of the objective with respect to x."""
+        return self.g(x)
+
+    def hessian(self, x, lagrange, obj_factor):
+        H = self.h(x)
+        return obj_factor*H
 
 
 # %% poisson - the primary function
@@ -61,11 +88,25 @@ def poisson(wh, xmat, geotargets, options=None):
         xmat, geotargets, scale_factors = scale_problem(xmat, geotargets, opts.scale_goal)
 
     betavec0 = jnp.full(geotargets.size, opts.init_beta)  # 1e-13 or 1e-12 seems best
-    dw = jax_get_diff_weights(geotargets)
+    dw = fgp.jax_get_diff_weights(geotargets)
     # jax_sspd = jax.jit(jax_sspd)
-    ljax_sspd = lambda bvec: jax_sspd(bvec, wh, xmat, geotargets, dw)
+    ljax_sspd = lambda bvec: fgp.jax_sspd(bvec, wh, xmat, geotargets, dw)
+    ljax_sspd = jax.jit(ljax_sspd)
+
     g = jax.grad(ljax_sspd)
+    g = jax.jit(g)
     h = jax.hessian(ljax_sspd)
+    h = jax.jit(h)
+
+    nlp = cy.Problem(
+        n=len(betavec0),
+        m=0,
+        problem_obj=ipprob(ljax_sspd, g, h))
+
+    for option, value in opts.ipopts.items():
+        nlp.add_option(option, value)
+
+    x, result = nlp.solve(betavec0)
 
     # cyipopt.Problem.jacobian() and cyipopt.Problem.hessian() methods should return the non-zero values
     # of the respective matrices as flattened arrays. The hessian should return a flattened lower
@@ -73,10 +114,10 @@ def poisson(wh, xmat, geotargets, options=None):
     # cyipopt.minimize_ipopt(fun, x0, args=(), kwargs=None, method=None, jac=None,
     #   hess=None, hessp=None, bounds=None, constraints=(), tol=None, callback=None, options=None)[source]¶
 
-    result = minimize_ipopt(ljax_sspd, betavec0, jac=g)
+    # result = minimize_ipopt(ljax_sspd, betavec0, jac=g, options=opts.ipopts)
 
     # get return values
-    beta_opt = g.reshape(geotargets.shape)
+    beta_opt = x.reshape(geotargets.shape)
     delta_opt = jax_get_delta(wh, beta_opt, xmat)
     whs_opt = jax_get_geoweights(beta_opt, delta_opt, xmat)
     geotargets_opt = jax_get_geotargets(beta_opt, wh, xmat)
