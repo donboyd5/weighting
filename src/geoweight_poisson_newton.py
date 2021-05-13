@@ -37,7 +37,8 @@ options_defaults = {
     'init_beta': 0.5,
     'stepmethod': 'jac',  # jvp or jac, jac seems to work better
     'max_iter': 20,
-    'step_mult': 0.75,  # less than 1 seems important
+    'linesearch': True,
+    'init_p': 0.75,  # less than 1 seems important
     'maxp_tol': .01,  # .01 is 1/100 of 1% for the max % difference from target
     'quiet': True}
 
@@ -100,42 +101,78 @@ def poisson(wh, xmat, geotargets, options=None):
     elif opts.stepmethod == 'jac':
         get_step = jac_step
 
+    def getp_one(l2norm, l2norm_prior, step_dir, init_p):
+        return init_p
 
+    def getp_simple(l2norm, l2norm_prior, step_dir, init_p):
+        # simple halving approach to getting step length
+        p = init_p
+        max_search = 5
+        search = 0
+        if l2norm > l2norm_prior:
+            print(f'starting line search at count: {count:4}')
+            l2n = l2norm.copy()
+            l2np = l2norm_prior.copy()
+            # ?? start from the best prior result, not the latest
+            # bvec_temp = bvec_best.copy()
+            # step_dir_temp = step_dir_best
+            bvec_temp = bvec.copy()
+            step_dir_temp = step_dir
+            while (l2n > l2np or l2n == 1e99) and search <= max_search:
+                search += 1
+                p = p / 2.0
+                bvec_temp2 = bvec_temp - step_dir_temp * p
+                diffs_temp = fgp.jax_targets_diff(bvec_temp2, wh, xmat, geotargets, dw)
+                l2np = l2n.copy()
+                l2n = norm(diffs_temp, 2)
+                print(f'...trying new p: {p:10.4f}  l2norm: {l2n: 12.2f}')
+                if np.isnan(l2n):
+                    l2n = np.float64(1e99)
+        return p
+
+    # determine whether and how to do line searches
+    getp = getp_one
+    if opts.linesearch:
+        getp = getp_simple
 
     # begin Newton iterations
     count = 0
     error = 1e99
     maxpdiff = 1e99
+    p = opts.init_p / 2.0 # initial step length
+    # diffs_prior = 1e99
+    l2norm_prior = np.float64(1e99)
+    bvec_best = bvec.copy()
+    l2norm_best = l2norm_prior.copy()
+    step_dir = np.zeros(bvec.shape)
 
     print("iteration        sspd        l2norm      maxabs_error")
     while count < opts.max_iter and maxpdiff > opts.maxp_tol:
         count += 1
         diffs = fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+
         l2norm = norm(diffs, 2)
+        if l2norm < l2norm_best:
+            bvec_best = bvec.copy()
+            l2norm_best = l2norm.copy()
+            step_dir_best = step_dir.copy()
+
         maxabs = norm(jnp.abs(diffs), jnp.inf)
         # maxpdiff = jnp.max(jnp.abs(diffs.flatten() / geotargets.flatten() * 100.))
         maxpdiff = jnp.max(jnp.abs(diffs))
         error = jnp.square(diffs).sum()
         print(f'{count: 6}   {error: 12.2f}  {l2norm: 12.2f}      {maxpdiff: 12.2f}')
 
-        # save_list = [bvec, wh, xmat, geotargets, dw, diffs]
-        # save_name = '/home/donboyd/Documents/bvwhxmgtdwdf.pkl'
-        # open_file = open(save_name, "wb")
-        # pickle.dump(save_list, open_file)
-        # open_file.close()
-
-        step = get_step(bvec, wh, xmat, geotargets, dw, diffs)
-        bvec = bvec - step * opts.step_mult
-
-        # print(bvec.dtype)
-        # jax.ops.index_update(x, jax.ops.index[::2, 3:], 6.)
-        # jax.ops.index_update(bvec, jax.ops.index[bvec < -7e3], -7.3)
-        # jax.ops.index_update(bvec, jax.ops.index[bvec > 7e3], 7.3)
-        # bvec[bvec < -7e3] = -7e3
-        # bvec[bvec > 7e3] = 7e3
+        step_dir = get_step(bvec, wh, xmat, geotargets, dw, diffs)
+        # bvec = bvec - step * opts.step_mult
+        if count > 1:
+            p = getp(l2norm, l2norm_prior, step_dir, opts.init_p)
+        # print('using p: ', p)
+        bvec = bvec - step_dir * p
+        l2norm_prior = l2norm
 
     # get return values
-    beta_opt = bvec.reshape(geotargets.shape)
+    beta_opt = bvec_best.reshape(geotargets.shape)
     delta_opt = 'Not reported'  # get_delta(wh, beta_opt, xmat)
     whs_opt = get_whs_logs(beta_opt, wh, xmat, geotargets) # jax_get_geoweights(beta_opt, delta_opt, xmat)
     geotargets_opt = jnp.dot(whs_opt.T, xmat)
@@ -198,10 +235,10 @@ def get_whs_logs(beta_object, wh, xmat, geotargets):
 
 def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
     # beta must be a matrix so if beta_object is a vector, reshape it
-    if beta_object.ndim == 1:
-        beta = beta_object.reshape(geotargets.shape)
-    elif beta_object.ndim == 2:
-        beta = beta_object
+    # if beta_object.ndim == 1:
+    #     beta = beta_object.reshape(geotargets.shape)
+    # elif beta_object.ndim == 2:
+    #     beta = beta_object
 
     # geotargets_calc = jax_get_geotargets(beta, wh, xmat)
     whs = get_whs_logs(beta_object, wh, xmat, geotargets)
