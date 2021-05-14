@@ -81,7 +81,8 @@ p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=50000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.2)
 
 p = mtp.Problem(h=100000, s=15, k=10, xsd=.1, ssd=.5, pctzero=.4)
-
+p = mtp.Problem(h=200000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=400000, s=70, k=40, xsd=.1, ssd=.5, pctzero=.4)
 
 # %% add noise and set problem up
 p.h
@@ -123,6 +124,7 @@ opts.update({'x_scale': 'jac'})
 opts.update({'x_scale': 1.0})
 opts.update({'max_nfev': 200})
 
+opts
 gwp1 = prob.geoweight(method='poisson-lsq', options=opts)
 gwp1.elapsed_seconds
 gwp1.sspd
@@ -174,6 +176,7 @@ opts.update({'init_p': 0.25})
 opts.update({'init_beta': 0.0})
 opts.update({'maxp_tol': 0.01}) # max pct diff tolerance .01 is 1/100 percent
 opts
+
 gwpn = prob.geoweight(method='poisson-newton', options=opts)
 gwpn.elapsed_seconds
 gwpn.sspd
