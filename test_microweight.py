@@ -163,6 +163,7 @@ opts = {
 opts.update({'stepmethod': 'jac'})
 opts.update({'stepmethod': 'jvp'})
 opts.update({'max_iter': 50})
+opts.update({'max_iter': 5})
 opts.update({'linesearch': True})
 opts.update({'init_p': 1.0})
 opts.update({'init_p': 0.75})
@@ -177,6 +178,12 @@ gwpn = prob.geoweight(method='poisson-newton', options=opts)
 gwpn.elapsed_seconds
 gwpn.sspd
 np.round(np.quantile(gwpn.pdiff, qtiles), 3)
+
+
+opts
+opts.update({'max_iter': 20})
+gwpsp = prob.geoweight(method='poisson-minscipy', options=opts)
+dir(gwpsp).method_result)
 
 
 
