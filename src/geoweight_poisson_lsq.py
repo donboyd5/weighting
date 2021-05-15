@@ -40,7 +40,7 @@ options_defaults = {
 # %% poisson - the primary function
 
 def poisson(wh, xmat, geotargets, options=None):
-    print('test 6')
+    print('test 13')
     a = timer()
 
     options_all = options_defaults
@@ -48,19 +48,19 @@ def poisson(wh, xmat, geotargets, options=None):
     opts = ut.dict_nt(options_all)  # convert dict to named tuple for ease of use
 
     if opts.scaling:
-        xmat, geotargets, scale_factors = scale_problem(xmat, geotargets, opts.scale_goal)
+        xmat, geotargets, scale_factors = fgp.scale_problem(xmat, geotargets, opts.scale_goal)
 
     # betavec0 = np.zeros(geotargets.size)
     betavec0 = np.full(geotargets.size, opts.init_beta)  # 1e-13 or 1e-12 seems best
-    dw = get_diff_weights(geotargets)
+    dw = fgp.jax_get_diff_weights(geotargets)  # get_diff_weights(geotargets)
 
     # determine which jacobian method to use
     if opts.stepmethod == 'jvp':
-        jax_jacobian_basic = jax.jit(jac_jvp(jax_targets_diff, wh, xmat, geotargets, dw))  # jax_jacobian_basic is a function -- the jax jacobian
+        jax_jacobian_basic = jax.jit(fgp.jac_jvp(fgp.jax_targets_diff, wh, xmat, geotargets, dw))  # jax_jacobian_basic is a function -- the jax jacobian
     elif opts.stepmethod == 'vjp':
-        jax_jacobian_basic = jax.jit(jac_vjp(jax_targets_diff, wh, xmat, geotargets, dw))
+        jax_jacobian_basic = jax.jit(fgp.jac_vjp(fgp.jax_targets_diff, wh, xmat, geotargets, dw))
     elif opts.stepmethod == 'jac':
-        jax_jacobian_basic = jax.jit(jax.jacfwd(jax_targets_diff))  # jit definitely faster
+        jax_jacobian_basic = jax.jit(jax.jacfwd(fgp.jax_targets_diff))  # jit definitely faster
     else:
         jax_jacobian_basic = None
 
@@ -77,7 +77,7 @@ def poisson(wh, xmat, geotargets, options=None):
     if opts.stepmethod == 'findiff':
         stepmethod = '2-point'
     elif opts.stepmethod == 'jvp-linop':
-        stepmethod = jvp_linop  # CAUTION: this method does not allow x_scale='jac' and reduces costs slowly
+        stepmethod = fgp.jvp_linop  # CAUTION: this method does not allow x_scale='jac' and reduces costs slowly
     else:
         stepmethod = jax_jacobian
 
@@ -93,8 +93,7 @@ def poisson(wh, xmat, geotargets, options=None):
 
     # get return values
     beta_opt = spo_result.x.reshape(geotargets.shape)
-    delta_opt = 'Not reported'  # get_delta(wh, beta_opt, xmat)
-    whs_opt = get_whs_logs(beta_opt, wh, xmat, geotargets) # jax_get_geoweights(beta_opt, delta_opt, xmat)
+    whs_opt = fgp.get_whs_logs(beta_opt, wh, xmat, geotargets) # jax_get_geoweights(beta_opt, delta_opt, xmat)
     geotargets_opt = jnp.dot(whs_opt.T, xmat)
 
     if opts.scaling:
@@ -106,15 +105,13 @@ def poisson(wh, xmat, geotargets, options=None):
     fields = ('elapsed_seconds',
               'whs_opt',
               'geotargets_opt',
-              'beta_opt',
-              'delta_opt')
+              'beta_opt')
     Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
 
     res = Result(elapsed_seconds=b - a,
                  whs_opt=whs_opt,
                  geotargets_opt=geotargets_opt,
-                 beta_opt=beta_opt,
-                 delta_opt=delta_opt)
+                 beta_opt=beta_opt)
 
     return res
 
@@ -402,14 +399,14 @@ def targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
 
 
 # %% scaling
-def scale_problem(xmat, geotargets, scale_goal):
-    scale_factors = xmat.sum(axis=0) / scale_goal
-    xmat = jnp.divide(xmat, scale_factors)
-    geotargets = jnp.divide(geotargets, scale_factors)
-    return xmat, geotargets, scale_factors
+# def scale_problem(xmat, geotargets, scale_goal):
+#     scale_factors = xmat.sum(axis=0) / scale_goal
+#     xmat = jnp.divide(xmat, scale_factors)
+#     geotargets = jnp.divide(geotargets, scale_factors)
+#     return xmat, geotargets, scale_factors
 
 
-# %% new functions
+# # %% new functions
 def get_whs_logs(beta_object, wh, xmat, geotargets):
     # note beta is an s x k matrix
     # beta must be a matrix so if beta_object is a vector, reshape it
@@ -432,81 +429,80 @@ def get_whs_logs(beta_object, wh, xmat, geotargets):
     return whs
 
 
-def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
-    # print(np.quantile(jnp.asarray(beta_object), q=np.array([0., .1, .5, .9, 1.])))
-    # beta must be a matrix so if beta_object is a vector, reshape it
-    if beta_object.ndim == 1:
-        beta = beta_object.reshape(geotargets.shape)
-    elif beta_object.ndim == 2:
-        beta = beta_object
+# def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
+#     # print(np.quantile(jnp.asarray(beta_object), q=np.array([0., .1, .5, .9, 1.])))
+#     # beta must be a matrix so if beta_object is a vector, reshape it
+#     if beta_object.ndim == 1:
+#         beta = beta_object.reshape(geotargets.shape)
+#     elif beta_object.ndim == 2:
+#         beta = beta_object
 
-    # geotargets_calc = jax_get_geotargets(beta, wh, xmat)
-    whs = get_whs_logs(beta_object, wh, xmat, geotargets)
-    geotargets_calc = jnp.dot(whs.T, xmat)
-    diffs = geotargets_calc - geotargets
-    # diffs = diffs * diff_weights
-    diffs = jnp.divide(diffs, geotargets) * 100.0  # can't have zero geotargets
+#     # geotargets_calc = jax_get_geotargets(beta, wh, xmat)
+#     whs = get_whs_logs(beta_object, wh, xmat, geotargets)
+#     geotargets_calc = jnp.dot(whs.T, xmat)
+#     diffs = geotargets_calc - geotargets
+#     # diffs = diffs * diff_weights
+#     diffs = jnp.divide(diffs, geotargets) * 100.0  # can't have zero geotargets
 
-    # return a matrix or vector, depending on the shape of beta_object
-    if beta_object.ndim == 1:
-        diffs = diffs.flatten()
+#     # return a matrix or vector, depending on the shape of beta_object
+#     if beta_object.ndim == 1:
+#         diffs = diffs.flatten()
 
-    return diffs
+#     return diffs
 
-# %% jax jacobian functions
-
-
-# define the different functions that can be used to construct the jacobian
-# these are alternative to each other - we'll only use one
-# I have not succeeded in moving them outside of the poisson function
-def jac_vjp(g, wh, xmat, geotargets, dw):
-    # build jacobian row by row to conserve memory use
-    f = lambda x: g(x, wh, xmat, geotargets, dw)
-    def jacfun(x, wh, xmat, geotargets, dw):
-        y, _vjp = jax.vjp(f, x)
-        Jt, = jax.vmap(_vjp, in_axes=0)(jnp.eye(len(y)))
-        return jnp.transpose(Jt)
-    return jacfun
-
-def jac_jvp(g, wh, xmat, geotargets, dw):
-    # build jacobian column by column to conserve memory use
-    f = lambda x: g(x, wh, xmat, geotargets, dw)
-    def jacfun(x, wh, xmat, geotargets, dw):
-        _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
-        gc.collect()
-        Jt = jax.vmap(_jvp, in_axes=1)(jnp.eye(len(x)))
-        return jnp.transpose(Jt)
-    return jacfun
+# # %% jax jacobian functions
 
 
-def jvp_linop(beta, wh, xmat, geotargets, dw):
-    # linear operator approach
-    # CAUTION: This does NOT work well because scipy least_squares does not allow the option x_scale='jac' when using a linear operator
-    # This is fast and COULD be very good if a good scaling vector is developed but without that it iterates quickly but reduces
-    # cost very slowly.
-    l_diffs = lambda beta: jax_targets_diff(beta, wh, xmat, geotargets, dw)
-    # l_diffs = jax.jit(l_diffs)  # jit is slower
-    # l_jvp = lambda diffs: jax.jvp(l_diffs, (beta,), (diffs,))[1]  # need to reshape
-    l_vjp = lambda diffs: jax.vjp(l_diffs, beta)[1](diffs)
-
-    def f_jvp(diffs):
-        diffs = diffs.reshape(diffs.size)
-        return jax.jvp(l_diffs, (beta,), (diffs,))[1]
-    # f_jvp = jax.jit(f_jvp)  # jit is slower
-
-    linop = scipy.sparse.linalg.LinearOperator((beta.size, beta.size),
-        matvec=f_jvp, rmatvec=l_vjp)
-    return linop
-
-
-# def jac_jvpgc(g):
-#     # build jacobian column by column to conserve memory use
-#     # with garbage collection after each column
+# # define the different functions that can be used to construct the jacobian
+# # these are alternative to each other - we'll only use one
+# def jac_vjp(g, wh, xmat, geotargets, dw):
+#     # build jacobian row by row to conserve memory use
 #     f = lambda x: g(x, wh, xmat, geotargets, dw)
 #     def jacfun(x, wh, xmat, geotargets, dw):
-#         def _jvp(s):
-#             gc.collect()
-#             return jax.jvp(f, (x,), (s,))[1]
+#         y, _vjp = jax.vjp(f, x)
+#         Jt, = jax.vmap(_vjp, in_axes=0)(jnp.eye(len(y)))
+#         return jnp.transpose(Jt)
+#     return jacfun
+
+# def jac_jvp(g, wh, xmat, geotargets, dw):
+#     # build jacobian column by column to conserve memory use
+#     f = lambda x: g(x, wh, xmat, geotargets, dw)
+#     def jacfun(x, wh, xmat, geotargets, dw):
+#         _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
+#         gc.collect()
 #         Jt = jax.vmap(_jvp, in_axes=1)(jnp.eye(len(x)))
 #         return jnp.transpose(Jt)
 #     return jacfun
+
+
+# def jvp_linop(beta, wh, xmat, geotargets, dw):
+#     # linear operator approach
+#     # CAUTION: This does NOT work well because scipy least_squares does not allow the option x_scale='jac' when using a linear operator
+#     # This is fast and COULD be very good if a good scaling vector is developed but without that it iterates quickly but reduces
+#     # cost very slowly.
+#     l_diffs = lambda beta: jax_targets_diff(beta, wh, xmat, geotargets, dw)
+#     # l_diffs = jax.jit(l_diffs)  # jit is slower
+#     # l_jvp = lambda diffs: jax.jvp(l_diffs, (beta,), (diffs,))[1]  # need to reshape
+#     l_vjp = lambda diffs: jax.vjp(l_diffs, beta)[1](diffs)
+
+#     def f_jvp(diffs):
+#         diffs = diffs.reshape(diffs.size)
+#         return jax.jvp(l_diffs, (beta,), (diffs,))[1]
+#     # f_jvp = jax.jit(f_jvp)  # jit is slower
+
+#     linop = scipy.sparse.linalg.LinearOperator((beta.size, beta.size),
+#         matvec=f_jvp, rmatvec=l_vjp)
+#     return linop
+
+
+# # def jac_jvpgc(g):
+# #     # build jacobian column by column to conserve memory use
+# #     # with garbage collection after each column
+# #     f = lambda x: g(x, wh, xmat, geotargets, dw)
+# #     def jacfun(x, wh, xmat, geotargets, dw):
+# #         def _jvp(s):
+# #             gc.collect()
+# #             return jax.jvp(f, (x,), (s,))[1]
+# #         Jt = jax.vmap(_jvp, in_axes=1)(jnp.eye(len(x)))
+# #         return jnp.transpose(Jt)
+# #     return jacfun

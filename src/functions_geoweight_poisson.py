@@ -1,8 +1,10 @@
 # %% imports
 # import numpy as np
-# import jax
+import scipy
+
+import jax
 import jax.numpy as jnp
-# import scipy
+
 # from jax import jvp, vjp
 
 # # this next line is CRUCIAL or we will lose precision
@@ -52,24 +54,68 @@ def get_whs_logs(beta_object, wh, xmat, geotargets):
 
 
 def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
-
     whs = get_whs_logs(beta_object, wh, xmat, geotargets)
     geotargets_calc = jnp.dot(whs.T, xmat)
     diffs = geotargets_calc - geotargets
-    # diffs = diffs * diff_weights
     diffs = jnp.divide(diffs, geotargets) * 100.0  # can't have zero geotargets
 
     # return a matrix or vector, depending on the shape of beta_object
     if beta_object.ndim == 1:
         diffs = diffs.flatten()
 
-    return diffs
+    return jnp.asarray(diffs)  # new
 
 
 def jax_sspd(beta_object, wh, xmat, geotargets, diff_weights):
     diffs = jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights)
     sspd = jnp.square(diffs).sum()
     return sspd
+
+
+# %% build jacobian from vectors functions
+
+# define the different functions that can be used to construct the jacobian
+# these are alternative to each other - we'll only use one
+def jac_vjp(g, wh, xmat, geotargets, dw):
+    # build jacobian row by row to conserve memory use
+    f = lambda x: g(x, wh, xmat, geotargets, dw)
+    def jacfun(x, wh, xmat, geotargets, dw):
+        y, _vjp = jax.vjp(f, x)
+        Jt, = jax.vmap(_vjp, in_axes=0)(jnp.eye(len(y)))
+        return jnp.transpose(Jt)
+    return jacfun
+
+def jac_jvp(g, wh, xmat, geotargets, dw):
+    # build jacobian column by column to conserve memory use
+    f = lambda x: g(x, wh, xmat, geotargets, dw)
+    def jacfun(x, wh, xmat, geotargets, dw):
+        _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
+        # gc.collect()
+        Jt = jax.vmap(_jvp, in_axes=1)(jnp.eye(len(x)))
+        return jnp.transpose(Jt)
+    return jacfun
+
+
+def jvp_linop(beta, wh, xmat, geotargets, dw):
+    # linear operator approach
+    # CAUTION: This does NOT work well because scipy least_squares does not allow the option x_scale='jac' when using a linear operator
+    # This is fast and COULD be very good if a good scaling vector is developed but without that it iterates quickly but reduces
+    # cost very slowly.
+    l_diffs = lambda beta: jax_targets_diff(beta, wh, xmat, geotargets, dw)
+    # l_diffs = jax.jit(l_diffs)  # jit is slower
+    # l_jvp = lambda diffs: jax.jvp(l_diffs, (beta,), (diffs,))[1]  # need to reshape
+    l_vjp = lambda diffs: jax.vjp(l_diffs, beta)[1](diffs)
+
+    def f_jvp(diffs):
+        diffs = diffs.reshape(diffs.size)
+        return jax.jvp(l_diffs, (beta,), (diffs,))[1]
+    # f_jvp = jax.jit(f_jvp)  # jit is slower
+
+    linop = scipy.sparse.linalg.LinearOperator((beta.size, beta.size),
+        matvec=f_jvp, rmatvec=l_vjp)
+    return linop
+
+
 
 
 # %% linear operator functions
