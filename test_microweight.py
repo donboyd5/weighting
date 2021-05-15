@@ -115,11 +115,11 @@ opts = {
     'quiet': True}
 opts
 
-opts.update({'stepmethod': 'jac'})
-opts.update({'stepmethod': 'jvp'})
-opts.update({'stepmethod': 'vjp'})
-opts.update({'stepmethod': 'jvp-linop'})
-opts.update({'stepmethod': 'findiff'})
+opts.update({'stepmethod': 'jac', 'x_scale': 'jac'})
+opts.update({'stepmethod': 'jvp', 'x_scale': 'jac'})
+opts.update({'stepmethod': 'vjp', 'x_scale': 'jac'})
+opts.update({'stepmethod': 'jvp-linop', 'x_scale': 1.0})
+opts.update({'stepmethod': 'findiff', 'x_scale': 'jac'})
 opts.update({'x_scale': 'jac'})
 opts.update({'x_scale': 1.0})
 opts.update({'max_nfev': 200})

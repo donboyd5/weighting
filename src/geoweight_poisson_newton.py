@@ -164,7 +164,7 @@ def poisson(wh, xmat, geotargets, options=None):
 
     # get return values
     beta_opt = bvec_best.reshape(geotargets.shape)
-    whs_opt = get_whs_logs(beta_opt, wh, xmat, geotargets) # jax_get_geoweights(beta_opt, delta_opt, xmat)
+    whs_opt = fgp.get_whs_logs(beta_opt, wh, xmat, geotargets) # jax_get_geoweights(beta_opt, delta_opt, xmat)
     geotargets_opt = jnp.dot(whs_opt.T, xmat)
 
     if opts.scaling:
