@@ -40,7 +40,7 @@ options_defaults = {
 # %% poisson - the primary function
 
 def poisson(wh, xmat, geotargets, options=None):
-    print('test 13')
+    print('test 16')
     a = timer()
 
     options_all = options_defaults
@@ -160,27 +160,27 @@ def poisson(wh, xmat, geotargets, options=None):
 #     return delta
 
 
-def get_diff_weights(geotargets, goal=100):
-    """
-    difference weights - a weight to be applied to each target in the
-      difference function so that it hits its goal
-      set the weight to 1 if the target value is zero
+# def get_diff_weights(geotargets, goal=100):
+#     """
+#     difference weights - a weight to be applied to each target in the
+#       difference function so that it hits its goal
+#       set the weight to 1 if the target value is zero
 
-    do this in a vectorized way
-    """
+#     do this in a vectorized way
+#     """
 
-    # avoid divide by zero or other problems
+#     # avoid divide by zero or other problems
 
-    # numerator = np.full(geotargets.shape, goal)
-    # with np.errstate(divide='ignore'):
-    #     dw = numerator / geotargets
-    #     dw[geotargets == 0] = 1
+#     # numerator = np.full(geotargets.shape, goal)
+#     # with np.errstate(divide='ignore'):
+#     #     dw = numerator / geotargets
+#     #     dw[geotargets == 0] = 1
 
-    goalmat = np.full(geotargets.shape, goal)
-    with np.errstate(divide='ignore'):  # turn off divide-by-zero warning
-        diff_weights = np.where(geotargets != 0, goalmat / geotargets, 1)
+#     goalmat = np.full(geotargets.shape, goal)
+#     with np.errstate(divide='ignore'):  # turn off divide-by-zero warning
+#         diff_weights = np.where(geotargets != 0, goalmat / geotargets, 1)
 
-    return diff_weights
+#     return diff_weights
 
 
 # def get_geotargets(beta, wh, xmat):
@@ -286,13 +286,13 @@ def get_diff_weights(geotargets, goal=100):
 
 def targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
     # beta must be a matrix so if beta_object is a vector, reshape it
-    if beta_object.ndim == 1:
-        beta = beta_object.reshape(geotargets.shape)
-    elif beta_object.ndim == 2:
-        beta = beta_object
+    # if beta_object.ndim == 1:
+    #     beta = beta_object.reshape(geotargets.shape)
+    # elif beta_object.ndim == 2:
+    #     beta = beta_object
 
     # geotargets_calc = jax_get_geotargets(beta, wh, xmat)
-    whs = get_whs_logs(beta_object, wh, xmat, geotargets)
+    whs = fgp.get_whs_logs(beta_object, wh, xmat, geotargets)
     geotargets_calc = np.dot(whs.T, xmat)
     diffs = geotargets_calc - geotargets
     # diffs = diffs * diff_weights
@@ -407,26 +407,26 @@ def targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
 
 
 # # %% new functions
-def get_whs_logs(beta_object, wh, xmat, geotargets):
-    # note beta is an s x k matrix
-    # beta must be a matrix so if beta_object is a vector, reshape it
-    if beta_object.ndim == 1:
-        beta = beta_object.reshape(geotargets.shape)
-    elif beta_object.ndim == 2:
-        beta = beta_object
+# def get_whs_logs(beta_object, wh, xmat, geotargets):
+#     # note beta is an s x k matrix
+#     # beta must be a matrix so if beta_object is a vector, reshape it
+#     if beta_object.ndim == 1:
+#         beta = beta_object.reshape(geotargets.shape)
+#     elif beta_object.ndim == 2:
+#         beta = beta_object
 
-    betax = beta.dot(xmat.T)
-    # adjust betax to make exponentiation more stable numerically
-    # subtract column-specific constant (the max) from each column of betax
-    const = betax.max(axis=0)
-    betax = jnp.subtract(betax, const)
-    ebetax = jnp.exp(betax)
-    # print(ebetax.min())
-    # print(np.log(ebetax))
-    logdiffs = betax - jnp.log(ebetax.sum(axis=0))
-    shares = jnp.exp(logdiffs)
-    whs = jnp.multiply(wh, shares).T
-    return whs
+#     betax = beta.dot(xmat.T)
+#     # adjust betax to make exponentiation more stable numerically
+#     # subtract column-specific constant (the max) from each column of betax
+#     const = betax.max(axis=0)
+#     betax = jnp.subtract(betax, const)
+#     ebetax = jnp.exp(betax)
+#     # print(ebetax.min())
+#     # print(np.log(ebetax))
+#     logdiffs = betax - jnp.log(ebetax.sum(axis=0))
+#     shares = jnp.exp(logdiffs)
+#     whs = jnp.multiply(wh, shares).T
+#     return whs
 
 
 # def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):

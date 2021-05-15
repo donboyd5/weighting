@@ -63,7 +63,7 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
     if beta_object.ndim == 1:
         diffs = diffs.flatten()
 
-    return jnp.asarray(diffs)  # new
+    return diffs  # jnp.asarray(diffs)  # new
 
 
 def jax_sspd(beta_object, wh, xmat, geotargets, diff_weights):
