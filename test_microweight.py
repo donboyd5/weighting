@@ -106,7 +106,7 @@ prob = mw.Microweight(wh=p.wh, xmat=p.xmat,
 
 # %% GEOWEIGHT POISSON APPROACH
 
-# %% geoweight: poisson scipy least squares
+# %% ..geoweight: poisson scipy least squares
 opts = {
     'scaling': True,
     'scale_goal': 1e1,
@@ -131,7 +131,7 @@ gwp1.sspd
 np.round(np.quantile(gwp1.pdiff, qtiles), 3)
 
 
-# %% geoweight poisson ipopt
+# %% ..geoweight poisson ipopt
 ipopts = {
     'output_file': '/home/donboyd/Documents/gwpi2.out',
     'print_user_options': 'yes',
@@ -153,7 +153,7 @@ gwpi.elapsed_seconds
 gwpi.sspd
 
 
-# %% geoweight poisson newton
+# %% ..geoweight poisson newton
 # now try newton method
 opts = {
     'scaling': True,
@@ -167,6 +167,7 @@ opts.update({'stepmethod': 'jvp'})
 opts.update({'max_iter': 50})
 opts.update({'max_iter': 5})
 opts.update({'linesearch': True})
+opts.update({'linesearch': False})
 opts.update({'init_p': 1.0})
 opts.update({'init_p': 0.75})
 opts.update({'init_p': 0.6})
@@ -185,14 +186,14 @@ np.round(np.quantile(gwpn.pdiff, qtiles), 3)
 tmp = gwpn
 
 
-opts
-opts.update({'max_iter': 20})
-gwpsp = prob.geoweight(method='poisson-minscipy', options=opts)
-dir(gwpsp).method_result)
+# opts
+# opts.update({'max_iter': 20})
+# gwpsp = prob.geoweight(method='poisson-minscipy', options=opts)
+# dir(gwpsp).method_result)
 
 
 
-# %% geoweight: poisson scipy minimize
+# %% ..geoweight: poisson scipy minimize
 # scipy minimization, which allows multiple approaches
 # best so far:
 #   trust-constr with hessp; uses a LOT of memory in initializationm then little
@@ -238,11 +239,11 @@ gwp2.method_result.result.message
 np.quantile(gwp2.pdiff, qtiles)
 
 
-# %% poisson jax minimize
+# %% ..geoweight poisson jax minimize
 
 
 
-# %% poisson tensor flow jax minimize
+# %% ..geoweight poisson tensor flow jax minimize
 # we can do either BFGS or LBFGS
 # both work very well on test problems, use minimal memory
 opts = {
@@ -274,7 +275,7 @@ gwp4.sspd
 
 
 
-# %% geoweight: direct_ipopt
+# %% ..geoweight: direct_ipopt
 # direct_ipopt options
 opts = {
     'xlb': .1, 'xub': 10.,  # default 0.1, 10.0
@@ -313,12 +314,12 @@ gwip1a.sspd
 
 
 # %% GEOWEIGHT QMATRIX APPROACH
-# %% general qmatrix options
+# %% ..general qmatrix options
 # uo = {'qmax_iter': 1, 'independent': True}
 # uo = {'qmax_iter': 3, 'quiet': True, 'verbose': 2}
 
 
-# %% geoweight: qmatrix lsq
+# %% ..geoweight: qmatrix lsq
 # lsq options
 uolsq = {'qmax_iter': 10,
          'verbose': 0,
@@ -334,7 +335,7 @@ gwqm_lsq = prob.geoweight(method='qmatrix-lsq', options=uolsq)
 gwqm_lsq.elapsed_seconds
 gwqm_lsq.sspd
 
-# %% geoweight: qmatrix ipopt
+# %% ..geoweight: qmatrix ipopt
 # ipopt options
 uoipopt = {'qmax_iter': 30,
            'quiet': True,
@@ -349,7 +350,7 @@ gwqm_ip.elapsed_seconds
 gwqm_ip.sspd
 
 
-# %% geoweight empcal
+# %% ..geoweight empcal
 # empcal options
 uoempcal = {'qmax_iter': 10, 'objective': 'ENTROPY'}
 uoempcal = {'qmax_iter': 10, 'objective': 'QUADRATIC'}
@@ -358,13 +359,13 @@ gwqm_ec.elapsed_seconds
 gwqm_ec.sspd
 
 
-# %% geoweight raking
+# %% ..geoweight raking
 # raking options (there aren't really any)
 uoqr = {'qmax_iter': 10}
 gwqm_rake = prob.geoweight(method='qmatrix', options=uoqr)
 
 
-# %% check geoweight results
+# %% CHECK GEOWEIGHT RESULTS
 
 gw = gwp4  # gwp1, ...,
 gw = gwip1  # gwip1, ...
