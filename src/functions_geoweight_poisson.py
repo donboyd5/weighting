@@ -10,13 +10,15 @@ from jax.config import config
 config.update('jax_enable_x64', True)
 
 
-# %% functions needed for residuals
-# def jax_get_delta(wh, beta, xmat):
-#     beta_x = jnp.exp(jnp.dot(beta, xmat.T))
-#     delta = jnp.log(wh / beta_x.sum(axis=0))  # axis=0 gives colsums
-#     return delta
+# %% scaling functions
+def scale_problem(xmat, geotargets, scale_goal):
+    scale_factors = xmat.sum(axis=0) / scale_goal
+    xmat = jnp.divide(xmat, scale_factors)
+    geotargets = jnp.divide(geotargets, scale_factors)
+    return xmat, geotargets, scale_factors
 
 
+# %% weight calculation functions
 def jax_get_diff_weights(geotargets, goal=100):
     # establish a weight for each target that, prior to application of any
     # other weights, will give each target equal priority
@@ -27,94 +29,50 @@ def jax_get_diff_weights(geotargets, goal=100):
     return diff_weights
 
 
-# def jax_get_geoweights(beta, delta, xmat):
-#     # begin by calculating beta_x, an s x h matrix:
-#     #   each row has the sum over k of beta[s_i, k] * x[h_j, k]
-#     #     for each household where s_i is the state in row i
-#     #   each column is a specific household
-#     beta_x = jnp.dot(beta, xmat.T)
+def get_whs_logs(beta_object, wh, xmat, geotargets):
+    # note beta is an s x k matrix
+    # beta must be a matrix so if beta_object is a vector, reshape it
+    if beta_object.ndim == 1:
+        beta = beta_object.reshape(geotargets.shape)
+    elif beta_object.ndim == 2:
+        beta = beta_object
 
-#     # add the delta vector of household constants to every row
-#     # of beta_x and transpose
-#     # beta_xd <- apply(beta_x, 1, function(mat) mat + delta)
-#     beta_xd = (beta_x + delta).T
-
-#     weights = jnp.exp(beta_xd)
-
-#     return weights
-
-
-# def jax_get_geotargets(beta, wh, xmat):
-#     delta = jax_get_delta(wh, beta, xmat)
-#     whs = jax_get_geoweights(beta, delta, xmat)
-#     targets_mat = jnp.dot(whs.T, xmat)
-#     return targets_mat
+    betax = beta.dot(xmat.T)
+    # adjust betax to make exponentiation more stable numerically
+    # subtract column-specific constant (the max) from each column of betax
+    const = betax.max(axis=0)
+    betax = jnp.subtract(betax, const)
+    ebetax = jnp.exp(betax)
+    # print(ebetax.min())
+    # print(np.log(ebetax))
+    logdiffs = betax - jnp.log(ebetax.sum(axis=0))
+    shares = jnp.exp(logdiffs)
+    whs = jnp.multiply(wh, shares).T
+    return whs
 
 
-# def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
-#     # beta must be a matrix so if beta_object is a vector, reshape it
-#     if beta_object.ndim == 1:
-#         beta = beta_object.reshape(geotargets.shape)
-#     elif beta_object.ndim == 2:
-#         beta = beta_object
+def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
 
-#     geotargets_calc = jax_get_geotargets(beta, wh, xmat)
-#     diffs = geotargets_calc - geotargets
-#     # diffs = diffs * diff_weights
-#     diffs = jnp.divide(diffs, geotargets) * 100.0  # can't have zero geotargets
+    whs = get_whs_logs(beta_object, wh, xmat, geotargets)
+    geotargets_calc = jnp.dot(whs.T, xmat)
+    diffs = geotargets_calc - geotargets
+    # diffs = diffs * diff_weights
+    diffs = jnp.divide(diffs, geotargets) * 100.0  # can't have zero geotargets
 
-#     # return a matrix or vector, depending on the shape of beta_object
-#     if beta_object.ndim == 1:
-#         diffs = diffs.flatten()
+    # return a matrix or vector, depending on the shape of beta_object
+    if beta_object.ndim == 1:
+        diffs = diffs.flatten()
 
-#     return diffs # np.array(diffs)  # note that this is np, not jnp!
+    return diffs
 
 
-# %% utility functions
-# def scale_problem(xmat, geotargets, scale_goal):
-#     scale_factors = xmat.sum(axis=0) / scale_goal
-#     xmat = jnp.divide(xmat, scale_factors)
-#     geotargets = jnp.divide(geotargets, scale_factors)
-#     return xmat, geotargets, scale_factors
+def jax_sspd(beta_object, wh, xmat, geotargets, diff_weights):
+    diffs = jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights)
+    sspd = jnp.square(diffs).sum()
+    return sspd
 
 
-# %% functions related to the jacobian and to Newton steps
-
-# define lambda functions that each will take only one argument, and that
-# will otherwise use items in the environment
-
-# l_diffs: lambda function that gets differences from targets, as a vector
-#   parameter: a beta vector
-#     (In addition, it assumes existence of, and uses, values in the
-#      environment: wh, xmat, geotargets, and dw. These do not change
-#      within the loop.)
-#   returns: vector of differences from targets
-# l_diffs = lambda bvec: jax_targets_diff(bvec, wh, xmat, geotargets, dw)
-
-# l_jvp: lambda function that evaluates the following jacobian vector product
-#    (the dot product of a jacobian matrix and a vector)
-#     matrix:
-#      jacobian of l_diffs evaluated at the current bvec values,
-#     vector:
-#       differences from targets when l_diffs is evaluated at bvec
-#   returns: a jacobian-vector-product vector
-# This is used, in conjunction with l_vjp, to compute the step vector in the
-# Newton method. It allows us to avoid computing the full jacobian, thereby
-# saving considerable memory use and computation.
-# l_jvp = lambda diffs: jvp(l_diffs, (bvec,), (diffs,))[1]
-
-# l_vjp: lambda function that evaluates the following vector jacobian product
-#    (the dot product of the transpose of a jacobian matrix and a vector)
-#     matrix:
-#      transpose of jacobian of l_diffs evaluated at the current bvec values,
-#     vector:
-#       differences from targets when l_diffs is evaluated at bvec
-#   returns: a vector-jacobian-product vector
-# Used with l_jvp - see above.
-# l_vjp = lambda diffs: vjp(l_diffs, bvec)[1](diffs)
-
-
-# %% linear operator
+# %% linear operator functions
 # In concept, we need the inverse of the jacobian to compute a Newton step.
 # However, we are avoiding creating the jacobian because we don't want to use
 # that much memory or do such extensive calculations.
@@ -163,60 +121,38 @@ def get_lsq_linop2(bvec, wh, xmat, geotargets, dw):
 
 
 
-# %% scaling
-def scale_problem(xmat, geotargets, scale_goal):
-    scale_factors = xmat.sum(axis=0) / scale_goal
-    xmat = jnp.divide(xmat, scale_factors)
-    geotargets = jnp.divide(geotargets, scale_factors)
-    return xmat, geotargets, scale_factors
+# %% OLD functions related to the jacobian and to Newton steps
 
+# define lambda functions that each will take only one argument, and that
+# will otherwise use items in the environment
 
-# %% new functions
-def get_whs_logs(beta_object, wh, xmat, geotargets):
-    # note beta is an s x k matrix
-    # beta must be a matrix so if beta_object is a vector, reshape it
-    if beta_object.ndim == 1:
-        beta = beta_object.reshape(geotargets.shape)
-    elif beta_object.ndim == 2:
-        beta = beta_object
+# l_diffs: lambda function that gets differences from targets, as a vector
+#   parameter: a beta vector
+#     (In addition, it assumes existence of, and uses, values in the
+#      environment: wh, xmat, geotargets, and dw. These do not change
+#      within the loop.)
+#   returns: vector of differences from targets
+# l_diffs = lambda bvec: jax_targets_diff(bvec, wh, xmat, geotargets, dw)
 
-    betax = beta.dot(xmat.T)
-    # adjust betax to make exponentiation more stable numerically
-    # subtract column-specific constant (the max) from each column of betax
-    const = betax.max(axis=0)
-    betax = jnp.subtract(betax, const)
-    ebetax = jnp.exp(betax)
-    # print(ebetax.min())
-    # print(np.log(ebetax))
-    logdiffs = betax - jnp.log(ebetax.sum(axis=0))
-    shares = jnp.exp(logdiffs)
-    whs = jnp.multiply(wh, shares).T
-    return whs
+# l_jvp: lambda function that evaluates the following jacobian vector product
+#    (the dot product of a jacobian matrix and a vector)
+#     matrix:
+#      jacobian of l_diffs evaluated at the current bvec values,
+#     vector:
+#       differences from targets when l_diffs is evaluated at bvec
+#   returns: a jacobian-vector-product vector
+# This is used, in conjunction with l_vjp, to compute the step vector in the
+# Newton method. It allows us to avoid computing the full jacobian, thereby
+# saving considerable memory use and computation.
+# l_jvp = lambda diffs: jvp(l_diffs, (bvec,), (diffs,))[1]
 
-
-def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
-    # beta must be a matrix so if beta_object is a vector, reshape it
-    if beta_object.ndim == 1:
-        beta = beta_object.reshape(geotargets.shape)
-    elif beta_object.ndim == 2:
-        beta = beta_object
-
-    # geotargets_calc = jax_get_geotargets(beta, wh, xmat)
-    whs = get_whs_logs(beta_object, wh, xmat, geotargets)
-    geotargets_calc = jnp.dot(whs.T, xmat)
-    diffs = geotargets_calc - geotargets
-    # diffs = diffs * diff_weights
-    diffs = jnp.divide(diffs, geotargets) * 100.0  # can't have zero geotargets
-
-    # return a matrix or vector, depending on the shape of beta_object
-    if beta_object.ndim == 1:
-        diffs = diffs.flatten()
-
-    return diffs
-
-
-def jax_sspd(beta_object, wh, xmat, geotargets, diff_weights):
-    diffs = jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights)
-    sspd = jnp.square(diffs).sum()
-    return sspd
+# l_vjp: lambda function that evaluates the following vector jacobian product
+#    (the dot product of the transpose of a jacobian matrix and a vector)
+#     matrix:
+#      transpose of jacobian of l_diffs evaluated at the current bvec values,
+#     vector:
+#       differences from targets when l_diffs is evaluated at bvec
+#   returns: a vector-jacobian-product vector
+# Used with l_jvp - see above.
+# l_vjp = lambda diffs: vjp(l_diffs, bvec)[1](diffs)
 
