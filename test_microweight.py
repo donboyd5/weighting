@@ -118,7 +118,7 @@ opts
 opts.update({'stepmethod': 'jac', 'x_scale': 'jac'})
 opts.update({'stepmethod': 'jvp', 'x_scale': 'jac'})
 opts.update({'stepmethod': 'vjp', 'x_scale': 'jac'})
-opts.update({'stepmethod': 'jvp-linop', 'x_scale': 1.0})
+opts.update({'stepmethod': 'jvp-linop', 'x_scale': 1.0})  # may not work well on real problems
 opts.update({'stepmethod': 'findiff', 'x_scale': 'jac'})
 opts.update({'x_scale': 'jac'})
 opts.update({'x_scale': 1.0})
