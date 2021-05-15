@@ -40,7 +40,7 @@ options_defaults = {
 # %% poisson - the primary function
 
 def poisson(wh, xmat, geotargets, options=None):
-    print('test 16')
+    print('test 18')
     a = timer()
 
     options_all = options_defaults
@@ -82,7 +82,7 @@ def poisson(wh, xmat, geotargets, options=None):
         stepmethod = jax_jacobian
 
     spo_result = spo.least_squares(
-        fun=targets_diff,
+        fun=fgp.jax_targets_diff_copy,  # targets_diff,
         x0=betavec0,
         method='trf', jac=stepmethod, verbose=2,
         ftol=opts.ftol, xtol=1e-7,

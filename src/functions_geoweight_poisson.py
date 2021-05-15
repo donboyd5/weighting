@@ -1,5 +1,5 @@
 # %% imports
-# import numpy as np
+import numpy as np
 import scipy
 
 import jax
@@ -63,7 +63,16 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
     if beta_object.ndim == 1:
         diffs = diffs.flatten()
 
-    return diffs  # jnp.asarray(diffs)  # new
+    # diffs = jnp.asarray(diffs)
+    # diffs2 = np.copy(diffs)
+    return diffs
+
+def jax_targets_diff_copy(eta_object, wh, xmat, geotargets, diff_weights):
+    diffs = jax_targets_diff(eta_object, wh, xmat, geotargets, diff_weights)
+    diffs = np.copy(diffs)
+    # print("about to print")
+    # print(type(diffs2))
+    return diffs
 
 
 def jax_sspd(beta_object, wh, xmat, geotargets, diff_weights):
