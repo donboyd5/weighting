@@ -182,6 +182,8 @@ gwpn.elapsed_seconds
 gwpn.sspd
 np.round(np.quantile(gwpn.pdiff, qtiles), 3)
 
+tmp = gwpn
+
 
 opts
 opts.update({'max_iter': 20})
