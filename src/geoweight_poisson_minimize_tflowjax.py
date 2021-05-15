@@ -26,6 +26,13 @@ from timeit import default_timer as timer
 from collections import namedtuple
 import src.utilities as ut
 
+# tfp.substrates.jax.optimizer.bfgs_minimize(
+#     value_and_gradients_function, initial_position, tolerance=1e-08, x_tolerance=0,
+#     f_relative_tolerance=0, initial_inverse_hessian_estimate=None,
+#     max_iterations=50, parallel_iterations=1, stopping_condition=None,
+#     validate_args=True, max_line_search_iterations=50, name=None
+# )
+
 
 # %% option defaults
 options_defaults = {
@@ -33,11 +40,12 @@ options_defaults = {
     'scale_goal': 10.0,  # this is an important parameter!
     'init_beta': 0.5,
     'objscale': 1.0,
-    'maxiter': 100,
-    'tolerance': 1e-8,
-    'num_correction_pairs': 10,
+    'method': 'BFGS',  # BFGS or LBFGS
+    'max_iterations': 50,
     'max_line_search_iterations': 50,
-    'max_iterations': 100,
+    'num_correction_pairs': 10,
+    'parallel_iterations': 1,
+    'tolerance': 1e-8,
     'quiet': True}
 
 # options_defaults = {**solver_defaults, **user_defaults}
@@ -61,20 +69,29 @@ def poisson(wh, xmat, geotargets, options=None):
 
     ljax_sspd = lambda bvec: jax_sspd(bvec, wh, xmat, geotargets, dw) * opts.objscale
 
-    result = tfp.optimizer.lbfgs_minimize(
-        jax.value_and_grad(ljax_sspd),
-        initial_position=betavec0,
-        tolerance=opts.tolerance,
-        num_correction_pairs=opts.num_correction_pairs,
-        max_line_search_iterations=opts.max_line_search_iterations,
-        max_iterations=opts.max_iterations)
 
-    # result = tfp.optimizer.bfgs_minimize(
-    #     jax.value_and_grad(ljax_sspd),
-    #     initial_position=betavec0,
-    #     max_iterations=opts.max_iterations,
-    #     max_line_search_iterations=opts.max_line_search_iterations,
-    #     tolerance=opts.tolerance)
+    def loss_and_gradient(x):
+        return tfp.math.value_and_gradient(lambda x: ljax_sspd(x), x)
+
+# tfp.math.value_and_gradient
+
+    if opts.method == 'BFGS':
+        result = tfp.optimizer.bfgs_minimize(
+            # jax.value_and_grad(ljax_sspd),
+            loss_and_gradient,
+            initial_position=betavec0,
+            tolerance=opts.tolerance,
+            max_iterations=opts.max_iterations,
+            max_line_search_iterations=opts.max_line_search_iterations)
+    elif opts.method == 'LBFGS':
+        result = tfp.optimizer.lbfgs_minimize(
+            # jax.value_and_grad(ljax_sspd),
+            loss_and_gradient,
+            initial_position=betavec0,
+            tolerance=opts.tolerance,
+            num_correction_pairs=opts.num_correction_pairs,
+            max_line_search_iterations=opts.max_line_search_iterations,
+            max_iterations=opts.max_iterations)
 
     beta_opt = result.position.reshape(geotargets.shape)
 

@@ -215,4 +215,8 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
     return diffs
 
 
+def jax_sspd(beta_object, wh, xmat, geotargets, diff_weights):
+    diffs = jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights)
+    sspd = jnp.square(diffs).sum()
+    return sspd
 

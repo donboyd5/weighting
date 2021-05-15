@@ -9,7 +9,7 @@
 # DONE: consolidate all poisson methods in one file
 # DONE: add poisson tpc method (Newton)
 # DONE: make sure qmatrix approach is working properly
-# DONE: geoipopt basic target scaling
+# DONE: direct_ipopt basic target scaling
 # DONE: use jax to construct jacobian for poisson method
 # DONE: use jax jvp to solve for Newton step without constructing jacobian
 # DONE: use jvp/vjp linear operator for least_squares
@@ -80,8 +80,9 @@ p = mtp.Problem(h=35000, s=40, k=25, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=50000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.2)
 
-p = mtp.Problem(h=10000, s=15, k=10, xsd=.1, ssd=.5, pctzero=.4)
-
+p = mtp.Problem(h=100000, s=15, k=10, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=200000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=400000, s=70, k=40, xsd=.1, ssd=.5, pctzero=.4)
 
 # %% add noise and set problem up
 p.h
@@ -102,65 +103,97 @@ ngtargets = p.geotargets * (1 + gnoise)
 prob = mw.Microweight(wh=p.wh, xmat=p.xmat,
                       targets=ntargets, geotargets=ngtargets)
 
-# %% define poisson options
-poisson_opts = {
+
+# %% GEOWEIGHT POISSON APPROACH
+
+# %% geoweight: poisson scipy least squares
+opts = {
     'scaling': True,
     'scale_goal': 1e1,
     'init_beta': 0.5,
     'stepmethod': 'jac',  # jac or jvp for newton; also vjp, findiff if lsq
     'quiet': True}
+opts
 
+opts.update({'stepmethod': 'jac'})
+opts.update({'stepmethod': 'jvp'})
+opts.update({'stepmethod': 'vjp'})
+opts.update({'stepmethod': 'jvp-linop'})
+opts.update({'stepmethod': 'findiff'})
+opts.update({'x_scale': 'jac'})
+opts.update({'x_scale': 1.0})
+opts.update({'max_nfev': 200})
 
-# %% geoweight: poisson
-poisson_opts
-
-poisson_opts.update({'stepmethod': 'jac'})
-poisson_opts.update({'stepmethod': 'jvp'})
-poisson_opts.update({'stepmethod': 'vjp'})
-poisson_opts.update({'stepmethod': 'jvp-linop'})
-poisson_opts.update({'stepmethod': 'findiff'})
-poisson_opts.update({'x_scale': 'jac'})
-poisson_opts.update({'x_scale': 1.0})
-poisson_opts.update({'max_nfev': 200})
-gwp1 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
+opts
+gwp1 = prob.geoweight(method='poisson-lsq', options=opts)
 gwp1.elapsed_seconds
 gwp1.sspd
-
-gwp1a = prob.geoweight(method='poisson-lsq', options=poisson_opts)
-gwp1a.elapsed_seconds
-gwp1a.sspd
+np.round(np.quantile(gwp1.pdiff, qtiles), 3)
 
 
-gwp2 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
-gwp2.elapsed_seconds
-gwp2.sspd
-
-gwp3 = prob.geoweight(method='poisson-lsq', options=poisson_opts)
-gwp3.elapsed_seconds
-gwp3.sspd
-
-
-# newton method
-opts = {}
-opts.update({'stepmethod': 'jvp'})   # jvp or jac
-# opts.update({'stepmethod': 'jac'})
-opts.update({'max_iter': 10})
-opts.update({'step_mult': 0.75})
-opts.update({'maxp_tol': 0.01})
+# %% geoweight poisson ipopt
+ipopts = {
+    'output_file': '/home/donboyd/Documents/gwpi2.out',
+    'print_user_options': 'yes',
+    'file_print_level': 5,
+    'max_iter': 1000,
+    'hessian_approximation': 'limited-memory',
+    'limited_memory_update_type': 'SR1',  # BFGS, SR1
+    'linear_solver': 'ma57',  # ma27, ma77, ma57, ma86 work, not ma97
+    'ma57_automatic_scaling': 'yes'
+}
+opts = {
+    'scaling': True,
+    'scale_goal': 1e1,
+    'init_beta': 0.5,
+    'ipopts': ipopts}
 opts
-gwp4 = prob.geoweight(method='poisson-newton', options=opts)
-gwp4.elapsed_seconds
-gwp4.sspd
-
-gwp = gwp1
-gwp = gwp2
-gwp = gwp3
-gwp = gwp4
-gwp = gwp6
-np.quantile(np.abs(gwp.pdiff), qtiles)
+gwpi = prob.geoweight(method='poisson-ipopt', options=opts)
+gwpi.elapsed_seconds
+gwpi.sspd
 
 
-# test scipy minimization, which allows multiple approaches
+# %% geoweight poisson newton
+# now try newton method
+opts = {
+    'scaling': True,
+    'scale_goal': 10.0,  # this is an important parameter!
+    'init_beta': 0.5,
+    # 'max_iter': 20,
+    'stepmethod': 'jac',  # jac or jvp for newton; also vjp, findiff if lsq
+    'quiet': True}
+opts.update({'stepmethod': 'jac'})
+opts.update({'stepmethod': 'jvp'})
+opts.update({'max_iter': 50})
+opts.update({'max_iter': 5})
+opts.update({'linesearch': True})
+opts.update({'init_p': 1.0})
+opts.update({'init_p': 0.75})
+opts.update({'init_p': 0.6})
+opts.update({'init_p': 0.5})
+opts.update({'init_p': 0.4})
+opts.update({'init_p': 0.25})
+opts.update({'init_beta': 0.0})
+opts.update({'maxp_tol': 0.01}) # max pct diff tolerance .01 is 1/100 percent
+opts
+
+gwpn = prob.geoweight(method='poisson-newton', options=opts)
+gwpn.elapsed_seconds
+gwpn.sspd
+np.round(np.quantile(gwpn.pdiff, qtiles), 3)
+
+tmp = gwpn
+
+
+opts
+opts.update({'max_iter': 20})
+gwpsp = prob.geoweight(method='poisson-minscipy', options=opts)
+dir(gwpsp).method_result)
+
+
+
+# %% geoweight: poisson scipy minimize
+# scipy minimization, which allows multiple approaches
 # best so far:
 #   trust-constr with hessp; uses a LOT of memory in initializationm then little
 #   trust-krylov with hessp; consider adding the exact option
@@ -197,24 +230,53 @@ opts.update({'maxiter': 2000})  # COBYLA default is 1000
 
 opts
 
-gwp5 = prob.geoweight(method='poisson-minscipy', options=opts)
-gwp5.elapsed_seconds
-gwp5.sspd
-dir(gwp5.method_result.result)
-gwp5.method_result.result.message
-
-tkhess = gwp5
-tkhessp = gwp5
-tkhess.elapsed_seconds
-tkhessp.elapsed_seconds
+gwp2 = prob.geoweight(method='poisson-minscipy', options=opts)
+gwp2.elapsed_seconds
+gwp2.sspd
+dir(gwp2.method_result.result)
+gwp2.method_result.result.message
+np.quantile(gwp2.pdiff, qtiles)
 
 
-np.quantile(gwp5.pdiff, qtiles)
+# %% poisson jax minimize
 
 
-# %% geoweight: geoipopt
-# geoipopt options
-geoipopt_base = {
+
+# %% poisson tensor flow jax minimize
+# we can do either BFGS or LBFGS
+# both work very well on test problems, use minimal memory
+opts = {
+    'scaling': True,
+    'scale_goal': 10.0,  # this is an important parameter!
+    'init_beta': 0.5,
+    'objscale': 1.0,
+    'method': 'BFGS',  # BFGS or LBFGS
+    'max_iterations': 50,
+    'max_line_search_iterations': 50,
+    'num_correction_pairs': 10,
+    'parallel_iterations': 1,
+    'stopping_condition':
+    'tolerance': 1e-8,
+    'quiet': True}
+opts.update({'method': 'BFGS'})
+opts.update({'method': 'LBFGS'})
+opts.update({'parallel_iterations': 1})
+opts
+gwp4 = prob.geoweight(method='poisson-mintfjax', options=opts)
+gwp4.elapsed_seconds
+gwp4.sspd
+
+
+
+
+# %% GEOWEIGHT IPOPT DIRECT APPROACH
+# in this approach we solve directly for the state weights
+
+
+
+# %% geoweight: direct_ipopt
+# direct_ipopt options
+opts = {
     'xlb': .1, 'xub': 10.,  # default 0.1, 10.0
     'crange': 0.0,  # default 0.0
     # 'print_level': 0,
@@ -228,29 +290,29 @@ geoipopt_base = {
     'linear_solver': 'ma86',  # ma27, ma77, ma57, ma86 work, not ma97
     'quiet': False}
 
-geoipopt_opts = geoipopt_base.copy()
-geoipopt_opts.update({'addup': False})
-geoipopt_opts.update({'addup': True})
-geoipopt_opts.update({'scaling': True})
-geoipopt_opts.update({'scale_goal': 1e3})
-geoipopt_opts.update({'crange': .022})
-geoipopt_opts.update({'addup_range': .005})
-geoipopt_opts.update({'xlb': .01})
-geoipopt_opts.update({'xub': 10.0})
-geoipopt_opts
+opts.update({'addup': False})
+opts.update({'addup': True})
+opts.update({'scaling': True})
+opts.update({'scale_goal': 1e3})
+opts.update({'crange': .022})
+opts.update({'addup_range': .005})
+opts.update({'xlb': .01})
+opts.update({'xub': 10.0})
+opts
 
-gwip1 = prob.geoweight(method='geoipopt', options=geoipopt_opts)
+gwip1 = prob.geoweight(method='direct_ipopt', options=opts)
 gwip1.elapsed_seconds
 gwip1.sspd
 
-geoipopt_opts.update({'linear_solver': 'ma77'})
-geoipopt_opts.update(
+opts.update({'linear_solver': 'ma77'})
+opts.update(
     {'output_file': '/home/donboyd/Documents/test_sparse77.out'})
-gwip1a = prob.geoweight(method='geoipopt', options=geoipopt_opts)
+gwip1a = prob.geoweight(method='direct_ipopt', options=opts)
 gwip1a.elapsed_seconds
 gwip1a.sspd
 
 
+# %% GEOWEIGHT QMATRIX APPROACH
 # %% general qmatrix options
 # uo = {'qmax_iter': 1, 'independent': True}
 # uo = {'qmax_iter': 3, 'quiet': True, 'verbose': 2}
