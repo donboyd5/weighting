@@ -63,17 +63,17 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
     if beta_object.ndim == 1:
         diffs = diffs.flatten()
 
-    # diffs = jnp.asarray(diffs)
-    # diffs2 = np.copy(diffs)
+    # CAUTION: the return type is immutable and will not work with
+    # scipy's least_squares, hence the diff_copy version in the
+    # function jax_targets_diff_copy. I have not been able to incorporate
+    # the copy into this function successfully.
     return diffs
 
 def jax_targets_diff_copy(eta_object, wh, xmat, geotargets, diff_weights):
     diffs = jax_targets_diff(eta_object, wh, xmat, geotargets, diff_weights)
+    # copy gives us a mutable type, which is needed for scipy least_squares
     diffs = np.copy(diffs)
-    # print("about to print")
-    # print(type(diffs2))
     return diffs
-
 
 def jax_sspd(beta_object, wh, xmat, geotargets, diff_weights):
     diffs = jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights)
