@@ -129,12 +129,12 @@ def poisson(wh, xmat, geotargets, options=None):
 #     delta = jnp.log(wh / beta_x.sum(axis=0))  # axis=0 gives colsums
 #     return delta
 
-def jax_get_diff_weights(geotargets, goal=100):
-    goalmat = jnp.full(geotargets.shape, goal)
-    # djb note there is no jnp.errstate so I use np.errstate
-    # with np.errstate(divide='ignore'):  # turn off divide-by-zero warning
-    diff_weights = jnp.where(geotargets != 0, goalmat / geotargets, 1)
-    return diff_weights
+# def jax_get_diff_weights(geotargets, goal=100):
+#     goalmat = jnp.full(geotargets.shape, goal)
+#     # djb note there is no jnp.errstate so I use np.errstate
+#     # with np.errstate(divide='ignore'):  # turn off divide-by-zero warning
+#     diff_weights = jnp.where(geotargets != 0, goalmat / geotargets, 1)
+#     return diff_weights
 
 # def jax_get_geoweights(beta, delta, xmat):
 #     """
@@ -244,58 +244,58 @@ def jax_get_diff_weights(geotargets, goal=100):
 
 
 # %% scaling
-def scale_problem(xmat, geotargets, scale_goal):
-    scale_factors = xmat.sum(axis=0) / scale_goal
-    xmat = jnp.divide(xmat, scale_factors)
-    geotargets = jnp.divide(geotargets, scale_factors)
-    return xmat, geotargets, scale_factors
+# def scale_problem(xmat, geotargets, scale_goal):
+#     scale_factors = xmat.sum(axis=0) / scale_goal
+#     xmat = jnp.divide(xmat, scale_factors)
+#     geotargets = jnp.divide(geotargets, scale_factors)
+#     return xmat, geotargets, scale_factors
 
 
 # %% new functions
-def get_whs_logs(beta_object, wh, xmat, geotargets):
-    # note beta is an s x k matrix
-    # beta must be a matrix so if beta_object is a vector, reshape it
-    if beta_object.ndim == 1:
-        beta = beta_object.reshape(geotargets.shape)
-    elif beta_object.ndim == 2:
-        beta = beta_object
+# def get_whs_logs(beta_object, wh, xmat, geotargets):
+#     # note beta is an s x k matrix
+#     # beta must be a matrix so if beta_object is a vector, reshape it
+#     if beta_object.ndim == 1:
+#         beta = beta_object.reshape(geotargets.shape)
+#     elif beta_object.ndim == 2:
+#         beta = beta_object
 
-    betax = beta.dot(xmat.T)
-    # adjust betax to make exponentiation more stable numerically
-    # subtract column-specific constant (the max) from each column of betax
-    const = betax.max(axis=0)
-    betax = jnp.subtract(betax, const)
-    ebetax = jnp.exp(betax)
-    # print(ebetax.min())
-    # print(np.log(ebetax))
-    logdiffs = betax - jnp.log(ebetax.sum(axis=0))
-    shares = jnp.exp(logdiffs)
-    whs = jnp.multiply(wh, shares).T
-    return whs
+#     betax = beta.dot(xmat.T)
+#     # adjust betax to make exponentiation more stable numerically
+#     # subtract column-specific constant (the max) from each column of betax
+#     const = betax.max(axis=0)
+#     betax = jnp.subtract(betax, const)
+#     ebetax = jnp.exp(betax)
+#     # print(ebetax.min())
+#     # print(np.log(ebetax))
+#     logdiffs = betax - jnp.log(ebetax.sum(axis=0))
+#     shares = jnp.exp(logdiffs)
+#     whs = jnp.multiply(wh, shares).T
+#     return whs
 
 
-def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
-    # beta must be a matrix so if beta_object is a vector, reshape it
-    if beta_object.ndim == 1:
-        beta = beta_object.reshape(geotargets.shape)
-    elif beta_object.ndim == 2:
-        beta = beta_object
+# def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
+#     # beta must be a matrix so if beta_object is a vector, reshape it
+#     if beta_object.ndim == 1:
+#         beta = beta_object.reshape(geotargets.shape)
+#     elif beta_object.ndim == 2:
+#         beta = beta_object
 
-    # geotargets_calc = jax_get_geotargets(beta, wh, xmat)
-    whs = get_whs_logs(beta_object, wh, xmat, geotargets)
-    geotargets_calc = jnp.dot(whs.T, xmat)
-    diffs = geotargets_calc - geotargets
-    # diffs = diffs * diff_weights
-    diffs = jnp.divide(diffs, geotargets) * 100.0  # can't have zero geotargets
+#     # geotargets_calc = jax_get_geotargets(beta, wh, xmat)
+#     whs = get_whs_logs(beta_object, wh, xmat, geotargets)
+#     geotargets_calc = jnp.dot(whs.T, xmat)
+#     diffs = geotargets_calc - geotargets
+#     # diffs = diffs * diff_weights
+#     diffs = jnp.divide(diffs, geotargets) * 100.0  # can't have zero geotargets
 
-    # return a matrix or vector, depending on the shape of beta_object
-    if beta_object.ndim == 1:
-        diffs = diffs.flatten()
+#     # return a matrix or vector, depending on the shape of beta_object
+#     if beta_object.ndim == 1:
+#         diffs = diffs.flatten()
 
-    return diffs
+#     return diffs
 
-def jax_sspd(beta_object, wh, xmat, geotargets, diff_weights):
-    diffs = jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights)
-    sspd = jnp.square(diffs).sum()
-    return sspd
+# def jax_sspd(beta_object, wh, xmat, geotargets, diff_weights):
+#     diffs = jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights)
+#     sspd = jnp.square(diffs).sum()
+#     return sspd
 
