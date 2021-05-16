@@ -7,7 +7,7 @@ Created on Sun Oct  4 05:11:04 2020
 
 # %% imports
 
-import gc
+import importlib
 
 import numpy as np
 import jax
@@ -24,6 +24,10 @@ from jax.config import config; config.update("jax_enable_x64", True)
 from timeit import default_timer as timer
 from collections import namedtuple
 import src.utilities as ut
+import src.functions_geoweight_poisson as fgp
+
+# %% reimports
+importlib.reload(fgp)
 
 
 # %% option defaults
@@ -31,13 +35,10 @@ options_defaults = {
     'scaling': True,
     'scale_goal': 10.0,  # this is an important parameter!
     'init_beta': 0.5,
-    'stepmethod': 'jvp',  # vjp, jvp, full, finite-diff
     'maxiter': 100,
     'tol': 1e-6,
     'gtol': 1e-6,
     'ftol': 1e-7,
-    'line_search_maxiter': 10,
-    'x_scale': 'jac',
     'method': 'BFGS',  # BFGS L-BFGS-B Newton-CG trust-krylov, trust-ncg
     'hesstype': None,  # None, hessian, or hvp
     'disp': True,
@@ -49,7 +50,7 @@ options_defaults = {
 # %% poisson - the primary function
 
 def poisson(wh, xmat, geotargets, options=None):
-    # TODO: implement options
+    print('test 1')
     a = timer()
 
     options_all = options_defaults.copy()
@@ -59,25 +60,16 @@ def poisson(wh, xmat, geotargets, options=None):
     # TODO: input checking
 
     if opts.scaling:
-        xmat, geotargets, scale_factors = scale_problem(xmat, geotargets, opts.scale_goal)
+        xmat, geotargets, scale_factors = fgp.scale_problem(xmat, geotargets, opts.scale_goal)
 
     betavec0 = jnp.full(geotargets.size, opts.init_beta)  # 1e-13 or 1e-12 seems best
-    dw = jax_get_diff_weights(geotargets)
-    # jax_sspd = jax.jit(jax_sspd)
+    dw = fgp.jax_get_diff_weights(geotargets)
 
     def hvp(f, primals, tangents):
         return jax.jvp(jax.grad(f), primals, tangents)[1]
 
-    # this is an alternative syntax that works; note where tuples are imposed
-    # def hvp(f, primals, tangents):
-    #     ret = jax.jvp(jax.grad(f), (primals,), (tangents,))[1]
-    #     return ret
-    # lhvp = lambda x, p: hvp(ljax_sspd, x, p)
-
-    # use one of the next 2 versions of ljax_sspd
-    # ljax_sspd = lambda bvec: jax_sspd(bvec, wh, xmat, geotargets, dw) # * opts.objscale   # jax_sspd = jax.jit(jax_sspd)
     def ljax_sspd(bvec):
-        sspd = jax_sspd(bvec, wh, xmat, geotargets, dw) # * opts.objscale   # jax_sspd = jax.jit(jax_sspd)
+        sspd = fgp.jax_sspd(bvec, wh, xmat, geotargets, dw) # * opts.objscale   # jax_sspd = jax.jit(jax_sspd)
         return jnp.asarray(sspd)
 
     lhvp = lambda x, p: hvp(ljax_sspd, (x, ), (p, ))  # GOOD
@@ -103,8 +95,7 @@ def poisson(wh, xmat, geotargets, options=None):
 
     # get return values
     beta_opt = result.x.reshape(geotargets.shape)
-    delta_opt = "Not provided"
-    whs_opt = get_whs_logs(beta_opt, wh, xmat, geotargets)
+    whs_opt = fgp.get_whs_logs(beta_opt, wh, xmat, geotargets)
     geotargets_opt = jnp.dot(whs_opt.T, xmat)
 
     if opts.scaling:
@@ -117,7 +108,6 @@ def poisson(wh, xmat, geotargets, options=None):
               'whs_opt',
               'geotargets_opt',
               'beta_opt',
-              'delta_opt',
               'result')
     Result = namedtuple('Result', fields, defaults=(None,) * len(fields))
 
@@ -125,7 +115,6 @@ def poisson(wh, xmat, geotargets, options=None):
                  whs_opt=whs_opt,
                  geotargets_opt=geotargets_opt,
                  beta_opt=beta_opt,
-                 delta_opt=delta_opt,
                  result=result)
 
     return res
