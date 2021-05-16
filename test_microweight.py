@@ -250,8 +250,6 @@ gwpa.elapsed_seconds
 gwpa.sspd
 
 
-
-
 # %% ..geoweight poisson tensor flow jax minimize
 # we can do either BFGS or LBFGS
 # both work very well on test problems, use minimal memory
