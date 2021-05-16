@@ -250,8 +250,6 @@ gwpa.elapsed_seconds
 gwpa.sspd
 
 
-
-
 # %% ..geoweight poisson tensor flow jax minimize
 # we can do either BFGS or LBFGS
 # both work very well on test problems, use minimal memory
@@ -259,13 +257,11 @@ opts = {
     'scaling': True,
     'scale_goal': 10.0,  # this is an important parameter!
     'init_beta': 0.5,
-    'objscale': 1.0,
     'method': 'BFGS',  # BFGS or LBFGS
     'max_iterations': 50,
     'max_line_search_iterations': 50,
     'num_correction_pairs': 10,
     'parallel_iterations': 1,
-    'stopping_condition':
     'tolerance': 1e-8,
     'quiet': True}
 opts.update({'method': 'BFGS'})
