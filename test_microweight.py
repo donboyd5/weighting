@@ -239,6 +239,16 @@ np.quantile(gwp2.pdiff, qtiles)
 
 
 # %% ..geoweight poisson jax minimize
+opts = {
+    'scaling': True,
+    'scale_goal': 1e1,
+    'init_beta': 0.5, # jac or jvp for newton; also vjp, findiff if lsq
+    'quiet': True}
+opts
+gwpa = prob.geoweight(method='poisson-minjax', options=opts)
+gwpa.elapsed_seconds
+gwpa.sspd
+
 
 
 
