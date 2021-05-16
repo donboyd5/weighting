@@ -138,6 +138,10 @@ ipopts = {
     'max_iter': 1000,
     'hessian_approximation': 'limited-memory',
     'limited_memory_update_type': 'SR1',  # BFGS, SR1
+    'obj_scaling_factor': 1e-2,
+    'nlp_scaling_method': 'equilibration-based',  # gradient-based, equilibration-based
+    # 'mehrotra_algorithm': 'yes',  # no, yes
+    # 'mu_strategy': 'adaptive',  # monotone, adaptive
     'linear_solver': 'ma57',  # ma27, ma77, ma57, ma86 work, not ma97
     'ma57_automatic_scaling': 'yes'
 }
@@ -145,6 +149,7 @@ opts = {
     'scaling': True,
     'scale_goal': 1e1,
     'init_beta': 0.5,
+    'quiet': False,
     'ipopts': ipopts}
 opts
 gwpi = prob.geoweight(method='poisson-ipopt', options=opts)
