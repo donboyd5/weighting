@@ -17,7 +17,6 @@
 # reorganize poisson methods to avoid duplicate code
 # run puf geoweighting
 # run puf analysis
-# possibly implement jvp and jit for tpc approach
 # investigate improvements to empirical calibration - robustness
 # clean up target scaling and make it more consistent
 # openblas
