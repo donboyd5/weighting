@@ -83,7 +83,7 @@ def poisson(wh, xmat, geotargets, options=None):
     dw = fgp.jax_get_diff_weights(geotargets)
 
     # before we start, calculate initial error and determine startup period
-    idiffs = fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+    idiffs = fgp.jax_targets_diff_copy(bvec, wh, xmat, geotargets, dw)
     imaxpdiff = jnp.max(jnp.abs(idiffs))
 
     if opts.startup_period:
@@ -117,7 +117,7 @@ def poisson(wh, xmat, geotargets, options=None):
     while not ready_to_stop:
         count += 1
 
-        diffs = fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+        diffs = fgp.jax_targets_diff_copy(bvec, wh, xmat, geotargets, dw)
         l2norm = norm(diffs, 2)
         if l2norm >= l2norm_prior * (1.0 - no_improvement_proportion):
             no_improvement_count += 1
@@ -164,7 +164,7 @@ def poisson(wh, xmat, geotargets, options=None):
 
     # get return values
     beta_opt = bvec_best.reshape(geotargets.shape)
-    whs_opt = get_whs_logs(beta_opt, wh, xmat, geotargets) # jax_get_geoweights(beta_opt, delta_opt, xmat)
+    whs_opt = fgp.get_whs_logs(beta_opt, wh, xmat, geotargets) # jax_get_geoweights(beta_opt, delta_opt, xmat)
     geotargets_opt = jnp.dot(whs_opt.T, xmat)
 
     if opts.scaling:
