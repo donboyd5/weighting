@@ -135,11 +135,12 @@ ipopts = {
     'output_file': '/home/donboyd/Documents/gwpi2.out',
     'print_user_options': 'yes',
     'file_print_level': 5,
-    'max_iter': 1000,
+    'max_iter': 5000,
     'hessian_approximation': 'limited-memory',
     'limited_memory_update_type': 'SR1',  # BFGS, SR1
     'obj_scaling_factor': 1e-2,
-    'nlp_scaling_method': 'equilibration-based',  # gradient-based, equilibration-based
+    'nlp_scaling_method': 'gradient-based',  # gradient-based, equilibration-based
+    'nlp_scaling_max_gradient': 1., # 100 default, only if gradient-based
     # 'mehrotra_algorithm': 'yes',  # no, yes
     # 'mu_strategy': 'adaptive',  # monotone, adaptive
     'linear_solver': 'ma57',  # ma27, ma77, ma57, ma86 work, not ma97

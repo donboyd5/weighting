@@ -145,6 +145,8 @@ def poisson(wh, xmat, geotargets, options=None):
 
     b = timer()
 
+    print(f'\n  Elapsed seconds: {b - a: 9.2f}')
+
     # create a named tuple of items to return
     fields = ('elapsed_seconds',
               'whs_opt',
