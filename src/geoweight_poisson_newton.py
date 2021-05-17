@@ -137,7 +137,7 @@ def poisson(wh, xmat, geotargets, options=None):
         if opts.startup_period and count <= startup_iter:
             p = startup_p
         else:
-            p = getp(l2norm, l2norm_prior, step_dir, opts.init_p)
+            p = getp(l2norm, l2norm_prior, step_dir, opts.init_p, count, bvec, wh, xmat, geotargets, dw)
 
         bvec = bvec - step_dir * p
         l2norm_prior = l2norm
@@ -221,10 +221,10 @@ def jac_step(bvec, wh, xmat, geotargets, dw, diffs):
     return step
 
 # %% functions related to line search
-def getp_init(l2norm, l2norm_prior, step_dir, init_p):
+def getp_init(l2norm, l2norm_prior, step_dir, init_p, count, bvec, wh, xmat, geotargets, dw):
     return init_p
 
-def getp_simple(l2norm, l2norm_prior, step_dir, init_p):
+def getp_simple(l2norm, l2norm_prior, step_dir, init_p, count, bvec, wh, xmat, geotargets, dw):
     # simple halving approach to getting step length
     p = init_p
     max_search = 5
@@ -249,7 +249,7 @@ def getp_simple(l2norm, l2norm_prior, step_dir, init_p):
     return p
 
 
-def getp_wolfe(l2norm, l2norm_prior, step_dir, init_p):
+def getp_wolfe(l2norm, l2norm_prior, step_dir, init_p, count, wh, xmat, geotargets, dw):
     # I have not figured out how to make the wolfe line search work
     objfn = lambda x: fgp.jax_sspd(x, wh, xmat, geotargets, dw)
     gradfn = jax.grad(objfn)
