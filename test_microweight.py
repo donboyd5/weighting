@@ -588,6 +588,7 @@ targets
 rw_ls2.targets_opt
 
 # opts = {'crange': 0.001, 'xlb':0, 'xub':100, 'quiet': False}
+ipo.update({'linear_solver': 'ma57'})
 rw_ip = prob.reweight(method='ipopt', options=ipo)
 # dir(rw1a)
 rw1a.sspd

@@ -25,7 +25,7 @@ user_defaults = {
     'xlb': 0.1,
     'xub': 100,
     'crange': .02,
-    'ccgoal': 1,
+    'ccgoal': 10.,
     'objgoal': 100,
     'quiet': True}
 
@@ -108,9 +108,13 @@ def rw_ipopt(wh, xmat, targets,
     cc = (xmat.T * wh).T
 
     # scale constraint coefficients and targets
-    ccscale = get_ccscale(cc, ccgoal=opts.ccgoal, method='mean')
+        # scale constraint coefficients and targets
     ccscale = 1
-    # cc = cc * ccscale  # mult by scale to have avg derivative meet our goal
+    if opts.ccgoal is not False:
+        ccscale = get_ccscale(cc, ccgoal=opts.ccgoal, method='mean')
+    ccscale = get_ccscale(cc, ccgoal=opts.ccgoal, method='mean')
+
+    cc = cc * ccscale  # mult by scale to have avg derivative meet our goal
     targets_scaled = targets * ccscale  # djb do I need to copy?
 
     # IMPORTANT: define callbacks AFTER we have scaled cc and targets
@@ -152,7 +156,7 @@ def rw_ipopt(wh, xmat, targets,
 
     # outfile = '/home/donboyd/Documents/test.out'
     # if os.path.exists(outfile):
-      #  os.remove(outfile)    
+      #  os.remove(outfile)
 
     # nlp.add_option('output_file', outfile)
     # nlp.add_option('derivative_test', 'first-order')  # second-order
@@ -312,7 +316,7 @@ class Reweight_callbacks(object):
         TYPE
             DESCRIPTION.
 
-        """        
+        """
         return np.nonzero(self._cc.T)
 
     def hessian(self, x, lagrange, obj_factor):
