@@ -193,6 +193,7 @@ opts.update({'startup_period': 0})
 
 opts.update({'startup_period': 8})
 opts.update({'startup_stepmethod': 'jac'})
+opts.update({'startup_stepmethod': 'jvp'})
 opts.update({'startup_p': .75})
 
 opts.update({'stepmethod': 'jac'})
@@ -201,14 +202,15 @@ opts.update({'max_iter': 70})
 opts.update({'max_iter': 5})
 opts.update({'linesearch': True})
 opts.update({'linesearch': False})
-opts.update({'init_p': 1.0})
-opts.update({'init_p': 0.75})
-opts.update({'init_p': 0.6})
-opts.update({'init_p': 0.5})
-opts.update({'init_p': 0.4})
-opts.update({'init_p': 0.25})
+opts.update({'startup_p': 1.0})
+opts.update({'startup_p': 0.75})
+opts.update({'startup_p': 0.6})
+opts.update({'startup_p': 0.5})
+opts.update({'startup_p': 0.4})
+opts.update({'startup_p': 0.25})
 opts.update({'init_beta': 0.0})
 opts.update({'maxp_tol': 0.01}) # max pct diff tolerance .01 is 1/100 percent
+
 opts
 
 gwpn = prob.geoweight(method='poisson-newton', options=opts)
