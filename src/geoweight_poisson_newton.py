@@ -159,7 +159,7 @@ def poisson(wh, xmat, geotargets, options=None):
         iter_end = timer()
         itime = iter_end - iter_start
 
-        print(f'{count: 6}  {l2norm: 12.2f} {maxpdiff: 12.2f}        {step_method}           {p: 6.3f}          {itime: 6.3f}')
+        print(f'{count: 6}  {l2norm: 12.2f} {maxpdiff: 12.2f}        {step_method}           {p: 6.3f}          {itime: 6.2f}')
 
         if l2norm >= l2norm_prior * (1.0 - no_improvement_proportion):
             no_improvement_count += 1
