@@ -108,13 +108,8 @@ def poisson(wh, xmat, geotargets, options=None):
     ready_to_stop = False
 
     print('Starting Newton iterations...')
-<<<<<<< HEAD
     print('                                  max abs         step       default step')
     print('iteration      l2norm             % error        method        size (p)\n')
-=======
-    print('                                   max abs        step       default step')
-    print('iteration      l2norm              % error       method        size (p)\n')
->>>>>>> a7e64dfb8d7fce13c34e63686709e3ae541b8ee5
     while not ready_to_stop:
         count += 1
 
