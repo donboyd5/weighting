@@ -209,7 +209,6 @@ class Microweight:
             method_result = gwpn.poisson(self.wh, self.xmat, self.geotargets,
                                          options=options)
 
-
         # calculate sum of squared percentage differences
         diff = method_result.geotargets_opt - self.geotargets
         pdiff = diff / self.geotargets * 100

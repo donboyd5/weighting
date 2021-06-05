@@ -165,8 +165,36 @@ opts = {
     'scale_goal': 10.0,  # this is an important parameter!
     'init_beta': 0.5,
     # 'max_iter': 20,
-    'stepmethod': 'jac',  # jac or jvp for newton; also vjp, findiff if lsq
+    # 'stepmethod': 'jac',  # jac or jvp for newton; also vjp, findiff if lsq
+    'startup_stepmethod': 'jvp',  # jac or jvp
     'quiet': True}
+
+opts = {
+    'scaling': True,
+    'scale_goal': 10.0,  # this is an important parameter!!
+    'init_beta': 0.5,
+    'max_iter': 20,
+    'maxp_tol': .01,  # .01 is 1/100 of 1% for the max % difference from target
+
+    'base_p': 0.75,  # less than 1 seems important
+    'base_stepmethod': 'jac',  # jvp or jac, jac seems to work better
+    'linesearch': True, # should we do simple line search if objective worsens?
+
+    'startup_period': 8,  # # of iterations in startup period (0 means no startup period)
+    'startup_stepmethod': 'jvp',  # jac or jvp
+    'startup_p': .25,  # p, the step multiplier in the startup period
+    'quiet': True}
+
+
+opts.update({'base_stepmethod': 'jac'})
+opts.update({'base_stepmethod': 'jvp'})
+opts.update({'base_p': 1})
+opts.update({'startup_period': 0})
+
+opts.update({'startup_period': 8})
+opts.update({'startup_stepmethod': 'jac'})
+opts.update({'startup_p': .75})
+
 opts.update({'stepmethod': 'jac'})
 opts.update({'stepmethod': 'jvp'})
 opts.update({'max_iter': 50})
@@ -190,6 +218,23 @@ np.round(np.quantile(gwpn.pdiff, qtiles), 3)
 
 tmp = gwpn
 
+options_defaults = {
+    'scaling': True,
+    'scale_goal': 10.0,  # this is an important parameter!!
+    'init_beta': 0.5,
+    'max_iter': 20,
+    'maxp_tol': .01,  # .01 is 1/100 of 1% for the max % difference from target
+
+    'base_p': 0.75,  # less than 1 seems important
+    'base_stepmethod': 'jac',  # jvp or jac, jac seems to work better
+    'linesearch': True, # should we do simple line search if objective worsens?
+    # 'stepmethod': 'jac',
+    'startup_period': 8,  # # of iterations in startup period (0 means no startup period)
+    # 'startup_imaxpdiff': 1e6,  # if initial maxpdiff is greater than this go into startup mode
+    # 'startup_iter': 8,  # number of iterations for the startup period
+    'startup_stepmethod': 'jvp',  # jac or jvp
+    'startup_p': .25,  # p, the step multiplier in the startup period
+    'quiet': True}
 
 # opts
 # opts.update({'max_iter': 20})
