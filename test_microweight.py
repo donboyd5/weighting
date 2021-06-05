@@ -197,7 +197,7 @@ opts.update({'startup_p': .75})
 
 opts.update({'stepmethod': 'jac'})
 opts.update({'stepmethod': 'jvp'})
-opts.update({'max_iter': 50})
+opts.update({'max_iter': 70})
 opts.update({'max_iter': 5})
 opts.update({'linesearch': True})
 opts.update({'linesearch': False})

@@ -90,20 +90,6 @@ def poisson(wh, xmat, geotargets, options=None):
     bvec = betavec0
     dw = fgp.jax_get_diff_weights(geotargets)
 
-    # before we start, calculate initial error and determine startup period
-    # idiffs = fgp.jax_targets_diff_copy(bvec, wh, xmat, geotargets, dw)
-    # imaxpdiff = jnp.max(jnp.abs(idiffs))
-
-    # if opts.startup_period:
-    #     if imaxpdiff > opts.startup_imaxpdiff:
-    #         startup_iter = opts.startup_iter
-    #         startup_p = opts.startup_p
-    #     else:
-    #         startup_iter = 2
-    #         startup_p = .5
-    # else:
-    #     startup_iter = 0
-
     # initial values
     count = 0
     no_improvement_count = 0
@@ -122,7 +108,8 @@ def poisson(wh, xmat, geotargets, options=None):
     ready_to_stop = False
 
     print('Starting Newton iterations...')
-    print('iteration      l2norm      max abs % error    step_message')
+    print('                                  max abs         step       default step')
+    print('iteration      l2norm             % error        method        size (p)\n')
     while not ready_to_stop:
         count += 1
 
@@ -130,11 +117,11 @@ def poisson(wh, xmat, geotargets, options=None):
         if count >= opts.startup_period:
             get_step = base_step # the function to get the step
             current_p = opts.base_p
-            step_message = ''
+            step_method = opts.base_stepmethod
         else:
             get_step = startup_step
             current_p = opts.startup_p
-            step_message = 'startup'
+            step_method = opts.startup_stepmethod
 
         diffs = fgp.jax_targets_diff_copy(bvec, wh, xmat, geotargets, dw)
         l2norm = norm(diffs, 2)
@@ -149,7 +136,7 @@ def poisson(wh, xmat, geotargets, options=None):
             l2norm_best = l2norm.copy()
 
         maxpdiff = jnp.max(jnp.abs(diffs))
-        print(f'{count: 6}   {l2norm: 12.2f}         {maxpdiff: 12.2f}         {step_message}')
+        print(f'{count: 6}   {l2norm: 12.2f}        {maxpdiff: 12.2f}          {step_method}          {current_p: 6.3f}')
 
         # get step direction and step size
         step_dir = get_step(bvec, wh, xmat, geotargets, dw, diffs)
@@ -195,7 +182,7 @@ def poisson(wh, xmat, geotargets, options=None):
     b = timer()
 
     print(f'  Elapsed seconds: {b - a: 9.2f}')
-    print(f'  Using results from iteration # {iter_best: 6}, with best l2norm: {l2norm_best: 12.2f}')
+    print(f'  Using results from iteration # {iter_best}, with best l2norm: {l2norm_best: 12.2f}')
 
     # create a named tuple of items to return
     fields = ('elapsed_seconds',
