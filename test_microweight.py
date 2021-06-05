@@ -310,6 +310,7 @@ opts.update({'crange': .022})
 opts.update({'addup_range': .005})
 opts.update({'xlb': .01})
 opts.update({'xub': 10.0})
+opts.update({'linear_solver': 10.0})
 opts
 
 gwip1 = prob.geoweight(method='direct_ipopt', options=opts)
