@@ -36,14 +36,17 @@ options_defaults = {
     'scaling': True,
     'scale_goal': 10.0,  # this is an important parameter!!
     'init_beta': 0.5,
-    'stepmethod': 'jac',  # jvp or jac, jac seems to work better
     'max_iter': 20,
-    'linesearch': True,
-    'init_p': 0.75,  # less than 1 seems important
     'maxp_tol': .01,  # .01 is 1/100 of 1% for the max % difference from target
-    'startup_period': True,  # should we have a separate startup period?
-    'startup_imaxpdiff': 1e6,  # if initial maxpdiff is greater than this go into startup mode
-    'startup_iter': 8,  # number of iterations for the startup period
+
+    'base_p': 0.75,  # less than 1 seems important
+    'base_stepmethod': 'jac',  # jvp or jac, jac seems to work better
+    'linesearch': True, # should we do simple line search if objective worsens?
+    # 'stepmethod': 'jac',
+    'startup_period': 8,  # # of iterations in startup period (0 means no startup period)
+    # 'startup_imaxpdiff': 1e6,  # if initial maxpdiff is greater than this go into startup mode
+    # 'startup_iter': 8,  # number of iterations for the startup period
+    'startup_stepmethod': 'jvp',  # jac or jvp
     'startup_p': .25,  # p, the step multiplier in the startup period
     'quiet': True}
 
@@ -67,13 +70,18 @@ def poisson(wh, xmat, geotargets, options=None):
     else:
         betavec0 = opts.init_beta
 
-    if opts.stepmethod == 'jvp':
-        get_step = jvp_step
-    elif opts.stepmethod == 'jac':
-        get_step = jac_step
+    if opts.base_stepmethod == 'jvp':
+        base_step = jvp_step
+    elif opts.base_stepmethod == 'jac':
+        base_step = jac_step
+
+    if opts.startup_stepmethod == 'jvp':
+        startup_step = jvp_step
+    elif opts.startup_stepmethod == 'jac':
+        startup_step = jac_step
 
     # determine whether and how to do line searches
-    getp = getp_init
+    getp = getp_base
     if opts.linesearch:
         getp = getp_simple
         # getp = getp_wolfe
@@ -83,18 +91,18 @@ def poisson(wh, xmat, geotargets, options=None):
     dw = fgp.jax_get_diff_weights(geotargets)
 
     # before we start, calculate initial error and determine startup period
-    idiffs = fgp.jax_targets_diff_copy(bvec, wh, xmat, geotargets, dw)
-    imaxpdiff = jnp.max(jnp.abs(idiffs))
+    # idiffs = fgp.jax_targets_diff_copy(bvec, wh, xmat, geotargets, dw)
+    # imaxpdiff = jnp.max(jnp.abs(idiffs))
 
-    if opts.startup_period:
-        if imaxpdiff > opts.startup_imaxpdiff:
-            startup_iter = opts.startup_iter
-            startup_p = opts.startup_p
-        else:
-            startup_iter = 2
-            startup_p = .5
-    else:
-        startup_iter = 0
+    # if opts.startup_period:
+    #     if imaxpdiff > opts.startup_imaxpdiff:
+    #         startup_iter = opts.startup_iter
+    #         startup_p = opts.startup_p
+    #     else:
+    #         startup_iter = 2
+    #         startup_p = .5
+    # else:
+    #     startup_iter = 0
 
     # initial values
     count = 0
@@ -113,9 +121,19 @@ def poisson(wh, xmat, geotargets, options=None):
     ready_to_stop = False
 
     print('Starting Newton iterations...')
-    print('iteration      l2norm      max abs % error')
+    print('iteration      l2norm      max abs % error    step_message')
     while not ready_to_stop:
         count += 1
+
+        # define stepmethod and stepsize based on whether we are in startup period
+        if count >= opts.startup_period:
+            get_step = base_step # the function to get the step
+            current_p = opts.base_p
+            step_message = ''
+        else:
+            get_step = startup_step
+            current_p = opts.startup_p
+            step_message = 'startup'
 
         diffs = fgp.jax_targets_diff_copy(bvec, wh, xmat, geotargets, dw)
         l2norm = norm(diffs, 2)
@@ -129,15 +147,17 @@ def poisson(wh, xmat, geotargets, options=None):
             l2norm_best = l2norm.copy()
 
         maxpdiff = jnp.max(jnp.abs(diffs))
-        print(f'{count: 6}   {l2norm: 12.2f}         {maxpdiff: 12.2f}')
+        print(f'{count: 6}   {l2norm: 12.2f}         {maxpdiff: 12.2f}         {step_message}')
 
+        # get step direction and step size
         step_dir = get_step(bvec, wh, xmat, geotargets, dw, diffs)
+        p = getp(l2norm, l2norm_prior, step_dir, current_p, count, bvec, wh, xmat, geotargets, dw)
 
         # make the solver more robust against large initial errors
-        if opts.startup_period and count <= startup_iter:
-            p = startup_p
-        else:
-            p = getp(l2norm, l2norm_prior, step_dir, opts.init_p, count, bvec, wh, xmat, geotargets, dw)
+        # if opts.startup_period and count <= startup_iter:
+        #     p = startup_p
+        # else:
+        #     p = getp(l2norm, l2norm_prior, step_dir, opts.init_p, count, bvec, wh, xmat, geotargets, dw)
 
         bvec = bvec - step_dir * p
         l2norm_prior = l2norm
@@ -221,12 +241,12 @@ def jac_step(bvec, wh, xmat, geotargets, dw, diffs):
     return step
 
 # %% functions related to line search
-def getp_init(l2norm, l2norm_prior, step_dir, init_p, count, bvec, wh, xmat, geotargets, dw):
-    return init_p
+def getp_base(l2norm, l2norm_prior, step_dir, current_p, count, bvec, wh, xmat, geotargets, dw):
+    return current_p
 
-def getp_simple(l2norm, l2norm_prior, step_dir, init_p, count, bvec, wh, xmat, geotargets, dw):
+def getp_simple(l2norm, l2norm_prior, step_dir, current_p, count, bvec, wh, xmat, geotargets, dw):
     # simple halving approach to getting step length
-    p = init_p
+    p = current_p
     max_search = 5
     search = 0
     if l2norm > l2norm_prior:
@@ -249,17 +269,17 @@ def getp_simple(l2norm, l2norm_prior, step_dir, init_p, count, bvec, wh, xmat, g
     return p
 
 
-def getp_wolfe(l2norm, l2norm_prior, step_dir, init_p, count, wh, xmat, geotargets, dw):
-    # I have not figured out how to make the wolfe line search work
-    objfn = lambda x: fgp.jax_sspd(x, wh, xmat, geotargets, dw)
-    gradfn = jax.grad(objfn)
-    print("obj: ", objfn(diffs))
-    (alpha, fc, *all) = line_search(objfn, gradfn, bvec, step_dir)
-    print('# of function calls: ', fc)
-    print('alpha: ', alpha)
-    print('type: ', type(alpha))
-    if alpha is None:
-        p = 1.0
-    else:
-        p = alpha
-    return p
+# def getp_wolfe(l2norm, l2norm_prior, step_dir, init_p, count, wh, xmat, geotargets, dw):
+#     # I have not figured out how to make the wolfe line search work
+#     objfn = lambda x: fgp.jax_sspd(x, wh, xmat, geotargets, dw)
+#     gradfn = jax.grad(objfn)
+#     print("obj: ", objfn(diffs))
+#     (alpha, fc, *all) = line_search(objfn, gradfn, bvec, step_dir)
+#     print('# of function calls: ', fc)
+#     print('alpha: ', alpha)
+#     print('type: ', type(alpha))
+#     if alpha is None:
+#         p = 1.0
+#     else:
+#         p = alpha
+#     return p
