@@ -113,6 +113,7 @@ def poisson(wh, xmat, geotargets, options=None):
     l2norm_prior = np.float64(1e99)
     bvec_best = bvec.copy()
     l2norm_best = l2norm_prior.copy()
+    iter_best = 0
 
     # set all stopping conditions to False
     max_iter = False
@@ -143,6 +144,7 @@ def poisson(wh, xmat, geotargets, options=None):
             no_improvement_count = 0
 
         if l2norm < l2norm_best:
+            iter_best = count
             bvec_best = bvec.copy()
             l2norm_best = l2norm.copy()
 
@@ -193,6 +195,7 @@ def poisson(wh, xmat, geotargets, options=None):
     b = timer()
 
     print(f'  Elapsed seconds: {b - a: 9.2f}')
+    print(f'  Using results from iteration # {iter_best: 6}, with best l2norm: {l2norm_best: 12.2f}')
 
     # create a named tuple of items to return
     fields = ('elapsed_seconds',
@@ -267,6 +270,31 @@ def getp_simple(l2norm, l2norm_prior, step_dir, current_p, count, bvec, wh, xmat
             if np.isnan(l2n):
                 l2n = np.float64(1e99)
     return p
+
+def getp_simple_vsprior(l2norm, l2norm_prior, step_dir, current_p, count, bvec, wh, xmat, geotargets, dw):
+    # simple halving approach to getting step length
+    p = current_p
+    max_search = 5
+    search = 0
+    if l2norm > l2norm_prior:
+        print(f'starting line search at count: {count:4}')
+        l2n = l2norm.copy()
+        l2np = l2norm_prior.copy()
+
+        bvec_temp = bvec.copy()
+        step_dir_temp = step_dir
+        while (l2n > l2np * 1.0001 or l2n == 1e99) and search <= max_search:
+            search += 1
+            p = p / 2.0
+            bvec_temp2 = bvec_temp - step_dir_temp * p
+            diffs_temp = fgp.jax_targets_diff(bvec_temp2, wh, xmat, geotargets, dw)
+            l2np = l2n.copy()
+            l2n = norm(diffs_temp, 2)
+            print(f'...trying new p: {p:10.4f}  l2norm: {l2n: 12.2f}')
+            if np.isnan(l2n):
+                l2n = np.float64(1e99)
+    return p
+
 
 
 # def getp_wolfe(l2norm, l2norm_prior, step_dir, init_p, count, wh, xmat, geotargets, dw):
