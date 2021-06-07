@@ -192,6 +192,8 @@ def poisson(wh, xmat, geotargets, options=None):
             l2norm = l2norm_best.copy()
             step_reset = True
 
+
+
         # check stopping conditions
         message = ''
 
