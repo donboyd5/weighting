@@ -141,7 +141,7 @@ def poisson(wh, xmat, geotargets, options=None):
                 step_method = 'jvp'
                 get_step = jvp_step
                 jvpcount += 1
-            elif step_reset and jvpcount >= jvp_reset_steps:
+            elif step_reset and jvpcount >= opts.jvp_reset_steps:
                 # we should only be here for one iteration
                 print("resetting step method to base stepmethod from jvp")
                 step_method = opts.base_stepmethod
