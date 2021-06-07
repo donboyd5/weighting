@@ -42,6 +42,7 @@ import scipy
 from scipy.optimize import lsq_linear
 from numpy.random import seed
 from timeit import default_timer as timer
+from collections import OrderedDict
 
 import src.make_test_problems as mtp
 import src.microweight as mw
@@ -175,14 +176,10 @@ opts = {
     'init_beta': 0.5,
     'max_iter': 20,
     'maxp_tol': .01,  # .01 is 1/100 of 1% for the max % difference from target
-
-    'base_p': 0.75,  # less than 1 seems important
     'base_stepmethod': 'jac',  # jvp or jac, jac seems to work better
-    'linesearch': True, # should we do simple line search if objective worsens?
-
-    'startup_period': 8,  # # of iterations in startup period (0 means no startup period)
+    'startup_period': 0,  # # of iterations in startup period (0 means no startup period)
     'startup_stepmethod': 'jvp',  # jac or jvp
-    'startup_p': .25,  # p, the step multiplier in the startup period
+    'search_iter': 5,
     'quiet': True}
 
 
@@ -191,28 +188,22 @@ opts.update({'base_stepmethod': 'jvp'})
 opts.update({'base_p': 1})
 opts.update({'startup_period': 0})
 
-opts.update({'startup_period': 8})
+opts.update({'startup_period': 3})
 opts.update({'startup_stepmethod': 'jac'})
 opts.update({'startup_stepmethod': 'jvp'})
 opts.update({'startup_p': .75})
 
-opts.update({'stepmethod': 'jac'})
-opts.update({'stepmethod': 'jvp'})
 opts.update({'max_iter': 70})
 opts.update({'max_iter': 5})
-opts.update({'linesearch': True})
-opts.update({'linesearch': False})
-opts.update({'startup_p': 1.0})
-opts.update({'startup_p': 0.75})
-opts.update({'startup_p': 0.6})
-opts.update({'startup_p': 0.5})
-opts.update({'startup_p': 0.4})
-opts.update({'startup_p': 0.25})
+
 opts.update({'init_beta': 0.0})
 opts.update({'maxp_tol': 0.01}) # max pct diff tolerance .01 is 1/100 percent
 
+opts.update({'search_iter': 5})
 opts
+OrderedDict(sorted(opts.items()))
 
+# %% spot
 gwpn = prob.geoweight(method='poisson-newton', options=opts)
 gwpn.elapsed_seconds
 gwpn.sspd
