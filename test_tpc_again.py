@@ -8,6 +8,41 @@ import src.functions_geoweight_poisson as fgp
 from timeit import default_timer as timer
 
 
+#%% create array of xxpx matrices (x * xprime) since this will be constant
+x = np.array([[1, 2, 3],
+                [4, 5, 6],
+                [7, 8, 9]])
+x = np.array([[1, 2],
+                [4, 5],
+                [7, 8]])
+np.einsum('ij,jk', x, x)
+x
+x[0, ].T.dot(x[0, ])
+
+def f(x):
+    return x.dot(x.T)
+
+def f(x):
+    x = x.reshape(x.size, 1)
+    return x.dot(x.T)
+
+x = np.random.rand(40000, 30)
+
+# this is a fast enough way to get the xxp matrices
+a = timer()
+xxp = np.apply_along_axis(func1d = f, axis=1, arr=x)
+b = timer()
+b - a
+
+xxp.shape
+xxp[0, 0:2, :].shape
+
+xxp[0:0, 0:1, 0:5]
+
+
+np.einsum('ij,k', x, x.T)
+
+
 # %% functions
 def geths(h, s):
     xh = xmat[h].reshape(xmat.shape[1], 1)
@@ -18,13 +53,91 @@ def geths(h, s):
     # print(whs[h, s])
     return whsxpx
 
+# (cm*wghts).sum()
+k = 10
+M1 = np.array([[1, 2],
+                [3, 4]])
+wts = np.array([2, 3])
+wM1 = (M1 * wts).sum()
+wM1
+np.dot(M1, wts)
+np.dot(wts, M1)
+
+
+M1 = np.array([[1, 2, 3],
+                [4, 5, 6],
+                [7, 8, 9]])
+wts = np.array([5, 4, 3])
+
+np.einsum('ij,k', M1, wts).sum(axis=2)
+M1*wts[0] + M1 * wts[1] + M1 * wts[2]
+
+
+%timeit np.einsum('ij,k', M1, wts).sum(axis=2)
+%timeit M1*wts[0] + M1 * wts[1] + M1 * wts[2]
+
+
+
+np.inner(M1, wts)
+
+np.einsum('i,i', a, b)
+
+np.tensordot(M1, wts, axes=((1, 0)))
+
+np.average(M1, axis=0, weights=wts)[1]
+np.average(solar_x, axis=0, weights=[3/4, 1/4])[1]
+
+np.einsum('ij,j', a, b)
+array([ 30,  80, 130, 180, 230])
+np.einsum(a, [0,1], b, [1])
+array([ 30,  80, 130, 180, 230])
+np.dot(a, b)
+array([ 30,  80, 130, 180, 230])
+
+np.tensordot(M1, wts, axes=(0))
+
+a = np.arange(60.).reshape(3,4,5)
+b = np.arange(24.).reshape(4,3,2)
+a
+b
+c = np.tensordot(a,b, axes=([1,0],[0,1]))
+c.shape
+
+M1 = np.zeros(shape=(k, k))
+
+
+
+def gs2(s):
+    Ds = np.zeros(shape=(p.k, p.k))
+    t1 = timer()
+    for h in range(p.h):
+        Ds = np.add(Ds, geths(h, s))
+    t2 = timer()
+    print(f'build Ds {(t2 - t1): 6.4f}')
+    t1 = timer()
+    Dsinv = np.linalg.inv(Ds)
+    t2 = timer()
+    print(f'invert Ds {(t2 - t1): 6.4f}')
+
+    ds = diffs[s, ].reshape(p.k, 1)
+
+    steprow = Dsinv.dot(ds).flatten()
+
+    return steprow
+
+
 def gs(s):
     # Ds = (whs[:, s] * xxp).sum()
     Ds = np.zeros(shape=(p.k, p.k))
+    t1 = timer()
     for h in range(p.h):
         Ds = np.add(Ds, geths(h, s))
-    # print(Ds)
+    t2 = timer()
+    print(f'build Ds {(t2 - t1): 6.4f}')
+    t1 = timer()
     Dsinv = np.linalg.inv(Ds)
+    t2 = timer()
+    print(f'invert Ds {(t2 - t1): 6.4f}')
     # print(Dsinv.shape)
     ds = diffs[s, ].reshape(p.k, 1)
     # print(ds.shape)
@@ -59,7 +172,7 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
 
     return diffs # np.array(diffs)  # note that this is np, not jnp!
 
-
+# %% play with matrix speed
 def f(vec):
     return vec.dot(vec.T)
 # xxp = np.apply_along_axis(f, 1, arr=xmat)  # (p.h, )
@@ -113,7 +226,7 @@ beta0 = np.full(geotargets.shape, 0.)
 # %% solve problem
 beta = beta0.copy()
 count = 0
-maxiter = 10
+maxiter = 8
 
 a = timer()
 while count <= maxiter:
@@ -127,16 +240,23 @@ while count <= maxiter:
     diffs = targs - geotargets  # s x k
     sspd = np.square(diffs / targs * 100.).sum()
     rmse = np.sqrt(sspd / beta.size)
-    print(f' {count: 4}  {rmse:10.4f}')
+
     step = np.zeros(beta.shape)
+    t1 = timer()
     for s in range(beta.shape[0]):
         step[s, ] = gs(s)
+    t2 = timer()
+    steptime = t2 - t1
+    print(f' {count: 4}  {rmse:10.4f}    {steptime: 6.4f}')
     beta = beta - step
 
 b = timer()
 b - a
 
 
+
+
+# %% older stuff
 beta_x = jnp.dot(beta, xmat.T)
 exp_beta_x = jnp.exp(beta_x)
 delta = jnp.log(wh / exp_beta_x.sum(axis=0))
@@ -195,8 +315,11 @@ def geths(h, s):
 def gs(s):
     # Ds = (whs[:, s] * xxp).sum()
     Ds = np.zeros(shape=(p.k, p.k))
+    # a = timer()
     for h in range(p.h):
         Ds = np.add(Ds, geths(h, s))
+    # b = timer()
+    # print(f'build Ds: f')
     # print(Ds)
     Dsinv = np.linalg.inv(Ds)
     # print(Dsinv.shape)
