@@ -1,13 +1,93 @@
-
-
+# %% imports
 import numpy as np
 import jax
 import jax.numpy as jnp
 import src.make_test_problems as mtp
 import src.functions_geoweight_poisson as fgp
 
-p = mtp.Problem(h=20, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
+from timeit import default_timer as timer
 
+
+# %% functions
+def geths(h, s):
+    xh = xmat[h].reshape(xmat.shape[1], 1)
+    xxph = xh.dot(xh.T)  # k x k -- the same for all s, for a given h
+    # print(xxph)
+    # print(whs[h, s])
+    whsxpx = whs[h, s] * xxph  # initial values same for all s of an h
+    # print(whs[h, s])
+    return whsxpx
+
+def gs(s):
+    # Ds = (whs[:, s] * xxp).sum()
+    Ds = np.zeros(shape=(p.k, p.k))
+    for h in range(p.h):
+        Ds = np.add(Ds, geths(h, s))
+    # print(Ds)
+    Dsinv = np.linalg.inv(Ds)
+    # print(Dsinv.shape)
+    ds = diffs[s, ].reshape(p.k, 1)
+    # print(ds.shape)
+    steprow = Dsinv.dot(ds).flatten()
+    # print(steprow)
+    # print(ds)
+    # step = 1 / Ds * ds.T
+    return steprow
+
+def jax_get_geotargets(beta, wh, xmat):
+    delta = jax_get_delta(wh, beta, xmat)
+    whs = jax_get_geoweights(beta, delta, xmat)
+    targets_mat = jnp.dot(whs.T, xmat)
+    return targets_mat
+
+
+def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
+    # beta must be a matrix so if beta_object is a vector, reshape it
+    if beta_object.ndim == 1:
+        beta = beta_object.reshape(geotargets.shape)
+    elif beta_object.ndim == 2:
+        beta = beta_object
+
+    geotargets_calc = jax_get_geotargets(beta, wh, xmat)
+    diffs = geotargets_calc - geotargets
+    # diffs = diffs * diff_weights
+    diffs = jnp.divide(diffs, geotargets) * 100.0  # can't have zero geotargets
+
+    # return a matrix or vector, depending on the shape of beta_object
+    if beta_object.ndim == 1:
+        diffs = diffs.flatten()
+
+    return diffs # np.array(diffs)  # note that this is np, not jnp!
+
+
+def f(vec):
+    return vec.dot(vec.T)
+# xxp = np.apply_along_axis(f, 1, arr=xmat)  # (p.h, )
+
+# xxp = xmat.dot(xmat.T)
+# xxp = xmat.T.dot(xmat)  # k x k
+# xxp.shape
+
+# h = 0
+# xh = xmat[h].reshape(xh.size, 1)
+# xxph = xh.dot(xh.T)
+# xxph.shape  # k x h
+# xxph = xmat[h].dot(xmat[h].T)
+# 7 * xxph
+
+# %% choose problem
+p = mtp.Problem(h=20, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=100, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=1000, s=3, k=3, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=10000, s=10, k=8, xsd=.1, ssd=.5, pctzero=.2)
+p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=30000, s=30, k=20, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=35000, s=40, k=25, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=50000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.2)
+
+
+# %% add noise and set problem up
 p.h
 p.s
 p.k
@@ -16,31 +96,47 @@ p.wh
 p.whs
 p.geotargets
 
-wh = p.wh
 xmat = p.xmat
-geotargets = p.geotargets
+wh = p.wh
+
+# now add noise to geotargets
+np.random.seed(1)
+gnoise = np.random.normal(0, .05, p.k * p.s)
+gnoise = gnoise.reshape(p.geotargets.shape)
+geotargets = p.geotargets * (1 + gnoise)
+
 dw = np.full(geotargets.shape, 1)
 
 beta0 = np.full(geotargets.shape, 0.)
 
-def f(vec):
-    return vec.dot(vec.T)
-xxp = np.apply_along_axis(f, 1, arr=xmat)  # (p.h, )
 
-xxp = xmat.dot(xmat.T)
-xxp = xmat.T.dot(xmat)  # k x k
-xxp.shape
-
-h = 0
-xh = xmat[h].reshape(xh.size, 1)
-xxph = xh.dot(xh.T)
-xxph.shape  # k x h
-xxph = xmat[h].dot(xmat[h].T)
-7 * xxph
-
+# %% solve problem
 beta = beta0.copy()
+count = 0
+maxiter = 10
 
-# enter loop here
+a = timer()
+while count <= maxiter:
+    count += 1
+    beta_x = jnp.dot(beta, xmat.T)
+    exp_beta_x = jnp.exp(beta_x)
+    delta = jnp.log(wh / exp_beta_x.sum(axis=0))
+    beta_xd = (beta_x + delta).T  # this is the same as before but with new betax delta
+    whs = jnp.exp(beta_xd)
+    targs = jnp.dot(whs.T, xmat)  # s x k
+    diffs = targs - geotargets  # s x k
+    sspd = np.square(diffs / targs * 100.).sum()
+    rmse = np.sqrt(sspd / beta.size)
+    print(f' {count: 4}  {rmse:10.4f}')
+    step = np.zeros(beta.shape)
+    for s in range(beta.shape[0]):
+        step[s, ] = gs(s)
+    beta = beta - step
+
+b = timer()
+b - a
+
+
 beta_x = jnp.dot(beta, xmat.T)
 exp_beta_x = jnp.exp(beta_x)
 delta = jnp.log(wh / exp_beta_x.sum(axis=0))
@@ -131,9 +227,17 @@ beta
 
 
 # figure out tpc step
+    Ds = np.zeros(shape=(30, 30))
+    for h in range(p.h):
+        Ds = np.add(Ds, geths(h, s))
+ Dsinv = np.linalg.inv(Ds)
 
-
-
+amat = np.random.rand(30, 30)
+a = timer()
+for i in range(50*20):
+    amatinv = np.linalg.inv(amat)
+b = timer()
+b - a
 
 
 
