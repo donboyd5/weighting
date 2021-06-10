@@ -1,5 +1,7 @@
 # %% imports
 import numpy as np
+import tensorflow as tf
+
 import jax
 import jax.numpy as jnp
 import src.make_test_problems as mtp
@@ -7,8 +9,156 @@ import src.functions_geoweight_poisson as fgp
 
 from timeit import default_timer as timer
 
+# %% tensor play
+# https://stackoverflow.com/questions/41870228/understanding-tensordot
+# We input the arrays and the respective axes along which the sum-reductions are intended.
+# The axes that take part in sum-reduction are removed in the output and all of the remaining
+# axes from the input arrays are spread-out as different axes in the output keeping the order
+# in which the input arrays are fed.
+
+# matrix-multiplication involves elementwise multiplication keeping an axis aligned and then
+# summation of elements along that common aligned axis. With that summation, we are losing
+# that common axis, which is termed as reduction, so in short sum-reduction
+
+# tensordot swaps axes and reshapes the inputs so it can apply np.dot to 2 2d arrays.
+# It then swaps and reshapes back to the target. It may be easier to experiment than to explain.
+# There's no special tensor math going on, just extending dot to work in higher dimensions.
+# tensor just means arrays with more than 2d. If you are already comfortable with einsum then it will
+# be simplest compare the results to that.
+
+a = tf.constant([1,2.])
+b = tf.constant([2,3.])
+a
+b
+print(f"{tf.tensordot(a, b, 0)}\t tf.einsum('i,j', a, b)\t\t- ((the last 0 axes of a), (the first 0 axes of b))")
+tf.tensordot(a, a, 0)
+tf.einsum('i,j', a, a)
+
+print(f"{tf.tensordot(a, b, ((),()))}\t tf.einsum('i,j', a, b)\t\t- ((() axis of a), (() axis of b))")
+
+
+print(f"{tf.tensordot(b, a, 0)}\t tf.einsum('i,j->ji', a, b)\t- ((the last 0 axes of b), (the first 0 axes of a))")
+print(f"{tf.tensordot(a, b, 1)}\t\t tf.einsum('i,i', a, b)\t\t- ((the last 1 axes of a), (the first 1 axes of b))")
+print(f"{tf.tensordot(a, b, ((0,), (0,)))}\t\t tf.einsum('i,i', a, b)\t\t- ((0th axis of a), (0th axis of b))")
+print(f"{tf.tensordot(a, b, (0,0))}\t\t tf.einsum('i,i', a, b)\t\t- ((0th axis of a), (0th axis of b))")
+
+
+# %% 2 x tf
+a = tf.constant([[1,2],
+                 [-2,3.]])
+
+b = tf.constant([[-2,3],
+                 [0,4.]])
+print(f"{tf.tensordot(a, b, 0)}\t tf.einsum('ij,kl', a, b)\t- ((the last 0 axes of a), (the first 0 axes of b))")
+tf.tensordot(a, b, 0)
+tf.einsum('ij,kl', a, b)
+
+
+print(f"{tf.tensordot(a, b, (0,0))}\t tf.einsum('ij,ik', a, b)\t- ((0th axis of a), (0th axis of b))")
+tf.tensordot(a, b, (0,0))
+
+
+print(f"{tf.tensordot(a, b, (0,1))}\t tf.einsum('ij,ki', a, b)\t- ((0th axis of a), (1st axis of b))")
+tf.tensordot(a, b, (0,1))
+
+print(f"{tf.tensordot(a, b, 1)}\t tf.matmul(a, b)\t\t- ((the last 1 axes of a), (the first 1 axes of b))")
+tf.tensordot(a, b, 1)
+
+
+print(f"{tf.tensordot(a, b, ((1,), (0,)))}\t tf.einsum('ij,jk', a, b)\t- ((1st axis of a), (0th axis of b))")
+tf.tensordot(a, b, ((1,), (0,)))
+
+print(f"{tf.tensordot(a, b, (1, 0))}\t tf.matmul(a, b)\t\t- ((1st axis of a), (0th axis of b))")
+tf.tensordot(a, b, (1, 0))
+
+
+print(f"{tf.tensordot(a, b, 2)}\t tf.reduce_sum(tf.multiply(a, b))\t- ((the last 2 axes of a), (the first 2 axes of b))")
+tf.tensordot(a, b, 2)
+
+print(f"{tf.tensordot(a, b, ((0,1), (0,1)))}\t tf.einsum('ij,ij->', a, b)\t\t- ((0th axis of a, 1st axis of a), (0th axis of b, 1st axis of b))")
+tf.tensordot(a, b, ((0,1), (0,1)))
+
+
+# %% more
+
+
+A = np.random.randint(2, size=(2, 6, 5))
+B = np.random.randint(2, size=(3, 2, 4))
+A
+B
+# if we tensordot using axis 0 for A and 1 for b:
+np.tensordot(A, B, axes=((0),(1))).shape
+# then the 2 axis for A drops out (we get 6, 5)
+# and the 2 axis for B drops out (we get 3, 4)
+# and the result has shape (6, 5, 3, 4)
+np.tensordot(A, B, axes=((0),(1)))
+
+
+A = np.array([1,2])
+B = np.array([3,4])
+np.tensordot(A, B, axes=((0), (0))) # ????
+
+# %% einsum
+x = np.array([1,2])
+xxp = np.einsum('i,j->ij', x, x.T)
+np.einsum('i,j->ji', x, x)
+np.einsum('i,j->ij', x, x)
+xxp
+
+x = np.array([[1, 2],
+              [4, 5],
+              [7, 8]])
+np.einsum('ij,jk->ijk', x, x.T)
+
+# djb this is it
+np.einsum('ij,ik->ijk', x, x)
+
+x = np.array([[1, 2, 3],
+              [4, 5, 6],
+              [7, 8, 9],
+              [10, 11, 12]])
+np.einsum('ij,ik->ijk', x, x)
+
+
+np.einsum('ij,kl->ijk', x, x.T)
+np.einsum('ij,kl->ijl', x, x)
+np.einsum('ij,kl->ijj', x, x.T) # bad
+np.einsum('ij,jk->ikj', x, x) # bad
+
 
 #%% create array of xxpx matrices (x * xprime) since this will be constant
+
+# If we have:
+#    two tensors a and b
+#    two array-like objects which denote axes, a_axes and b_axes.
+# The tensordot() function sums the product of a’s elements and b’s elements over the axes specified by a_axes and b_axes.
+
+
+
+# tensor product
+
+A = np.array([1,2])
+B = np.array([3,4])
+C = np.tensordot(A, B, axes=0)
+C
+np.tensordot(A, A.T, axes=0)  # this is AAprime
+# np.tensordot(A, A.T, axes=((1), (1)))
+# same as
+Ar = A.reshape(A.size, 1)
+Ar.dot(Ar.T)
+# NOT same as
+np.dot(A.T, A)
+
+x = np.array([[1, 2],
+                [4, 5],
+                [7, 8]])
+def f(x):
+    return np.tensordot(x, x.T, axes=0)
+np.apply_along_axis(func1d = f, axis=1, arr=x)  # this gets us xxprime for each row of x
+
+np.tensordot(x, x.T, axes=(0, 0))
+
+
 x = np.array([[1, 2, 3],
                 [4, 5, 6],
                 [7, 8, 9]])
@@ -28,16 +178,89 @@ def f(x):
 
 x = np.random.rand(40000, 30)
 
+# %% timings
 # this is a fast enough way to get the xxp matrices
+x = np.array([[1, 2, 3],
+              [4, 5, 6],
+              [7, 8, 9],
+              [10, 11, 12]])
+
+def f(x):
+    x = x.reshape(x.size, 1)
+    return x.dot(x.T)
+
+
+%timeit xxp1 = np.apply_along_axis(func1d = f, axis=1, arr=x)
+%timeit xxp2 = np.einsum('ij,ik->ijk', x, x)  # much faster
+np.allclose(xxp1, xxp2)
+
+y = np.array([10, 20, 30, 40])
+xxp2
+np.einsum('i,ijk->ijk', y, xxp2) # good
+np.einsum('i,ijk->ijk', y, xxp2).sum(axis=0) # good
+np.einsum('i,ijk->jk', y, xxp2) # good  # same result!!!
+
+%timeit np.einsum('i,ijk->ijk', y, xxp2).sum(axis=0) # good
+%timeit np.einsum('i,ijk->jk', y, xxp2) # good  # same result!!! at least twice as fast
+
+
+# what if y is matrix of weights
+whs = np.array([
+                [10, 100],
+                [20, 200],
+                [30, 300],
+                [40, 400]
+                ])
+whs
+np.einsum('ijk,il->iljk', xxp2, whs) # .sum(axis=0) # good
+np.einsum('il,ijk->ljk', whs, xxp2)  # this gives us s Ds matrices, each of which we will want to invert
+%timeit np.einsum('il,ijk->ljk', whs, xxp2) # good  # same result!!! at least twice as fast
+
+# %% put it together with something larger
+h = 40000
+k = 30
+s= 50
+np.random.seed(1)
+x = np.random.rand(h, k)
+whs = np.random.rand(h, s)
+x
+whs
+
 a = timer()
-xxp = np.apply_along_axis(func1d = f, axis=1, arr=x)
+xxp = np.einsum('ij,ik->ijk', x, x)
 b = timer()
 b - a
-
 xxp.shape
-xxp[0, 0:2, :].shape
 
-xxp[0:0, 0:1, 0:5]
+
+c = timer()
+D = np.einsum('il,ijk->ljk', whs, xxp)
+d = timer()
+d - c
+D.shape
+
+D[0,:,:].shape
+np.linalg.cond(D[0,:,:])
+np.linalg.inv(D[0,:,:])
+
+# %% end putting together
+
+
+
+Ds = np.einsum('i,ijk->ijk', y, xxp2).sum(axis=0) # good
+Dsinv = np.linalg.inv(Ds)  # singular
+
+if np.linalg.cond(Ds) < 1/sys.float_info.epsilon:
+    Dsinv = np.linalg.inv(Ds)
+else:
+    print("Ds is singular, cannot be inverted")
+
+# https://stackoverflow.com/questions/13249108/efficient-pythonic-check-for-singular-matrix
+# In numerical computing it is usually considered bad practice to explicitly calculate the inverse.
+# In most cases it is much better to calculate the LU decomposition with scipy.linalg.lu_factor,
+# then later you can solve it quickly for many vectors using scipy.linalg.lu_solve
+
+# also, singular value decomposition https://en.wikipedia.org/wiki/Singular_value_decomposition
 
 
 np.einsum('ij,k', x, x.T)
