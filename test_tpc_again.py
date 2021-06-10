@@ -216,32 +216,92 @@ np.einsum('ijk,il->iljk', xxp2, whs) # .sum(axis=0) # good
 np.einsum('il,ijk->ljk', whs, xxp2)  # this gives us s Ds matrices, each of which we will want to invert
 %timeit np.einsum('il,ijk->ljk', whs, xxp2) # good  # same result!!! at least twice as fast
 
+
+D = np.einsum('il,ijk->ljk', whs, xxp2)
+np.linalg.inv(D[0,:,:])
+np.linalg.inv(D[1,:,:])
+np.apply_along_axis(func1d = f, axis=1, arr=x)
+
+
+
 # %% put it together with something larger
+
+h = 100000
+k = 60
+s= 100
+
+
 h = 40000
 k = 30
 s= 50
+
+h = 1000
+k = 4
+s= 10
+
+h = 30000
+k = 20
+s= 50
+
+h = 40
+k = 3
+s= 4
+
+
 np.random.seed(1)
 x = np.random.rand(h, k)
 whs = np.random.rand(h, s)
 x
 whs
 
-a = timer()
+t1 = timer()
 xxp = np.einsum('ij,ik->ijk', x, x)
-b = timer()
-b - a
-xxp.shape
+t2 = timer()
+t2 - t1
 
-
-c = timer()
+t3 = timer()
 D = np.einsum('il,ijk->ljk', whs, xxp)
-d = timer()
-d - c
-D.shape
+t4 = timer()
+t4 - t3
 
+t5 = timer()
+invD = np.linalg.inv(D)
+t6 = timer()
+t6 - t5
+
+t2 - t1 + t4 - t3 + t6 - t5
+
+whs.shape
+xxp.shape
+D.shape
+invD.shape
+
+diffs = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9])
+
+ ds = diffs[s, ].reshape(p.k, 1)
+    # print(ds.shape)
+    steprow = Dsinv.dot(ds).flatten()
+
+
+# invert the D matrices
 D[0,:,:].shape
 np.linalg.cond(D[0,:,:])
 np.linalg.inv(D[0,:,:])
+
+def f(m):
+    print(m.shape)
+    return # np.linalg.inv(m)
+
+D.shape
+np.apply_along_axis(func1d = f, axis=0, arr=D)
+
+invD = np.linalg.inv(D)
+invD.shape
+
+s = 10
+np.linalg.inv(D[s,:,:])
+invD[s,:,:]
+
 
 # %% end putting together
 
@@ -421,6 +481,7 @@ p = mtp.Problem(h=30000, s=30, k=20, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=35000, s=40, k=25, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=50000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.2)
+p = mtp.Problem(h=100000, s=80, k=40, xsd=.1, ssd=.5, pctzero=.2)
 
 
 # %% add noise and set problem up
@@ -445,8 +506,76 @@ dw = np.full(geotargets.shape, 1)
 
 beta0 = np.full(geotargets.shape, 0.)
 
+# %% functions for solving problem inefficiently
+def geths(h, s):
+    xh = xmat[h].reshape(xmat.shape[1], 1)
+    xxph = xh.dot(xh.T)  # k x k -- the same for all s, for a given h
+    # print(xxph)
+    # print(whs[h, s])
+    whsxpx = whs[h, s] * xxph  # initial values same for all s of an h
+    # print(whs[h, s])
+    return whsxpx
 
-# %% solve problem
+def gs(s):
+    # Ds = (whs[:, s] * xxp).sum()
+    Ds = np.zeros(shape=(p.k, p.k))
+    # t1 = timer()
+    for h in range(p.h):
+        Ds = np.add(Ds, geths(h, s))
+    # t2 = timer()
+    # print(f'build Ds {(t2 - t1): 6.4f}')
+    # t1 = timer()
+    Dsinv = np.linalg.inv(Ds) # k x k
+    # t2 = timer()
+    # print(f'invert Ds {(t2 - t1): 6.4f}')
+    # print(Dsinv.shape)  # k x k
+    ds = diffs[s, ].reshape(p.k, 1)  # k x 1
+    # print(ds)
+    # print(ds.shape)
+    steprow = Dsinv.dot(ds).flatten() # a row has k elements, there will be s rows
+    # print(steprow)
+    # print(ds)
+    # step = 1 / Ds * ds.T
+    return steprow
+
+
+# a = np.array([[1, 2], [3, 4]])  # invDs, k x k
+# b = np.array([[5], [6]])  # ds k x 1
+# a.shape
+# b.shape
+# a.dot(b)  # k x 1
+# a.dot(b).flatten()  # 1 x k
+# # np.einsum('il,ijk->ljk', whs, xxp2)
+# np.einsum('ij,ij->j', a, b)
+
+# a = np.array([[1, 2], [3, 4]])  # invDs, k x k
+# b = np.array([[5], [6]])  # ds k x 1
+
+# # diffs must be s x k, let s = 3 and k = 2
+# tdiffs = np.array([[1, 2],
+#                    [4, 5],
+#                    [7, 8]])
+# tdiffs.shape  # good
+
+# # invD must be s x k x k
+# tinvD = np.array([
+#                   [[1, 2], [3, 4]],
+#                   [[5, 6], [7, 8]],
+#                   [[9, 10], [11, 12]]
+#                   ])
+# tinvD.shape  # good
+
+# # step will be s x k; each row of step will be dot product of a row of tdiffs with a row of tinvD
+# np.einsum('ijk,ik->ij', tinvD, tdiffs)
+
+# s = 2
+# np.dot(tinvD[s,:,:], tdiffs[s,:])
+
+
+
+
+
+# %% solve problem inefficiently
 beta = beta0.copy()
 count = 0
 maxiter = 8
@@ -478,6 +607,41 @@ b - a
 
 
 
+
+# %% solve problem efficiently
+beta = beta0.copy()
+count = 0
+maxiter = 8
+
+xxp = np.einsum('ij,ik->ijk', xmat, xmat)
+
+a = timer()
+while count <= maxiter:
+    count += 1
+    beta_x = jnp.dot(beta, xmat.T)
+    exp_beta_x = jnp.exp(beta_x)
+    delta = jnp.log(wh / exp_beta_x.sum(axis=0))
+    beta_xd = (beta_x + delta).T  # this is the same as before but with new betax delta
+    whs = jnp.exp(beta_xd)
+    targs = jnp.dot(whs.T, xmat)  # s x k
+    diffs = targs - geotargets  # s x k
+    sspd = np.square(diffs / targs * 100.).sum()
+    rmse = np.sqrt(sspd / beta.size)
+
+    t1 = timer()
+    D = np.einsum('il,ijk->ljk', whs, xxp)
+    invD = np.linalg.inv(D)
+    step = np.einsum('ijk,ik->ij', invD, diffs)
+    t2 = timer()
+    steptime = t2 - t1
+    print(f' {count: 4}  {rmse:10.4f}    {steptime: 6.4f}')
+    beta = beta - step
+
+b = timer()
+b - a
+
+pdiffs = diffs / targs * 100.
+np.round(np.quantile(pdiffs, [0, .1, .25, .5, .75, .9, 1]), 2)
 
 # %% older stuff
 beta_x = jnp.dot(beta, xmat.T)
