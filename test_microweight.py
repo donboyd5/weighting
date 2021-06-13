@@ -173,13 +173,14 @@ opts = {
 opts = {
     'scaling': True,
     'scale_goal': 10.0,  # this is an important parameter!!
-    'init_beta': 0.5,
+    'init_beta': 0.0,
     'max_iter': 20,
     'maxp_tol': .01,  # .01 is 1/100 of 1% for the max % difference from target
     'base_stepmethod': 'jac',  # jvp or jac, jac seems to work better
     'startup_period': 0,  # # of iterations in startup period (0 means no startup period)
     'startup_stepmethod': 'jvp',  # jac or jvp
     'search_iter': 5,
+    'step_fixed': False,
     'quiet': True}
 
 
@@ -188,7 +189,7 @@ opts.update({'base_stepmethod': 'jvp'})
 opts.update({'base_p': 1})
 opts.update({'startup_period': 0})
 
-opts.update({'startup_period': 3})
+opts.update({'startup_period': 10})
 opts.update({'startup_stepmethod': 'jac'})
 opts.update({'startup_stepmethod': 'jvp'})
 opts.update({'startup_p': .75})
@@ -199,7 +200,11 @@ opts.update({'max_iter': 5})
 opts.update({'init_beta': 0.0})
 opts.update({'maxp_tol': 0.01}) # max pct diff tolerance .01 is 1/100 percent
 
+opts.update({'step_fixed': .75})
+opts.update({'step_fixed': False})
+
 opts.update({'search_iter': 5})
+opts.update({'lgmres_maxiter': 5})
 opts
 OrderedDict(sorted(opts.items()))
 
@@ -208,6 +213,20 @@ gwpn = prob.geoweight(method='poisson-newton', options=opts)
 gwpn.elapsed_seconds
 gwpn.sspd
 np.round(np.quantile(gwpn.pdiff, qtiles), 3)
+
+
+opts2 = {
+    'scaling': True,
+    'scale_goal': 10.0,  # this is an important parameter!!
+    'init_beta': 0.0,
+    'max_iter': 20,
+    'maxp_tol': .01,  # .01 is 1/100 of 1% for the max % difference from target
+    'search_iter': 5,
+    'p': .8,
+    'quiet': True}
+opts2.update({'p': 1})
+OrderedDict(sorted(opts2.items()))
+gwpns = prob.geoweight(method='poisson-newton-sep', options=opts2)
 
 tmp = gwpn
 

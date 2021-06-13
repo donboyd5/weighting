@@ -39,6 +39,7 @@ import src.geoweight_poisson_minimize_jax as gwp_minjax
 import src.geoweight_poisson_minimize_tflowjax as gwp_mintfjax
 
 import src.geoweight_poisson_newton as gwpn
+import src.geoweight_poisson_newton_sep as gwpns
 # import src.geoweight_poisson_nelder as gwpneld
 
 import src.geoweight_qmatrix as gwqm
@@ -60,6 +61,7 @@ importlib.reload(gwp_minsp)
 importlib.reload(gwp_minjax)
 importlib.reload(gwp_mintfjax)
 importlib.reload(gwpn)
+importlib.reload(gwpns)
 importlib.reload(gwqm)
 
 importlib.reload(rwec)
@@ -207,6 +209,9 @@ class Microweight:
                                          options=options)
         elif method == 'poisson-newton':
             method_result = gwpn.poisson(self.wh, self.xmat, self.geotargets,
+                                         options=options)
+        elif method == 'poisson-newton-sep':
+            method_result = gwpns.poisson(self.wh, self.xmat, self.geotargets,
                                          options=options)
 
         # calculate sum of squared percentage differences

@@ -2,10 +2,16 @@
 import numpy as np
 import tensorflow as tf
 
+from numpy.linalg import norm
+
 import jax
 import jax.numpy as jnp
 import src.make_test_problems as mtp
 import src.functions_geoweight_poisson as fgp
+
+# this next line is CRUCIAL or we will lose precision
+from jax.config import config
+config.update('jax_enable_x64', True)
 
 from timeit import default_timer as timer
 
@@ -610,6 +616,7 @@ b - a
 
 # %% solve problem efficiently
 beta = beta0.copy()
+# beta = np.full(beta0.shape, 0.5)
 count = 0
 maxiter = 8
 
@@ -625,8 +632,10 @@ while count <= maxiter:
     whs = jnp.exp(beta_xd)
     targs = jnp.dot(whs.T, xmat)  # s x k
     diffs = targs - geotargets  # s x k
+    pdiffs = diffs / targs * 100.
     sspd = np.square(diffs / targs * 100.).sum()
     rmse = np.sqrt(sspd / beta.size)
+    l2norm = norm(pdiffs, 2)
 
     t1 = timer()
     D = np.einsum('il,ijk->ljk', whs, xxp)
@@ -634,7 +643,7 @@ while count <= maxiter:
     step = np.einsum('ijk,ik->ij', invD, diffs)
     t2 = timer()
     steptime = t2 - t1
-    print(f' {count: 4}  {rmse:10.4f}    {steptime: 6.4f}')
+    print(f' {count: 4}  {l2norm: 10.2f}  {rmse:10.4f}    {steptime: 6.4f}')
     beta = beta - step
 
 b = timer()
@@ -642,6 +651,10 @@ b - a
 
 pdiffs = diffs / targs * 100.
 np.round(np.quantile(pdiffs, [0, .1, .25, .5, .75, .9, 1]), 2)
+norm(pdiffs, 2)
+norm(diffs, 2)
+np.max(np.abs(pdiffs))
+
 
 # %% older stuff
 beta_x = jnp.dot(beta, xmat.T)
@@ -982,6 +995,83 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
         diffs = diffs.flatten()
 
     return diffs # np.array(diffs)  # note that this is np, not jnp!
+
+# %% map function over 3d array
+np.array(map(f, x))
+
+a = np.arange(24).reshape(2,3,4)
+a
+a.shape
+# Sum over axes 0 and 2. The result has same number of dimensions as the original array:
+np.apply_over_axes(np.sum, a, [0,2])
+
+# if np.linalg.cond(Ds) < 1 / sys.float_info.epsilon:
+#     Dsinv = np.linalg.inv(Ds)
+# else:
+#     print("Ds is singular, cannot be inverted")
+# invD = np.linalg.inv(D)  # invert all of them
+
+a1 = np.array([0, 1, -3,
+               -3, -4, 4,
+               -2, -2, 1]).reshape(3, 3)
+a1
+np.linalg.inv(a1)  # a1 is invertible
+np.linalg.cond(a1)  # 120
+
+a2 = np.array(
+    [[ 0,  1,  2],
+     [ 3,  4,  5],
+     [ 6,  7,  8]])
+np.linalg.inv(a2)  # a2 is NOT invertible
+np.linalg.cond(a2)  # 2.4e16
+
+a = np.array([a1,a2])
+a.shape
+np.linalg.cond(a)  # 2.4e16
+np.linalg.inv(a)
+tmp = np.apply_over_axes(np.sum, a, [1,2])
+tmp.shape  # 2, 1, 1
+
+np.apply_over_axes(np.linalg.cond, a, [1, 2])  # does not work
+def g(m, axis):
+    print("axis: ", axis)
+    print(m)
+    # np.array(np.linalg.cond(m[axis,:,:]))
+    return m # np.array(np.linalg.cond(m[axis,:,:]))
+z = np.apply_over_axes(g, a, [1, 2])  # does not work
+z.shape
+np.apply_over_axes(g, a, [1, 2])
+
+np.apply_over_axes(f, a, [1, 2])
+
+def f(m):
+    return np.linalg.cond(m)
+
+def f2(m):
+    if np.linalg.cond(m) < 1 / sys.float_info.epsilon:
+        print("inverting...")
+        m2 = np.linalg.inv(m)
+    else:
+        print("can't invert...")
+        m2 = m
+    return m2
+
+for m in range(a.shape[0]):
+    print(m)
+    print(f2(a[m,:,:]))
+
+f(a)
+
+f2(a)
+vf2 = np.vectorize(f2)
+vf2(a)
+
+vfunc = np.vectorize(myfunc)
+vfunc([1, 2, 3, 4], 2)
+
+a[0,:]
+np.linalg.inv(a[0,:])  # singular
+np.linalg.inv(a[1,:])
 
 
 
