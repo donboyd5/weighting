@@ -1,4 +1,30 @@
 
+import numpy as np
+import src.make_test_problems as mtp
+
+p = mtp.Problem(h=20, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
+
+p.h
+p.s
+p.k
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # scipy.optimize.minimize(fun, x0, args=(), method=None, jac=None, hess=None, hessp=None, bounds=None, constraints=(), tol=None, callback=None, options=None)[source]
 # scipy.optimize.minimize_scalar(fun, bracket=None, bounds=None, args=(), method='brent', tol=None, options=None)[source]
 from scipy.optimize import minimize, minimize_scalar
