@@ -205,6 +205,7 @@ opts.update({'step_fixed': False})
 
 opts.update({'search_iter': 5})
 opts.update({'lgmres_maxiter': 5})
+opts.update({'jac_threshold': 15})
 opts
 OrderedDict(sorted(opts.items()))
 

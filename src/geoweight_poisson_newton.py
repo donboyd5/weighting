@@ -41,6 +41,8 @@ options_defaults = {
     'max_iter': 20,
     'maxp_tol': .01,  # .01 is 1/100 of 1% for the max % difference from target
 
+    'stepmethod': 'auto',
+    'jac_threshold': 500,
     'base_stepmethod': 'jac',  # jvp or jac, jac seems to work better
     'startup_period': 8,  # # of iterations in startup period (0 means no startup period)
     'startup_stepmethod': 'jvp',  # jac or jvp
@@ -70,16 +72,20 @@ def poisson(wh, xmat, geotargets, options=None):
     else:
         betavec0 = opts.init_beta
 
-    if opts.base_stepmethod == 'jvp':
-        base_step = jvp_step2
-    elif opts.base_stepmethod == 'jac':
-        base_step = jac_step
+    # if opts.base_stepmethod == 'jvp':
+    #     base_step = jvp_step
+    # elif opts.base_stepmethod == 'jac':
+    #     base_step = jac_step
 
-    if opts.startup_stepmethod == 'jvp':
-        startup_step = jvp_step2
-    elif opts.startup_stepmethod == 'jac':
-        startup_step = jac_step
+    # if opts.startup_stepmethod == 'jvp':
+    #     startup_step = jvp_step
+    # elif opts.startup_stepmethod == 'jac':
+    #     startup_step = jac_step
 
+    # get_jac = jax.jit(get_jac)
+    # jac_step = jax.jit(jac_step)
+    # base_step = jax.jit(base_step)
+    # startup_step = jax.jit(startup_step)
 
     # prepare for Newton iterations
     # print(betavec0)
@@ -89,7 +95,9 @@ def poisson(wh, xmat, geotargets, options=None):
     count = 0
     no_improvement_count = 0
     no_improvement_proportion = 1e-3
-    jvpcount = 0
+    jvpcount = 1e9
+    step_method = 'jvp'
+    get_step = jvp_step
     step_reset = False
 
     # construct initial values, pre-iteration
@@ -100,10 +108,9 @@ def poisson(wh, xmat, geotargets, options=None):
 
     # define initial best values
     iter_best = 0
-    l2norm_prior = np.float64(1e99)
-    l2norm_best = l2norm_prior.copy()
+    l2norm_prior = l2norm.copy()
+    l2norm_best = l2norm.copy()
     bvec_best = bvec.copy()
-    l2norm_best = l2norm_prior.copy()
 
     # set all stopping conditions to False
     max_iter = False
@@ -111,6 +118,18 @@ def poisson(wh, xmat, geotargets, options=None):
     no_improvement = False
     NO_IMPROVEMENT_MAX = 3
     ready_to_stop = False
+
+    # determine stepmethod
+    # if opts.base_stepmethod == 'jvp':
+    #     base_step = jvp_step
+    # elif opts.base_stepmethod == 'jac':
+    #     base_step = jac_step
+
+    # if opts.startup_stepmethod == 'jvp':
+    #     startup_step = jvp_step
+    # elif opts.startup_stepmethod == 'jac':
+    #     startup_step = jac_step
+
 
     print('Starting Newton iterations...')
     print('                   rmse   max abs   step     step     step    search    total')
@@ -124,38 +143,86 @@ def poisson(wh, xmat, geotargets, options=None):
         iter_start = timer()
 
         # define stepmethod and default stepsize based on whether we are in startup period
-        if count == (opts.startup_period + 1):
-            print(f'Startup period ended. New stepmethod is {opts.base_stepmethod}.')
+        # if count == (opts.startup_period + 1):
+        #     print(f'Startup period ended. New stepmethod is {opts.base_stepmethod}.')
 
-        if count <= opts.startup_period:
-            step_method = opts.startup_stepmethod
-            get_step = startup_step
+        # if count <= opts.startup_period:
+        #     step_method = opts.startup_stepmethod
+        #     get_step = startup_step
+        # else:
+        #     if opts.base_stepmethod == 'jvp':
+        #         step_method = 'jvp'
+        #         get_step = jvp_step
+        #     elif not step_reset:
+        #         step_method = opts.base_stepmethod
+        #         get_step = base_step
+        #     elif step_reset and jvpcount <= opts.jvp_reset_steps:
+        #         jvpcount += 1
+        #         if(jvpcount == 1):
+        #             print(f'l2norm was worse than best prior. Resetting stepmethod to jvp for {opts.jvp_reset_steps} steps.')
+        #             bvec = bvec_best.copy()
+        #             l2norm = l2norm_best.copy()
+        #             no_improvement_count = 0
+        #         step_method = 'jvp'
+        #         get_step = jvp_step
+        #     elif step_reset and jvpcount > opts.jvp_reset_steps:
+        #         # we should only be here for one iteration
+        #         print(f'Resetting step method to {opts.base_stepmethod} from jvp.')
+        #         step_method = opts.base_stepmethod
+        #         get_step = base_step
+        #         step_reset = False
+        #         jvpcount = 0
+        #         no_improvement_count = 0
+        #     else:
+        #         print("WE SHOULD NOT BE HERE!")
+
+        if opts.stepmethod == 'auto':
+            # default is jvp
+            # step_method = 'jvp'
+            # get_step = jvp_step
+
+            # to use jac, we must be under the threshold and either
+            #    lower than the previous step, or
+            #    there have been 5 prior jac steps
+            # at this point l2norm is the value from the prior iteration
+            if l2norm < opts.jac_threshold:
+                # print("under threshold")
+                # if l2norm >= l2norm_prior:
+                    # any time we worsen we use jvp'
+                if step_method == 'jvp' and jvpcount >= (opts.jvp_reset_steps - 1):
+                    # print('was jvp and >= 5')
+                    step_method = 'jac'
+                    get_step = jac_step
+                    jvpcount = 0
+                    # print('using: ', step_method)
+                elif step_method == 'jvp' and jvpcount < (opts.jvp_reset_steps - 1):
+                    # print('was jvp and < 5')
+                    step_method = 'jvp'
+                    get_step = jvp_step
+                    jvpcount += 1
+                    # print('using: ', step_method)
+                elif step_method == 'jac' and l2norm < l2norm_prior:
+                    # print('was jac and better than prior')
+                    step_method = 'jac'
+                    get_step = jac_step
+                elif step_method == 'jac' and l2norm >= l2norm_prior:
+                    # print('was jac and not better than prior')
+                    step_method = 'jvp'
+                    get_step = jvp_step
+                    jvpcount = 0
+                else:
+                    print("WE SHOULD NOT GET HERE!")
         else:
+            step_method = opts.base_stepmethod
             if opts.base_stepmethod == 'jvp':
-                step_method = 'jvp'
-                get_step = jvp_step2
-            elif not step_reset:
-                step_method = opts.base_stepmethod
-                get_step = base_step
-            elif step_reset and jvpcount <= opts.jvp_reset_steps:
-                jvpcount += 1
-                if(jvpcount == 1):
-                    print(f'l2norm was worse than best prior. Resetting stepmethod to jvp for {opts.jvp_reset_steps} steps.')
-                    bvec = bvec_best.copy()
-                    l2norm = l2norm_best.copy()
-                    no_improvement_count = 0
-                step_method = 'jvp'
-                get_step = jvp_step2
-            elif step_reset and jvpcount > opts.jvp_reset_steps:
-                # we should only be here for one iteration
-                print(f'Resetting step method to {opts.base_stepmethod} from jvp.')
-                step_method = opts.base_stepmethod
-                get_step = base_step
-                step_reset = False
-                jvpcount = 0
-                no_improvement_count = 0
-            else:
-                print("WE SHOULD NOT BE HERE!")
+                get_step = jvp_step
+            elif opts.base_stepmethod == 'jac':
+                get_step = jac_step
+
+        # print('step method after ifs: ', step_method)
+
+        # NOW we can set l2norm_prior and calculate a new l2norm
+        l2norm_prior = l2norm
 
         # get step direction and step size
         step_start = timer()
@@ -164,7 +231,8 @@ def poisson(wh, xmat, geotargets, options=None):
 
         search_start = timer()
         if opts.step_fixed is False:
-            p = getp_min(bvec, step_dir, wh, xmat, geotargets, dw, opts.search_iter)
+            p = getp_min(bvec, step_dir, wh, xmat, geotargets, dw, opts.search_iter, l2norm_prior)
+            # p = getp_reduce(bvec, step_dir, wh, xmat, geotargets, dw, opts.search_iter, l2norm_prior)
         else: p = opts.step_fixed
         search_end = timer()
 
@@ -187,17 +255,13 @@ def poisson(wh, xmat, geotargets, options=None):
         else:
             no_improvement_count = 0
 
-        l2norm_prior = l2norm
-
-        if l2norm < l2norm_best:
+        if l2norm <= l2norm_best:
             iter_best = count
             bvec_best = bvec.copy()
             l2norm_best = l2norm.copy()
         else:
             # if this isn't the best iteration, prepare to reset
             bvec = bvec_best.copy()
-            l2norm = l2norm_best.copy()
-            step_reset = True
 
         # check stopping conditions
         message = ''
@@ -262,7 +326,7 @@ def get_linop(bvec, wh, xmat, geotargets, dw, diffs):
         matvec=l_jvp, rmatvec=l_vjp)
     return linop
 
-def jvp_step(bvec, wh, xmat, geotargets, dw, diffs, opts):
+def jvp_step_good(bvec, wh, xmat, geotargets, dw, diffs, opts):
     Jsolver = get_linop(bvec, wh, xmat, geotargets, dw, diffs)
 
     # step, info = scipy.sparse.linalg.cg(Jsolver, diffs, maxiter=25)
@@ -271,8 +335,13 @@ def jvp_step(bvec, wh, xmat, geotargets, dw, diffs, opts):
     step = step_results.x
     return step
 
-def jvp_step2(bvec, wh, xmat, geotargets, dw, diffs, opts):
+def jvp_step(bvec, wh, xmat, geotargets, dw, diffs, opts):
     Jsolver = get_linop(bvec, wh, xmat, geotargets, dw, diffs)
+
+    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.gmres.html
+    # Construct a linear operator that computes P^-1 * x.
+    # M_x = lambda x: scipy.sparse.linalg.spsolve(P, x)
+    # scipy.sparse.linalg = spla.LinearOperator((bvec.size, bvec.size), M_x)
 
     step, info = scipy.sparse.linalg.lgmres(Jsolver, diffs, maxiter=opts.lgmres_maxiter)
     # print("info (0 is good): ", info)
@@ -325,20 +394,54 @@ def get_jac(bvec, wh, xmat, geotargets, dw):
     jacfn = jax.jit(jacfn)
     jacmat = jacfn(bvec, wh, xmat, geotargets, dw)
     jacmat = np.array(jacmat).reshape((bvec.size, bvec.size))
+    # print(np.round(jacmat[0:10,0:5], 4))
     return jacmat
+
+def jac_step_M(bvec, wh, xmat, geotargets, dw, diffs, options):
+    jacmat = get_jac(bvec, wh, xmat, geotargets, dw)
+    # step = jnp.linalg.lstsq(jacmat, diffs, rcond=None)[0]
+    M = np.diagflat(np.diag(jacmat))
+    # print("using M")
+    # M = 1 / M
+
+    step, info = scipy.sparse.linalg.lgmres(jacmat, diffs, M = M, maxiter=options.lgmres_maxiter)
+
+    # jinv = jnp.linalg.pinv(jacmat)
+    # jinv = scipy.linalg.pinv(jacmat)
+    # step = jnp.dot(jinv, diffs)
+
+    return step
 
 def jac_step(bvec, wh, xmat, geotargets, dw, diffs, options):
     jacmat = get_jac(bvec, wh, xmat, geotargets, dw)
     # step = jnp.linalg.lstsq(jacmat, diffs, rcond=None)[0]
 
     jinv = jnp.linalg.pinv(jacmat)
+    # jinv = scipy.linalg.pinv(jacmat)
     step = jnp.dot(jinv, diffs)
 
     return step
 
+
+def jac_step_lu(bvec, wh, xmat, geotargets, dw, diffs, options):
+    jacmat = get_jac(bvec, wh, xmat, geotargets, dw)
+    # step = jnp.linalg.lstsq(jacmat, diffs, rcond=None)[0]
+    # create preconditioner
+    sJ = scipy.sparse.csc_matrix(jacmat)
+    sJ_LU = scipy.sparse.linalg.splu(sJ)
+    M = scipy.sparse.linalg.LinearOperator((bvec.size,bvec.size), sJ_LU.solve)
+    step, info = scipy.sparse.linalg.lgmres(sJ, diffs, M=M)
+
+    # jinv = jnp.linalg.pinv(jacmat)
+    # jinv = scipy.linalg.pinv(jacmat)
+    # step = jnp.dot(jinv, diffs)
+
+    return step
+
+
 # %% functions related to line search
 
-def getp_min(bvec, step_dir, wh, xmat, geotargets, dw, search_iter):
+def getp_min(bvec, step_dir, wh, xmat, geotargets, dw, search_iter, l2norm_prior):
 
     def get_norm(p, bvec, step_dir, wh, xmat, geotargets, dw):
         bvec = bvec - step_dir * p
@@ -346,9 +449,39 @@ def getp_min(bvec, step_dir, wh, xmat, geotargets, dw, search_iter):
         l2norm = norm(diffs, 2)
         return l2norm
 
+    # p = 1.0
+    # l2norm = get_norm(p, bvec, step_dir, wh, xmat, geotargets, dw)
+    # if l2norm < l2norm_prior:
+    #     return p
+
     res = minimize_scalar(get_norm, bounds=(0, 1), args=(bvec, step_dir, wh, xmat, geotargets, dw),
         method='bounded', options={'maxiter': search_iter})
 
-    return res.x
+    p = res.x
+    if get_norm(p, bvec, step_dir, wh, xmat, geotargets, dw) > l2norm_prior:
+        p = 0
+
+    return p
+
+def getp_reduce(bvec, step_dir, wh, xmat, geotargets, dw, search_iter, l2norm_prior):
+
+    def get_norm(p, bvec, step_dir, wh, xmat, geotargets, dw):
+        bvec = bvec - step_dir * p
+        diffs = fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+        l2norm = norm(diffs, 2)
+        return l2norm
+
+    p = 1.0
+    count = 0
+    l2norm = get_norm(p, bvec, step_dir, wh, xmat, geotargets, dw)
+    while count < 20 and l2norm > l2norm_prior:
+        count += 1
+        p = p * .8
+
+    if l2norm > l2norm_prior:
+        p = 0
+
+    return p
+
 
 
