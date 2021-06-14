@@ -40,16 +40,18 @@ options_defaults = {
     'init_beta': 0.5,
     'max_iter': 20,
     'maxp_tol': .01,  # .01 is 1/100 of 1% for the max % difference from target
+    'no_improvement_proportion': 1e-3,
+    'jac_min_improvement': 0.10,
 
     'stepmethod': 'auto',
-    'jac_threshold': 500,
+    'jac_threshold': 1e9,
     'base_stepmethod': 'jac',  # jvp or jac, jac seems to work better
     'startup_period': 8,  # # of iterations in startup period (0 means no startup period)
     'startup_stepmethod': 'jvp',  # jac or jvp
     'step_fixed': False,  # False, or a fixed number
-    'search_iter': 10,
+    'search_iter': 20,
     'jvp_reset_steps': 5,
-    'lgmres_maxiter': 10,
+    'lgmres_maxiter': 20,
     'quiet': True}
 
 # options_defaults = {**solver_defaults, **user_defaults}
@@ -72,33 +74,15 @@ def poisson(wh, xmat, geotargets, options=None):
     else:
         betavec0 = opts.init_beta
 
-    # if opts.base_stepmethod == 'jvp':
-    #     base_step = jvp_step
-    # elif opts.base_stepmethod == 'jac':
-    #     base_step = jac_step
-
-    # if opts.startup_stepmethod == 'jvp':
-    #     startup_step = jvp_step
-    # elif opts.startup_stepmethod == 'jac':
-    #     startup_step = jac_step
-
-    # get_jac = jax.jit(get_jac)
-    # jac_step = jax.jit(jac_step)
-    # base_step = jax.jit(base_step)
-    # startup_step = jax.jit(startup_step)
-
     # prepare for Newton iterations
-    # print(betavec0)
     bvec = betavec0
     dw = fgp.jax_get_diff_weights(geotargets)
 
     count = 0
     no_improvement_count = 0
-    no_improvement_proportion = 1e-3
     jvpcount = 1e9
     step_method = 'jvp'
     get_step = jvp_step
-    step_reset = False
 
     # construct initial values, pre-iteration
     diffs = fgp.jax_targets_diff_copy(bvec, wh, xmat, geotargets, dw)
@@ -201,12 +185,13 @@ def poisson(wh, xmat, geotargets, options=None):
                     get_step = jvp_step
                     jvpcount += 1
                     # print('using: ', step_method)
-                elif step_method == 'jac' and l2norm < l2norm_prior:
-                    # print('was jac and better than prior')
+                elif step_method == 'jac' and l2norm < (l2norm_prior * (1 - opts.jac_min_improvement)):
+                    # print('jac improving so keep')
                     step_method = 'jac'
                     get_step = jac_step
-                elif step_method == 'jac' and l2norm >= l2norm_prior:
+                elif step_method == 'jac' and l2norm >= (l2norm_prior * (1 - opts.jac_min_improvement)):
                     # print('was jac and not better than prior')
+                    # print("switching back to jvp...")
                     step_method = 'jvp'
                     get_step = jvp_step
                     jvpcount = 0
@@ -250,7 +235,7 @@ def poisson(wh, xmat, geotargets, options=None):
 
         print(f'{count: 4} {l2norm: 10.2f} {rmse: 8.2f} {maxpdiff: 8.2f}    {step_method}    {p: 6.3f}  {step_time: 6.2f}   {search_time: 6.2f}    {itime: 6.2f}')
 
-        if l2norm >= l2norm_prior * (1.0 - no_improvement_proportion):
+        if l2norm >= l2norm_prior * (1.0 - opts.no_improvement_proportion) and step_method == 'jvp':
             no_improvement_count += 1
         else:
             no_improvement_count = 0
