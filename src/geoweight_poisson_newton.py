@@ -37,14 +37,14 @@ importlib.reload(fgp)
 options_defaults = {
     'scaling': True,
     'scale_goal': 10.0,  # this is an important parameter!!
-    'init_beta': 0.5,
+    'init_beta': 0.0,
     'max_iter': 20,
     'maxp_tol': .01,  # .01 is 1/100 of 1% for the max % difference from target
     'no_improvement_proportion': 1e-3,
     'jac_min_improvement': 0.10,
 
     'stepmethod': 'auto',
-    'jac_threshold': 1e9,
+    'jac_threshold': 5,  # try to use jac when rmse is below this
     'base_stepmethod': 'jac',  # jvp or jac, jac seems to work better
     'startup_period': 8,  # # of iterations in startup period (0 means no startup period)
     'startup_stepmethod': 'jvp',  # jac or jvp
@@ -88,7 +88,8 @@ def poisson(wh, xmat, geotargets, options=None):
     diffs = fgp.jax_targets_diff_copy(bvec, wh, xmat, geotargets, dw)
     l2norm = norm(diffs, 2)
     maxpdiff = jnp.max(jnp.abs(diffs))
-    rmse = math.sqrt((l2norm**2 - maxpdiff**2) / (bvec.size - 1))
+    rmse = math.sqrt(l2norm**2 / bvec.size)
+    rmsexmax = math.sqrt((l2norm**2 - maxpdiff**2) / (bvec.size - 1))
 
     # define initial best values
     iter_best = 0
@@ -100,98 +101,43 @@ def poisson(wh, xmat, geotargets, options=None):
     max_iter = False
     low_error = False
     no_improvement = False
-    NO_IMPROVEMENT_MAX = 3
+    NO_IMPROVEMENT_MAX = 2
     ready_to_stop = False
 
-    # determine stepmethod
-    # if opts.base_stepmethod == 'jvp':
-    #     base_step = jvp_step
-    # elif opts.base_stepmethod == 'jac':
-    #     base_step = jac_step
-
-    # if opts.startup_stepmethod == 'jvp':
-    #     startup_step = jvp_step
-    # elif opts.startup_stepmethod == 'jac':
-    #     startup_step = jac_step
-
-
-    print('Starting Newton iterations...')
-    print('                   rmse   max abs   step     step     step    search    total')
-    print(' iter   l2norm    ex-max  % error  method  size (p)  seconds  seconds  seconds\n')
+    print('Starting Newton iterations...\n')
+    print('                 max abs                            ')
+    print('                    %             --  step --   --  # seconds  --')
+    print(' iter   l2norm    error    rmse   method size   step search  total\n')
 
     # print stats at start
-    print(f"{0: 4} {l2norm: 10.2f} {rmse: 8.2f} {maxpdiff: 8.2f}")
+    print(f"{0: 4} {l2norm: 9.2f} {maxpdiff: 8.2f} {rmse: 7.2f}")
 
     while not ready_to_stop:
         count += 1
         iter_start = timer()
 
-        # define stepmethod and default stepsize based on whether we are in startup period
-        # if count == (opts.startup_period + 1):
-        #     print(f'Startup period ended. New stepmethod is {opts.base_stepmethod}.')
-
-        # if count <= opts.startup_period:
-        #     step_method = opts.startup_stepmethod
-        #     get_step = startup_step
-        # else:
-        #     if opts.base_stepmethod == 'jvp':
-        #         step_method = 'jvp'
-        #         get_step = jvp_step
-        #     elif not step_reset:
-        #         step_method = opts.base_stepmethod
-        #         get_step = base_step
-        #     elif step_reset and jvpcount <= opts.jvp_reset_steps:
-        #         jvpcount += 1
-        #         if(jvpcount == 1):
-        #             print(f'l2norm was worse than best prior. Resetting stepmethod to jvp for {opts.jvp_reset_steps} steps.')
-        #             bvec = bvec_best.copy()
-        #             l2norm = l2norm_best.copy()
-        #             no_improvement_count = 0
-        #         step_method = 'jvp'
-        #         get_step = jvp_step
-        #     elif step_reset and jvpcount > opts.jvp_reset_steps:
-        #         # we should only be here for one iteration
-        #         print(f'Resetting step method to {opts.base_stepmethod} from jvp.')
-        #         step_method = opts.base_stepmethod
-        #         get_step = base_step
-        #         step_reset = False
-        #         jvpcount = 0
-        #         no_improvement_count = 0
-        #     else:
-        #         print("WE SHOULD NOT BE HERE!")
-
         if opts.stepmethod == 'auto':
-            # default is jvp
-            # step_method = 'jvp'
-            # get_step = jvp_step
-
             # to use jac, we must be under the threshold and either
             #    lower than the previous step, or
             #    there have been 5 prior jac steps
             # at this point l2norm is the value from the prior iteration
-            if l2norm < opts.jac_threshold:
-                # print("under threshold")
-                # if l2norm >= l2norm_prior:
-                    # any time we worsen we use jvp'
-                if step_method == 'jvp' and jvpcount >= (opts.jvp_reset_steps - 1):
-                    # print('was jvp and >= 5')
+            if rmse < opts.jac_threshold:
+                if step_method == 'jvp' and \
+                    jvpcount >= (opts.jvp_reset_steps - 1):
                     step_method = 'jac'
                     get_step = jac_step
                     jvpcount = 0
-                    # print('using: ', step_method)
-                elif step_method == 'jvp' and jvpcount < (opts.jvp_reset_steps - 1):
-                    # print('was jvp and < 5')
+                elif step_method == 'jvp' and \
+                    jvpcount < (opts.jvp_reset_steps - 1):
                     step_method = 'jvp'
                     get_step = jvp_step
                     jvpcount += 1
-                    # print('using: ', step_method)
-                elif step_method == 'jac' and l2norm < (l2norm_prior * (1 - opts.jac_min_improvement)):
-                    # print('jac improving so keep')
+                elif step_method == 'jac' and \
+                    l2norm < (l2norm_prior * (1 - opts.jac_min_improvement)):
                     step_method = 'jac'
                     get_step = jac_step
-                elif step_method == 'jac' and l2norm >= (l2norm_prior * (1 - opts.jac_min_improvement)):
-                    # print('was jac and not better than prior')
-                    # print("switching back to jvp...")
+                elif step_method == 'jac' and\
+                    l2norm >= (l2norm_prior * (1 - opts.jac_min_improvement)):
                     step_method = 'jvp'
                     get_step = jvp_step
                     jvpcount = 0
@@ -203,8 +149,6 @@ def poisson(wh, xmat, geotargets, options=None):
                 get_step = jvp_step
             elif opts.base_stepmethod == 'jac':
                 get_step = jac_step
-
-        # print('step method after ifs: ', step_method)
 
         # NOW we can set l2norm_prior and calculate a new l2norm
         l2norm_prior = l2norm
@@ -225,7 +169,8 @@ def poisson(wh, xmat, geotargets, options=None):
         diffs = fgp.jax_targets_diff_copy(bvec, wh, xmat, geotargets, dw)
         l2norm = norm(diffs, 2)
         maxpdiff = jnp.max(jnp.abs(diffs))
-        rmse = math.sqrt((l2norm**2 - maxpdiff**2) / (bvec.size - 1))
+        rmse = math.sqrt(l2norm**2 / bvec.size)
+        rmsexmax = math.sqrt((l2norm**2 - maxpdiff**2) / (bvec.size - 1))
 
         iter_end = timer()
 
@@ -233,7 +178,7 @@ def poisson(wh, xmat, geotargets, options=None):
         search_time = search_end - search_start
         itime = iter_end - iter_start
 
-        print(f'{count: 4} {l2norm: 10.2f} {rmse: 8.2f} {maxpdiff: 8.2f}    {step_method}    {p: 6.3f}  {step_time: 6.2f}   {search_time: 6.2f}    {itime: 6.2f}')
+        print(f'{count: 4} {l2norm: 9.2f} {maxpdiff: 8.2f} {rmse: 7.2f}   {step_method}  {p: 6.3f} {step_time: 6.2f} {search_time: 6.2f} {itime: 6.2f}')
 
         if l2norm >= l2norm_prior * (1.0 - opts.no_improvement_proportion) and step_method == 'jvp':
             no_improvement_count += 1

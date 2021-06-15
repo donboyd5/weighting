@@ -208,6 +208,14 @@ opts.update({'lgmres_maxiter': 5})
 opts.update({'jac_threshold': 15})
 opts.update({'no_improvement_proportion': 1e-6})
 
+opts.update({'lgmres_maxiter': 20})
+opts.update({'search_iter': 20})
+opts.update({'max_iter': 40})
+opts.update({'stepmethod': 'auto'})
+opts.update({'jac_threshold': 2})
+opts.update({'no_improvement_proportion': 1e-3})
+opts.update({'jac_min_improvement': 0.10})
+
 opts
 OrderedDict(sorted(opts.items()))
 
