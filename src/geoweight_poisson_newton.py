@@ -6,6 +6,7 @@
 # import inspect
 import importlib
 
+import sys
 import math
 import scipy
 from scipy.optimize import line_search
@@ -58,8 +59,14 @@ options_defaults = {
 
 
 # %% main function
-def poisson(wh, xmat, geotargets, options=None):
+def poisson(wh, xmat, geotargets, options=None, logfile=None):
     a = timer()
+
+    if logfile is None:
+        f = sys.stdout
+    else:
+        # maybe check if file is open and else open it??
+        f = logfile
 
     # override default options with user options, where appropriate
     options_all = options_defaults
@@ -104,13 +111,13 @@ def poisson(wh, xmat, geotargets, options=None):
     NO_IMPROVEMENT_MAX = 2
     ready_to_stop = False
 
-    print('Starting Newton iterations...\n')
-    print('                 max abs                            ')
-    print('                    %             --  step --   --  # seconds  --')
-    print(' iter   l2norm    error    rmse   method size   step search  total\n')
+    print('Starting Newton iterations...\n', file=f)
+    print('                 max abs                            ', file=f)
+    print('                    %             --  step --   --  # seconds  --', file=f)
+    print(' iter   l2norm    error    rmse   method size   step search  total\n', file=f)
 
     # print stats at start
-    print(f"{0: 4} {l2norm: 9.2f} {maxpdiff: 8.2f} {rmse: 7.2f}")
+    print(f"{0: 4} {l2norm: 9.2f} {maxpdiff: 8.2f} {rmse: 7.2f}", file=f)
 
     while not ready_to_stop:
         count += 1
@@ -142,7 +149,7 @@ def poisson(wh, xmat, geotargets, options=None):
                     get_step = jvp_step
                     jvpcount = 0
                 else:
-                    print("WE SHOULD NOT GET HERE!")
+                    print("WE SHOULD NOT GET HERE!", file=f)
         else:
             step_method = opts.base_stepmethod
             if opts.base_stepmethod == 'jvp':
@@ -178,7 +185,7 @@ def poisson(wh, xmat, geotargets, options=None):
         search_time = search_end - search_start
         itime = iter_end - iter_start
 
-        print(f'{count: 4} {l2norm: 9.2f} {maxpdiff: 8.2f} {rmse: 7.2f}   {step_method}  {p: 6.3f} {step_time: 6.2f} {search_time: 6.2f} {itime: 6.2f}')
+        print(f'{count: 4} {l2norm: 9.2f} {maxpdiff: 8.2f} {rmse: 7.2f}   {step_method}  {p: 6.3f} {step_time: 6.2f} {search_time: 6.2f} {itime: 6.2f}', file=f)
 
         if l2norm >= l2norm_prior * (1.0 - opts.no_improvement_proportion) and step_method == 'jvp':
             no_improvement_count += 1
@@ -211,8 +218,8 @@ def poisson(wh, xmat, geotargets, options=None):
         ready_to_stop = max_iter or low_error or no_improvement
 
 
-    print(f'\nDone with Newton iterations:')
-    print(message)
+    print(f'\nDone with Newton iterations:', file=f)
+    print(message, file=f)
 
     # get return values
     beta_opt = bvec_best.reshape(geotargets.shape)
@@ -224,8 +231,8 @@ def poisson(wh, xmat, geotargets, options=None):
 
     b = timer()
 
-    print(f'  Elapsed seconds: {b - a: 9.2f}')
-    print(f'  Using results from iteration # {iter_best}, with best l2norm: {l2norm_best: 12.2f}')
+    print(f'  Elapsed seconds: {b - a: 9.2f}', file=f)
+    print(f'  Using results from iteration # {iter_best}, with best l2norm: {l2norm_best:<12.2f}', file=f)
 
     # create a named tuple of items to return
     fields = ('elapsed_seconds',

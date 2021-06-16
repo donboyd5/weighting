@@ -165,7 +165,8 @@ class Microweight:
 
     def geoweight(self,
                   method='qmatrix',
-                  options=None):
+                  options=None,
+                  logfile=None):
 
         # input checks:
         # geotargets must by s x k
@@ -209,7 +210,8 @@ class Microweight:
                                          options=options)
         elif method == 'poisson-newton':
             method_result = gwpn.poisson(self.wh, self.xmat, self.geotargets,
-                                         options=options)
+                                         options=options,
+                                         logfile=logfile)
         elif method == 'poisson-newton-sep':
             method_result = gwpns.poisson(self.wh, self.xmat, self.geotargets,
                                          options=options)
