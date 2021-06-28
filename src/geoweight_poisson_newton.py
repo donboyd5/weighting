@@ -45,7 +45,7 @@ options_defaults = {
     'jac_min_improvement': 0.10,
 
     'stepmethod': 'auto',
-    'jac_threshold': 5,  # try to use jac when rmse is below this
+    'jac_threshold': 1e9,  # try to use jac when rmse is below this
     'base_stepmethod': 'jac',  # jvp or jac, jac seems to work better
     'startup_period': 8,  # # of iterations in startup period (0 means no startup period)
     'startup_stepmethod': 'jvp',  # jac or jvp
