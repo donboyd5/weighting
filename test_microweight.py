@@ -131,6 +131,38 @@ gwp1.sspd
 np.round(np.quantile(gwp1.pdiff, qtiles), 3)
 
 
+# %% ..geoweight: poisson scipy root
+opts = {
+    'scaling': True,
+    'scale_goal': 1e1,
+    'init_beta': 0.5,
+    'quiet': True}
+opts
+
+# Type of solver. Should be one of
+# hybr jac
+# lm jac faster than hybr
+# broyden1 no jac  slow
+# broyden2 no jac  slow
+# anderson no jac  slow
+# linearmixing  no jac slow
+# diagbroyden no jac slow
+# excitingmixing no jac slow
+# krylov no jac bombs on jacobian approx
+# df-sane no jac; maybe??
+
+opts.update({'solver': 'lm', 'jac': 'jac'})
+opts.update({'solver': 'df-sane', 'jac': None})  # None or jac
+opts.update({'solver_opts': None})
+opts.update({'solver_opts': {'disp': True}})
+
+opts
+gwpr = prob.geoweight(method='poisson-root', options=opts)
+gwpr.elapsed_seconds
+gwpr.sspd
+np.round(np.quantile(gwpr.pdiff, qtiles), 3)
+
+
 # %% ..geoweight poisson ipopt
 ipopts = {
     'output_file': '/home/donboyd/Documents/gwpi2.out',
@@ -205,6 +237,27 @@ opts.update({'step_fixed': False})
 
 opts.update({'search_iter': 5})
 opts.update({'lgmres_maxiter': 5})
+opts.update({'jac_threshold': 15})
+opts.update({'no_improvement_proportion': 1e-6})
+
+opts.update({'lgmres_maxiter': 20})
+opts.update({'search_iter': 20})
+opts.update({'max_iter': 40})
+opts.update({'stepmethod': 'auto'})
+opts.update({'jac_threshold': 5})
+opts.update({'no_improvement_proportion': 1e-3})
+opts.update({'jac_min_improvement': 0.10})
+
+method='poisson-newton'
+opts.update({'lgmres_maxiter': 20})
+opts.update({'search_iter': 20})
+opts.update({'max_iter': 40})
+opts.update({'stepmethod': 'auto'})
+opts.update({'jac_threshold': 1e9})
+opts.update({'no_improvement_proportion': 1e-3})
+opts.update({'jac_min_improvement': 0.10})
+opts.update({'jvp_reset_steps': 4})
+
 opts
 OrderedDict(sorted(opts.items()))
 
