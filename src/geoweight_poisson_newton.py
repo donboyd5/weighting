@@ -272,6 +272,28 @@ def jvp_step_good(bvec, wh, xmat, geotargets, dw, diffs, opts):
     step = step_results.x
     return step
 
+def jvp_step_test(bvec, wh, xmat, geotargets, dw, diffs, opts):
+    Jsolver = get_linop(bvec, wh, xmat, geotargets, dw, diffs)
+
+    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.gmres.html
+    # Construct a linear operator that computes P^-1 * x.
+    # M_x = lambda x: scipy.sparse.linalg.spsolve(P, x)
+    # scipy.sparse.linalg = spla.LinearOperator((bvec.size, bvec.size), M_x)
+
+    step, info = scipy.sparse.linalg.qmr(Jsolver, diffs, maxiter=opts.lgmres_maxiter)[0:2]
+    # if info > 0:
+    #     print('NOTE: lgmres did not converge after iterations: ', info)
+    #     print('Increasing option lgmres_maxiter may lead to better step direction (but longer step calculation time).')
+    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.lgmres.html
+    # scipy.sparse.linalg.lgmres(A, b, x0=None, tol=1e-05, maxiter=1000, M=None, callback=None,
+    #   inner_m=30, outer_k=3, outer_v=None, store_outer_Av=True, prepend_outer_v=False, atol=None)
+    # print("info (0 is good): ", info)
+    # step_results = scipy.optimize.lsq_linear(Jsolver, diffs, max_iter=5) # max_iter None default
+    # if not step_results.success: print("Failure in getting step!! Check results carefully.")
+    # step = step_results.x
+    return step
+
+
 def jvp_step(bvec, wh, xmat, geotargets, dw, diffs, opts):
     Jsolver = get_linop(bvec, wh, xmat, geotargets, dw, diffs)
 
@@ -280,12 +302,21 @@ def jvp_step(bvec, wh, xmat, geotargets, dw, diffs, opts):
     # M_x = lambda x: scipy.sparse.linalg.spsolve(P, x)
     # scipy.sparse.linalg = spla.LinearOperator((bvec.size, bvec.size), M_x)
 
-    step, info = scipy.sparse.linalg.lgmres(Jsolver, diffs, maxiter=opts.lgmres_maxiter)
+    step, info = scipy.sparse.linalg.lgmres(Jsolver, diffs, maxiter=opts.lgmres_maxiter) #  outer_k=3
+    if info > 0:
+        # print('NOTE: lgmres did not converge after iterations: ', info, '. See option lgmres_maxiter.')
+        print(f'NOTE: lgmres jvp step did not converge after {info} iterations. See option lgmres_maxiter.')
+        # print(f"{0: 4} {l2norm: 9.2f} {maxpdiff: 8.2f} {rmse: 7.2f}", file=f)
+        # print('Increasing option lgmres_maxiter may lead to better step direction (but longer step calculation time).')
+    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.lgmres.html
+    # scipy.sparse.linalg.lgmres(A, b, x0=None, tol=1e-05, maxiter=1000, M=None, callback=None,
+    #   inner_m=30, outer_k=3, outer_v=None, store_outer_Av=True, prepend_outer_v=False, atol=None)
     # print("info (0 is good): ", info)
     # step_results = scipy.optimize.lsq_linear(Jsolver, diffs, max_iter=5) # max_iter None default
     # if not step_results.success: print("Failure in getting step!! Check results carefully.")
     # step = step_results.x
     return step
+
 
 def jvp_step2a(bvec, wh, xmat, geotargets, dw, diffs, opts):
     # jax.scipy.sparse.linalg.gmres(A, b, x0=None, *, tol=1e-05, atol=0.0,
@@ -349,12 +380,34 @@ def jac_step_M(bvec, wh, xmat, geotargets, dw, diffs, options):
 
     return step
 
+def jac_step_approx(bvec, wh, xmat, geotargets, dw, diffs, options):
+    # from scipy.sparse.linalg import dsolve
+    jacmat = get_jac(bvec, wh, xmat, geotargets, dw)
+    # step = jnp.linalg.lstsq(jacmat, diffs, rcond=None)[0]
+
+    # jinv = jnp.linalg.pinv(jacmat)
+    # jacmat = jacmat.astype(np.float64)
+    # jacmat = jacmat.astype(np.complex64)
+    # np.complex64
+    # step = scipy.sparse.linalg.dsolve.spsolve(jacmat, diffs, use_umfpack=False)
+    step, info = scipy.sparse.linalg.qmr(jacmat, diffs)[:2]
+    # step = scipy.sparse.linalg.dsolve.linsolve.spsolve(jacmat, diffs, use_umfpack=True)
+    # step = jnp.dot(jinv, diffs)
+
+    return step
+
+
 def jac_step(bvec, wh, xmat, geotargets, dw, diffs, options):
     jacmat = get_jac(bvec, wh, xmat, geotargets, dw)
     # step = jnp.linalg.lstsq(jacmat, diffs, rcond=None)[0]
 
-    jinv = jnp.linalg.pinv(jacmat)
-    # jinv = scipy.linalg.pinv(jacmat)
+    # jinv = jnp.linalg.pinv(jacmat)
+    jinv = scipy.linalg.pinv(jacmat)  # , cond=1e-11
+    # documentation for scipy 1.7.0 (caution: code currently uses 1.6.2)
+    # https://docs.scipy.org/doc/scipy/reference/reference/generated/scipy.linalg.pinv.html#scipy.linalg.pinv
+    # scipy.linalg.pinv(a, atol=None, rtol=None, return_rank=False, check_finite=True, cond=None, rcond=None)
+    # rcond in scipy 1.6.2 appears to be rtol in 1.7.0, and cond --> atol  DO NOT USE BOTH cond and rcond
+    # rtol default value is max(M, N) * eps where eps is the machine precision value of the datatype of a
     step = jnp.dot(jinv, diffs)
 
     return step
@@ -393,6 +446,22 @@ def getp_min(bvec, step_dir, wh, xmat, geotargets, dw, search_iter, l2norm_prior
 
     res = minimize_scalar(get_norm, bounds=(0, 1), args=(bvec, step_dir, wh, xmat, geotargets, dw),
         method='bounded', options={'maxiter': search_iter})
+    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize_scalar.html
+    # scipy.optimize.minimize_scalar(fun, bracket=None, bounds=None, args=(), method='brent', tol=None, options=None)
+    # options for method bounded are: options={'func': None, 'xatol': 1e-05, 'maxiter': 500, 'disp': 0})
+
+    p = res.x
+    new_norm = get_norm(p, bvec, step_dir, wh, xmat, geotargets, dw)
+    if new_norm > l2norm_prior:
+        print(f'Did not find l2norm-reducing step size after {res.nfev} function evaluations, setting p to 0.')
+        p = 0
+
+    if not res.success and (new_norm < l2norm_prior) and (0.1 < res.x < 0.9):
+        # print('NOTE: optimal step size not found after function evaluations: ', res.nfev, '. See option search_iter.')
+        print(f'NOTE: l2norm improved but optimal step size not found after {res.nfev} function evaluations. See option search_iter.')
+        # print(f'NOTE: lgmres did not converge after {info} iterations. See option lgmres_maxiter.')
+        # print('Increasing option search_iter may result in better step size (but longer calculation time).')
+        # print('Solver message: ', res.message)
 
     p = res.x
     if get_norm(p, bvec, step_dir, wh, xmat, geotargets, dw) > l2norm_prior:
@@ -421,4 +490,36 @@ def getp_reduce(bvec, step_dir, wh, xmat, geotargets, dw, search_iter, l2norm_pr
     return p
 
 
+
+# def getp_min(bvec, step_dir, wh, xmat, geotargets, dw, search_iter, l2norm_prior):
+#     # https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.line_search.html
+#     #  scipy.optimize.line_search(f, myfprime, xk, pk, gfk=None, old_fval=None, old_old_fval=None,
+#     #   args=(), c1=0.0001, c2=0.9, amax=None, extra_condition=None, maxiter=10)
+
+#     def get_norm(p, bvec, step_dir, wh, xmat, geotargets, dw):
+#         bvec = bvec - step_dir * p
+#         diffs = fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+#         l2norm = norm(diffs, 2)
+#         return l2norm
+
+#     # p = 1.0
+#     # l2norm = get_norm(p, bvec, step_dir, wh, xmat, geotargets, dw)
+#     # if l2norm < l2norm_prior:
+#     #     return p
+
+#     res = minimize_scalar(get_norm, bounds=(0, .9), args=(bvec, step_dir, wh, xmat, geotargets, dw),
+#         method='bounded', options={'maxiter': search_iter})
+#     # https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize_scalar.html
+#     # scipy.optimize.minimize_scalar(fun, bracket=None, bounds=None, args=(), method='brent', tol=None, options=None)
+#     # options for method bounded are: options={'func': None, 'xatol': 1e-05, 'maxiter': 500, 'disp': 0})
+#     if not res.success:
+#         print('NOTE: optimal step size not found after (option search_iter) function evaluations: ', res.nfev)
+#         # print('Increasing option search_iter may result in better step size (but longer calculation time).')
+#         # print('Solver message: ', res.message)
+
+#     p = res.x
+#     if get_norm(p, bvec, step_dir, wh, xmat, geotargets, dw) > l2norm_prior:
+#         p = 0
+
+#     return p
 

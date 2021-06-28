@@ -22,6 +22,11 @@ import src.utilities as ut
 
 import src.functions_geoweight_poisson as fgp
 
+from scipy.optimize.nonlin import BroydenFirst, KrylovJacobian
+from scipy.optimize.nonlin import InverseJacobian
+# jac = BroydenFirst()
+# kjac = KrylovJacobian(inner_M=InverseJacobian(jac))
+
 
 # %% option defaults
 options_defaults = {
@@ -43,8 +48,21 @@ options_defaults = {
 def poisson(wh, xmat, geotargets, options=None):
     a = timer()
 
+    # jac = BroydenFirst()
+    # kjac = KrylovJacobian(inner_M=InverseJacobian(jac))
+    # kjac = kjac = KrylovJacobian(inner_M=jac.inverse)
+    # jac = BroydenFirst()
+    # kjac = KrylovJacobian(inner_M=jac.inverse)
+
     options_all = options_defaults
     options_all.update(options)
+
+    # tmp1 = options_all['solver_opts']
+    # tmp2 = tmp1['jac_options']
+    # tmp2['inner_M'] = kjac
+    # tmp1['jac_options'] = tmp2
+    # options_all['solver_opts'] = tmp1
+
     opts = ut.dict_nt(options_all)  # convert dict to named tuple for ease of use
 
     if opts.scaling:
@@ -73,6 +91,9 @@ def poisson(wh, xmat, geotargets, options=None):
         jac = jax_jacobian
     else:
         jac = None
+
+
+
 
     # CAUTION: linear operator approach does NOT work well because scipy least_squares does not allow the option x_scale='jac' when using a linear operator
     # This is fast and COULD be very good if a good scaling vector is developed but without that it iterates quickly but reduces
