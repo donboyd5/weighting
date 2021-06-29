@@ -124,7 +124,7 @@ def poisson(wh, xmat, geotargets, options=None):
         method=opts.solver,
         jac=jac,
         tol=None,
-        callback=None,
+        callback=opts.callback,
         options=opts.solver_opts)
 
     # get return values

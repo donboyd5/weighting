@@ -53,6 +53,7 @@ options_defaults = {
     'search_iter': 20,
     'jvp_reset_steps': 5,
     'lgmres_maxiter': 20,
+    'notes': True,
     'quiet': True}
 
 # options_defaults = {**solver_defaults, **user_defaults}
@@ -112,13 +113,14 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
     ready_to_stop = False
 
     print('Starting Newton iterations...\n', file=f)
-    print('                 max abs                            ', file=f)
-    print('                    %             --  step --   --  # seconds  --', file=f)
-    print(' iter   l2norm    error    rmse   method size   step search  total\n', file=f)
+    print('                          max abs                            ', file=f)
+    print('                    %        %              --  step --   --  # seconds  --     cumul-', file=f)
+    print(' iter   l2norm   change    error     rmse   method size   step search  total    ative\n', file=f)
 
     # print stats at start
-    print(f"{0: 4} {l2norm: 9.2f} {maxpdiff: 8.2f} {rmse: 7.2f}", file=f)
+    print(f"{0: 4} {l2norm: 9.2f}        {maxpdiff: 10.2f} {rmse: 8.2f}", file=f)
 
+    newt_start = timer()
     while not ready_to_stop:
         count += 1
         iter_start = timer()
@@ -175,6 +177,7 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
         bvec = bvec - step_dir * p
         diffs = fgp.jax_targets_diff_copy(bvec, wh, xmat, geotargets, dw)
         l2norm = norm(diffs, 2)
+        pch = l2norm / l2norm_prior * 100 - 100
         maxpdiff = jnp.max(jnp.abs(diffs))
         rmse = math.sqrt(l2norm**2 / bvec.size)
         rmsexmax = math.sqrt((l2norm**2 - maxpdiff**2) / (bvec.size - 1))
@@ -184,8 +187,9 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
         step_time = step_end - step_start
         search_time = search_end - search_start
         itime = iter_end - iter_start
+        ctime = iter_end - newt_start
 
-        print(f'{count: 4} {l2norm: 9.2f} {maxpdiff: 8.2f} {rmse: 7.2f}   {step_method}  {p: 6.3f} {step_time: 6.2f} {search_time: 6.2f} {itime: 6.2f}', file=f)
+        print(f'{count: 4} {l2norm: 9.2f}   {pch: 6.2f} {maxpdiff: 8.2f} {rmse: 8.2f}   {step_method}  {p: 6.3f} {step_time: 6.2f} {search_time: 6.2f} {itime: 6.2f}{ctime: 9.2f}', file=f)
 
         if l2norm >= l2norm_prior * (1.0 - opts.no_improvement_proportion) and step_method == 'jvp':
             no_improvement_count += 1
@@ -305,7 +309,8 @@ def jvp_step(bvec, wh, xmat, geotargets, dw, diffs, opts):
     step, info = scipy.sparse.linalg.lgmres(Jsolver, diffs, maxiter=opts.lgmres_maxiter) #  outer_k=3
     if info > 0:
         # print('NOTE: lgmres did not converge after iterations: ', info, '. See option lgmres_maxiter.')
-        print(f'NOTE: lgmres jvp step did not converge after {info} iterations. See option lgmres_maxiter.')
+        if opts.note:
+            print(f'NOTE: lgmres jvp step did not converge after {info} iterations. See option lgmres_maxiter.')
         # print(f"{0: 4} {l2norm: 9.2f} {maxpdiff: 8.2f} {rmse: 7.2f}", file=f)
         # print('Increasing option lgmres_maxiter may lead to better step direction (but longer step calculation time).')
     # https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.lgmres.html
