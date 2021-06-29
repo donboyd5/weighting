@@ -309,7 +309,7 @@ def jvp_step(bvec, wh, xmat, geotargets, dw, diffs, opts):
     step, info = scipy.sparse.linalg.lgmres(Jsolver, diffs, maxiter=opts.lgmres_maxiter) #  outer_k=3
     if info > 0:
         # print('NOTE: lgmres did not converge after iterations: ', info, '. See option lgmres_maxiter.')
-        if opts.note:
+        if opts.notes:
             print(f'NOTE: lgmres jvp step did not converge after {info} iterations. See option lgmres_maxiter.')
         # print(f"{0: 4} {l2norm: 9.2f} {maxpdiff: 8.2f} {rmse: 7.2f}", file=f)
         # print('Increasing option lgmres_maxiter may lead to better step direction (but longer step calculation time).')
