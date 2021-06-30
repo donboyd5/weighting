@@ -69,8 +69,8 @@ def jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights):
     # the copy into this function successfully.
     return diffs
 
-def jax_targets_diff_copy(eta_object, wh, xmat, geotargets, diff_weights):
-    diffs = jax_targets_diff(eta_object, wh, xmat, geotargets, diff_weights)
+def jax_targets_diff_copy(beta_object, wh, xmat, geotargets, diff_weights):
+    diffs = jax_targets_diff(beta_object, wh, xmat, geotargets, diff_weights)
     # copy gives us a mutable type, which is needed for scipy least_squares
     diffs = np.copy(diffs)
     return diffs

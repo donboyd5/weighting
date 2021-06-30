@@ -113,8 +113,8 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
     ready_to_stop = False
 
     print('Starting Newton iterations...\n', file=f)
-    print('                          max abs                            ', file=f)
-    print('                    %        %              --  step --   --  # seconds  --     cumul-', file=f)
+    print('                          max abs                         -------- # seconds --------', file=f)
+    print('                    %        %              --  step --   --- iteration ----    cumul-', file=f)
     print(' iter   l2norm   change    error     rmse   method size   step search  total    ative\n', file=f)
 
     # print stats at start
@@ -169,7 +169,7 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
 
         search_start = timer()
         if opts.step_fixed is False:
-            p = getp_min(bvec, step_dir, wh, xmat, geotargets, dw, opts.search_iter, l2norm_prior)
+            p = getp_min(bvec, step_dir, wh, xmat, geotargets, dw, l2norm_prior, opts)
             # p = getp_reduce(bvec, step_dir, wh, xmat, geotargets, dw, opts.search_iter, l2norm_prior)
         else: p = opts.step_fixed
         search_end = timer()
@@ -436,7 +436,7 @@ def jac_step_lu(bvec, wh, xmat, geotargets, dw, diffs, options):
 
 # %% functions related to line search
 
-def getp_min(bvec, step_dir, wh, xmat, geotargets, dw, search_iter, l2norm_prior):
+def getp_min(bvec, step_dir, wh, xmat, geotargets, dw, l2norm_prior, opts):
 
     def get_norm(p, bvec, step_dir, wh, xmat, geotargets, dw):
         bvec = bvec - step_dir * p
@@ -450,7 +450,7 @@ def getp_min(bvec, step_dir, wh, xmat, geotargets, dw, search_iter, l2norm_prior
     #     return p
 
     res = minimize_scalar(get_norm, bounds=(0, 1), args=(bvec, step_dir, wh, xmat, geotargets, dw),
-        method='bounded', options={'maxiter': search_iter})
+        method='bounded', options={'maxiter': opts.search_iter})
     # https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize_scalar.html
     # scipy.optimize.minimize_scalar(fun, bracket=None, bounds=None, args=(), method='brent', tol=None, options=None)
     # options for method bounded are: options={'func': None, 'xatol': 1e-05, 'maxiter': 500, 'disp': 0})
@@ -458,12 +458,15 @@ def getp_min(bvec, step_dir, wh, xmat, geotargets, dw, search_iter, l2norm_prior
     p = res.x
     new_norm = get_norm(p, bvec, step_dir, wh, xmat, geotargets, dw)
     if new_norm > l2norm_prior:
-        print(f'Did not find l2norm-reducing step size after {res.nfev} function evaluations, setting p to 0.')
+        if opts.notes:
+            print(f'NOTE: Did not find l2norm-reducing step size after {res.nfev} function evaluations, setting p to 0.')
+
         p = 0
 
     if not res.success and (new_norm < l2norm_prior) and (0.1 < res.x < 0.9):
         # print('NOTE: optimal step size not found after function evaluations: ', res.nfev, '. See option search_iter.')
-        print(f'NOTE: l2norm improved but optimal step size not found after {res.nfev} function evaluations. See option search_iter.')
+        if opts.notes:
+            print(f'NOTE: l2norm improved but optimal step size not found after {res.nfev} function evaluations. See option search_iter.')
         # print(f'NOTE: lgmres did not converge after {info} iterations. See option lgmres_maxiter.')
         # print('Increasing option search_iter may result in better step size (but longer calculation time).')
         # print('Solver message: ', res.message)

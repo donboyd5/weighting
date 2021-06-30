@@ -89,11 +89,10 @@ def poisson(wh, xmat, geotargets, options=None):
 
     if opts.jac == 'jac':
         jac = jax_jacobian
+    elif opts.jac is False:
+        jac = False  # no change
     else:
         jac = None
-
-
-
 
     # CAUTION: linear operator approach does NOT work well because scipy least_squares does not allow the option x_scale='jac' when using a linear operator
     # This is fast and COULD be very good if a good scaling vector is developed but without that it iterates quickly but reduces
