@@ -70,6 +70,11 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
         # maybe check if file is open and else open it??
         f = logfile
 
+    # now that we have needed arguments, define lambda diffs
+    l_diffs = lambda bvec: fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+    l_diffs = jax.jit(l_diffs)
+    options['l_diffs'] = l_diffs
+
     # override default options with user options, where appropriate
     options_all = options_defaults
     options_all.update(options)
@@ -307,9 +312,7 @@ def jvp_step(bvec, wh, xmat, geotargets, dw, diffs, opts):
     # M_x = lambda x: scipy.sparse.linalg.spsolve(P, x)
     # scipy.sparse.linalg = spla.LinearOperator((bvec.size, bvec.size), M_x)
     if opts.jvp_precondition:
-        f = lambda bvec: fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
-        f = jax.jit(f)
-        invM = diag_jac_lowmem(f, jax.device_put(jax.numpy.array(bvec)))
+        invM = diag_jac_lowmem(opts.l_diffs, jax.device_put(jax.numpy.array(bvec)))
         invM = np.array(invM)
         spM = scipy.sparse.diags(1 / invM)
     else:
