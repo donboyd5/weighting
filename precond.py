@@ -19,22 +19,51 @@
 # %% imports
 import importlib
 import numpy as np
+import numpy.random as npr
+from numpy.random import seed
+from numpy.linalg import norm
+
+import scipy
 from scipy import sparse
 from scipy.sparse import linalg
-
 import scipy.linalg as spla
 import scipy.sparse as spsp
 import scipy.sparse.linalg as spspla
 
-import scipy.sparse.linalg as spla
-
-import pylops
-
-import numpy as np
-from scipy.optimize import root
+from scipy.optimize import lsq_linear, root
 from scipy.sparse import spdiags, kron
 from scipy.sparse.linalg import spilu, LinearOperator
+from scipy.sparse.linalg import aslinearoperator
+
 from numpy import cosh, zeros_like, mgrid, zeros, eye
+
+import jax
+from jax import jvp, vjp, grad, hessian
+import jax.numpy as jnp
+# this next line is CRUCIAL or we will lose precision
+from jax.config import config
+config.update('jax_enable_x64', True)
+
+import pylops
+from pylops import FirstDerivative
+
+import timeit
+from timeit import default_timer as timer
+
+import matplotlib.pyplot as plt
+
+import src.make_test_problems as mtp
+import src.microweight as mw
+
+from collections import namedtuple, OrderedDict
+
+import src.utilities as ut
+import src.functions_geoweight_poisson as fgp
+
+
+# %% reimports
+importlib.reload(fgp)
+
 
 # %% working example - DO NOT CHANGE
 # solve for x in Ax = b, using preconditioner
@@ -67,7 +96,7 @@ sparse.linalg.lgmres(A,b)
 
 # %% variants
 # use A and M from above
-from scipy.sparse.linalg import aslinearoperator
+
 
 Alo = aslinearoperator(A)
 Mlo = aslinearoperator(M)
@@ -148,7 +177,7 @@ sparse.linalg.gmres(Alo, b)  # this is what I am doing now
 lu, piv = spla.lu_factor(A)
 spla.lu_factor(Alo) # does not work on linear operator
 
-import jax
+
 jax.scipy.linalg.lu(A)  # good
 jax.scipy.linalg.lu(Alo)  # does not work
 
@@ -180,9 +209,6 @@ jax.scipy.linalg.lu(lvp)  # does not work with matrix vector product
     # l_jvp = lambda diffs: jvp(l_diffs, (bvec,), (diffs,))[1]
 
 # %% more play
-import pylops
-from pylops import FirstDerivative
-import timeit
 
 nx = 7
 x = range(-(nx // 2), nx // 2 + (1 if nx % 2 else 0))
@@ -197,10 +223,7 @@ xadj = Dlop.H*y
 # xinv = D^-1 y
 xinv = Dlop / y
 
-import timeit
-import matplotlib.pyplot as plt
-import numpy as np
-import pylops
+
 
 # setup command
 cmd_setup ="""\
@@ -356,9 +379,6 @@ info
 
 
 # %% diagonals
-from jax import jvp, grad, hessian
-import jax.numpy as jnp
-import numpy.random as npr
 
 rng = npr.RandomState(0)
 a = rng.randn(4)
@@ -524,39 +544,20 @@ J1_ilu.solve() # needs argument rhs
 M = LinearOperator(shape=(nx*ny, nx*ny), matvec=J1_ilu.solve)
 
 # %% try a test problem
-import scipy
-from scipy.optimize import lsq_linear
-from numpy.random import seed
-from timeit import default_timer as timer
-from collections import OrderedDict
 
-import src.make_test_problems as mtp
-import src.microweight as mw
-
-import jax
-import jax.numpy as jnp
-from jax import jvp, vjp
-# this next line is CRUCIAL or we will lose precision
-from jax.config import config
-config.update('jax_enable_x64', True)
-
-from timeit import default_timer as timer
-from collections import namedtuple
-
-from numpy.linalg import norm
-
-import src.utilities as ut
-import src.functions_geoweight_poisson as fgp
-
-
-# %% reimports
-importlib.reload(fgp)
 
 
 # %% make problem
 p = mtp.Problem(h=20, s=3, k=2, xsd=.1, ssd=.5, pctzero=0)
 p = mtp.Problem(h=100, s=3, k=2, xsd=.1, ssd=.5, pctzero=.4)
 p = mtp.Problem(h=1000, s=10, k=5, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=10000, s=10, k=8, xsd=.1, ssd=.5, pctzero=.2)
+p = mtp.Problem(h=20000, s=20, k=15, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=30000, s=30, k=20, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=35000, s=40, k=25, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=40000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.4)
+p = mtp.Problem(h=50000, s=50, k=30, xsd=.1, ssd=.5, pctzero=.2)
+
 wh = p.wh
 xmat = p.xmat
 geotargets = p.geotargets
@@ -665,6 +666,28 @@ diag_grad(f, jax.device_put(jax.numpy.arange(4, dtype='float')))
 jax.jacfwd(f)(jax.numpy.arange(4, dtype='float'))
 # f(np.array([0, 1, 2, 3]))
 
+# THIS WORKS!
+f = lambda bvec: fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+diag_grad(f, jax.device_put(jax.numpy.array(bvec)))
+jnp.diag(jax.jacfwd(f)(bvec))
+
+%timeit diag_grad(f, jax.device_put(jax.numpy.array(bvec)))
+%timeit jnp.diag(jax.jacfwd(f)(bvec))
+
+# to reduce memory usage try
+# jax.lax.map(f, xs) instead of vmap...but performance may suffer
+
+# low mem
+def diag_grad(f, x):
+    def partial_grad_f_index(i):
+        def partial_grad_f_x(xi):
+            return f(jax.ops.index_update(x, i, xi))[i]
+        return jax.grad(partial_grad_f_x)(x[i])
+    return jax.lax.map(partial_grad_f_index)(jax.numpy.arange(x.shape[0]))
+
+
+
+
 def f2(a, b):
     return a**2 + b
 f2(3, 5)
@@ -689,16 +712,57 @@ def pgfi(i):
     def pgfx(xi):
         return f(jax.ops.index_update(x, i, xi))[i]
     return jax.grad(pgfx)(x[i]) # get Jac diagonal at this i
+pgfi(3)
 jax.vmap(pgfi)(jax.numpy.arange(x.shape[0]))
 
+# Good, but for vmap:
 def pgfi2(ibv):
     def pgfx2(bveci, wh, xmat, geotargets, dw):
         return fgp.jax_targets_diff(jax.ops.index_update(bvec, ibv, bveci), wh, xmat, geotargets, dw)[ibv]
     return jax.grad(pgfx2)(bvec[ibv], wh, xmat, geotargets, dw) # get Jac diagonal at this ibv
 jax.vmap(pgfi2)(jax.numpy.arange(bvec.shape[0]))
+
+jax.vmap(pgfi2, in_axes=(0))(jax.numpy.arange(bvec.shape[0]))
+
+jax.vmap(pgfi2)(jax.numpy.arange(6))
+
+jax.vmap(pgfi2)(np.array([0, 1, 2, 3, 4, 5]))
+jax.vmap(pgfi2)(jnp.array([0, 1, 2, 3, 4, 5]))
+
+jax.vmap(pgfi2)(jnp.arange(1))
+
+def pgfi2(ibv):
+    def pgfx2(bveci, wh, xmat, geotargets, dw):
+        return fgp.jax_targets_diff(jax.ops.index_update(bvec, ibv, bveci), wh, xmat, geotargets, dw)[ibv]
+    g = jax.grad(pgfx2)(bvec[ibv], wh, xmat, geotargets, dw)
+    return g # get Jac diagonal at this ibv
+pgfi2(5)
 jax.vmap(pgfi2)(jax.numpy.arange(bvec.shape[0]))
 
-pgfi2(1)
+
+pgfi2(0)
+
+l_pgfi2 = lambda bvec: fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+
+def dgrad(f, bvec, wh, xmat, geotargets, dw):
+    def pgfi2(ibv):
+        def pgfx2(bveci, wh, xmat, geotargets, dw):
+            return f(jax.ops.index_update(bvec, ibv, bveci), wh, xmat, geotargets, dw)[ibv]
+        return jax.grad(pgfx2)(bvec[ibv], wh, xmat, geotargets, dw) # get Jac diagonal at this ibv
+    return jax.vmap(pgfi2)(jax.numpy.arange(bvec.shape[0]))
+dgrad(fgp.jax_targets_diff, bvec, wh, xmat, geotargets, dw)
+
+jax.vmap(pgfi2)(jax.numpy.arange(bvec.shape[0]))
+
+def dgrad(f, bvec, wh, xmat, geotargets, dw):
+    def pgfi2(ibv, bvec, wh, xmat, geotargets, dw):
+        def pgfx2(bveci, bvec, wh, xmat, geotargets, dw):
+            return f(jax.ops.index_update(bvec, ibv, bveci), wh, xmat, geotargets, dw)[ibv]
+        return jax.grad(pgfx2)(bvec[ibv], wh, xmat, geotargets, dw) # get Jac diagonal at this ibv
+    return jax.vmap(pgfi2, in_axes=(0, None, None, None, None, None))(jax.numpy.arange(bvec.shape[0]), bvec, wh, xmat, geotargets, dw)
+dgrad(fgp.jax_targets_diff, bvec, wh, xmat, geotargets, dw)
+
+pgfi2(2)
 
 f(jax.ops.index_update(x, i, xi))[i]  # f value at i
 jax.ops.index_update(x, i, xi)
@@ -749,8 +813,92 @@ def our_jacfwd(f):
     return jacfun
 
 
+# %% vmap play
+def what(a,b,c):
+  z = jnp.dot(a,b)
+  return z + c
+
+v_what = jax.vmap(what, in_axes=(None,0,None))
+
+a = jnp.array([1,1,3])
+b = jnp.array([2,2])
+c = 1.0
+
+v_what(a,b,c)
+a
+b
+c
+
+
+jax.vmap(what, in_axes=(None,0,None))(a, b, c)
+
+jax.vmap(what, in_axes=(0,None,None))(a, b, c)
+jnp.dot(a[3], b) + c
+
+dbdiffs = fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+
+def djb(i):
+    return fgp.jax_targets_diff(jax.ops.index_update(bvec, i, bvec[i]), wh, xmat, geotargets, dw)[i]
+
+djb(0)
+djb(5)
+jax.vmap(djb)(jax.numpy.arange(bvec.shape[0]))
+
+jax.vmap(djb)(jax.device_put(jax.numpy.arange(6, dtype='float')))
+
+
+# Good, but for vmap:
+def pgfi2(ibv):
+    def pgfx2(bveci, wh, xmat, geotargets, dw):
+        return fgp.jax_targets_diff(jax.ops.index_update(bvec, ibv, bveci), wh, xmat, geotargets, dw)[ibv]
+    return jax.grad(pgfx2)(bvec[ibv], wh, xmat, geotargets, dw) # get Jac diagonal at this ibv
+pgfi2(0)
+jax.vmap(pgfi2)
+
+jax.vmap(pgfi2)(jax.numpy.arange(bvec.shape[0]))
 
 
 
+f = lambda x: x**jax.numpy.arange(len(x))
+x = jnp.array([0, 3, 5, 7])
+f(x)
+
+def diag_grad(f, x):
+    def partial_grad_f_index(i):
+        def partial_grad_f_x(xi):
+            return f(jax.ops.index_update(x, i, xi))[i]
+        return jax.grad(partial_grad_f_x)(x[i])
+    return jax.vmap(partial_grad_f_index)(jax.numpy.arange(x.shape[0]))
+
+diag_grad(f, jax.device_put(jax.numpy.arange(4, dtype='float')))
+
+f = lambda x: x**jax.numpy.arange(len(x))
 
 
+
+def partial_grad_f_index(i):
+    def partial_grad_f_x(xi):
+        return f(jax.ops.index_update(x, i, xi))[i]
+    return jax.grad(partial_grad_f_x)(x[i])
+
+x = jax.device_put(jax.numpy.arange(4, dtype='float')**2)
+x
+jax.vmap(partial_grad_f_index)(jax.numpy.arange(x.shape[0]))
+jax.jacfwd(f)(jax.numpy.arange(4, dtype='float'))
+jax.jacfwd(f)(x)
+
+x = jax.device_put(jax.numpy.array(bvec))
+
+f = lambda x: fgp.jax_targets_diff(x, wh, xmat, geotargets, dw)
+f = lambda bvec: fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+jax.vmap(partial_grad_f_index)(jax.numpy.arange(x.shape[0]))
+diag_grad(f, bvec)
+
+# THIS WORKS!
+f = lambda bvec: fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+diag_grad(f, jax.device_put(jax.numpy.array(bvec)))
+
+# https://stackoverflow.com/questions/61786831/vmap-over-a-list-in-jax
+# https://jiayiwu.me/blog/2021/04/05/learning-about-jax-axes-in-vmap.html
+# https://stackoverflow.com/questions/66548897/jax-vmap-behaviour
+# https://github.com/google/jax/issues/1563

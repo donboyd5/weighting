@@ -373,11 +373,14 @@ def get_jac(bvec, wh, xmat, geotargets, dw):
 def jac_step_M(bvec, wh, xmat, geotargets, dw, diffs, options):
     jacmat = get_jac(bvec, wh, xmat, geotargets, dw)
     # step = jnp.linalg.lstsq(jacmat, diffs, rcond=None)[0]
-    M = np.diagflat(np.diag(jacmat))
+    invMjd = np.diag(jacmat)
+    # Mjd = np.diag(1 / invMjd)
+    spMjd = scipy.sparse.diags(1 / invMjd)
     # print("using M")
     # M = 1 / M
 
-    step, info = scipy.sparse.linalg.lgmres(jacmat, diffs, M = M, maxiter=options.lgmres_maxiter)
+    # tol=1e-05  default
+    step, info = scipy.sparse.linalg.lgmres(jacmat, diffs, M = spMjd, tol=1e-08, maxiter=options.lgmres_maxiter)
 
     # jinv = jnp.linalg.pinv(jacmat)
     # jinv = scipy.linalg.pinv(jacmat)
