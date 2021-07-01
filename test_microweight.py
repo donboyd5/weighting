@@ -249,14 +249,15 @@ opts.update({'no_improvement_proportion': 1e-3})
 opts.update({'jac_min_improvement': 0.10})
 
 method='poisson-newton'
-opts.update({'lgmres_maxiter': 20})
+opts.update({'lgmres_maxiter': 40})
 opts.update({'search_iter': 20})
 opts.update({'max_iter': 40})
 opts.update({'stepmethod': 'auto'})
 opts.update({'jac_threshold': 1e9})
 opts.update({'no_improvement_proportion': 1e-3})
-opts.update({'jac_min_improvement': 0.10})
-opts.update({'jvp_reset_steps': 4})
+opts.update({'jac_min_improvement': 0.00001})
+opts.update({'jvp_reset_steps': 1})
+opts.update({'jvp_precondition': True})
 
 opts
 OrderedDict(sorted(opts.items()))

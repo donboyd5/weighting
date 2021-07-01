@@ -654,6 +654,7 @@ step, info = scipy.sparse.linalg.lgmres(jacmat, diffs, M = M, maxiter=options.lg
 # %% diagonal of jacobian
 # inspired by https://github.com/google/jax/issues/1563
 f = lambda x: x**jax.numpy.arange(len(x))
+f = jax.jit(f)
 
 def diag_grad(f, x):
     def partial_grad_f_index(i):
@@ -662,30 +663,45 @@ def diag_grad(f, x):
         return jax.grad(partial_grad_f_x)(x[i])
     return jax.vmap(partial_grad_f_index)(jax.numpy.arange(x.shape[0]))
 
+diag_grad = jax.jit(diag_grad)
+
 diag_grad(f, jax.device_put(jax.numpy.arange(4, dtype='float')))
 jax.jacfwd(f)(jax.numpy.arange(4, dtype='float'))
 # f(np.array([0, 1, 2, 3]))
 
 # THIS WORKS!
 f = lambda bvec: fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+f = jax.jit(f)
 diag_grad(f, jax.device_put(jax.numpy.array(bvec)))
+diag_grad(f, jax.numpy.array(bvec))
 jnp.diag(jax.jacfwd(f)(bvec))
 
 %timeit diag_grad(f, jax.device_put(jax.numpy.array(bvec)))
+%timeit diag_grad(f, jax.numpy.array(bvec))
 %timeit jnp.diag(jax.jacfwd(f)(bvec))
 
 # to reduce memory usage try
 # jax.lax.map(f, xs) instead of vmap...but performance may suffer
 
 # low mem
-def diag_grad(f, x):
+def diag_grad_lm(f, x):
+    # get the diagonal of the jacobian iteratively while using very little memory
+    # do this so we can use the inverse of the diagaonal as a preconditioner
+    # call this as:
+    #   diag_grad_lm(f, jax.device_put(jax.numpy.array(x)))
     def partial_grad_f_index(i):
         def partial_grad_f_x(xi):
             return f(jax.ops.index_update(x, i, xi))[i]
         return jax.grad(partial_grad_f_x)(x[i])
-    return jax.lax.map(partial_grad_f_index)(jax.numpy.arange(x.shape[0]))
+    return jax.lax.map(partial_grad_f_index, jax.numpy.arange(x.shape[0]))
 
+diag_grad(f, jax.device_put(jax.numpy.array(bvec)))
+diag_grad_lm(f, jax.device_put(jax.numpy.array(bvec)))
+jnp.diag(jax.jacfwd(f)(bvec))
 
+%timeit diag_grad(f, jax.device_put(jax.numpy.array(bvec)))  # 3.97s for 20k; 39.1 ms  p.h=100
+%timeit diag_grad_lm(f, jax.device_put(jax.numpy.array(bvec)))  # 707ms for 20k;  844 ms
+%timeit jnp.diag(jax.jacfwd(f)(bvec))  # 1.27s for 20k; 13.6 ms
 
 
 def f2(a, b):
@@ -902,3 +918,31 @@ diag_grad(f, jax.device_put(jax.numpy.array(bvec)))
 # https://jiayiwu.me/blog/2021/04/05/learning-about-jax-axes-in-vmap.html
 # https://stackoverflow.com/questions/66548897/jax-vmap-behaviour
 # https://github.com/google/jax/issues/1563
+# https://github.com/google/jax/issues/1923 map alternative to vmap
+
+# replace this:
+@jit
+@vmap
+def phif243(phi):
+    t4_cov = T4_cov(phi)
+    print(t4_cov.shape)
+    t2_cov = T2_cov(phi)
+    t1_cov = T1_cov(phi)
+    return np.einsum('ijkl,j,kl->i',t4_cov,t1_cov,t2_cov)
+
+out = phif243(phi)
+print(out)
+
+# with this:
+def phif243_(phi):
+    t4_cov = T4_cov(phi)
+    t2_cov = T2_cov(phi)
+    t1_cov = T1_cov(phi)
+    return np.einsum('ijkl,j,kl->i',t4_cov,t1_cov,t2_cov)
+
+@jit
+def phif243(phi):
+  return jax.lax.map(phif243_, phi)
+
+out = phif243(phi)
+print(out)

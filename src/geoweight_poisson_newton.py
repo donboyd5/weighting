@@ -52,6 +52,7 @@ options_defaults = {
     'step_fixed': False,  # False, or a fixed number
     'search_iter': 20,
     'jvp_reset_steps': 5,
+    'jvp_precondition': True,
     'lgmres_maxiter': 20,
     'notes': True,
     'quiet': True}
@@ -305,6 +306,41 @@ def jvp_step(bvec, wh, xmat, geotargets, dw, diffs, opts):
     # Construct a linear operator that computes P^-1 * x.
     # M_x = lambda x: scipy.sparse.linalg.spsolve(P, x)
     # scipy.sparse.linalg = spla.LinearOperator((bvec.size, bvec.size), M_x)
+    if opts.jvp_precondition:
+        f = lambda bvec: fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+        f = jax.jit(f)
+        invM = diag_jac_lowmem(f, jax.device_put(jax.numpy.array(bvec)))
+        invM = np.array(invM)
+        spM = scipy.sparse.diags(1 / invM)
+    else:
+        spM = None
+
+    # tol=1e-05  default
+    step, info = scipy.sparse.linalg.lgmres(Jsolver, diffs, M = spM, maxiter=opts.lgmres_maxiter)
+
+    # step, info = scipy.sparse.linalg.lgmres(Jsolver, diffs, maxiter=opts.lgmres_maxiter) #  outer_k=3
+    if info > 0:
+        # print('NOTE: lgmres did not converge after iterations: ', info, '. See option lgmres_maxiter.')
+        if opts.notes:
+            print(f'NOTE: lgmres jvp step did not converge after {info} iterations. See option lgmres_maxiter.')
+        # print(f"{0: 4} {l2norm: 9.2f} {maxpdiff: 8.2f} {rmse: 7.2f}", file=f)
+        # print('Increasing option lgmres_maxiter may lead to better step direction (but longer step calculation time).')
+    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.lgmres.html
+    # scipy.sparse.linalg.lgmres(A, b, x0=None, tol=1e-05, maxiter=1000, M=None, callback=None,
+    #   inner_m=30, outer_k=3, outer_v=None, store_outer_Av=True, prepend_outer_v=False, atol=None)
+    # print("info (0 is good): ", info)
+    # step_results = scipy.optimize.lsq_linear(Jsolver, diffs, max_iter=5) # max_iter None default
+    # if not step_results.success: print("Failure in getting step!! Check results carefully.")
+    # step = step_results.x
+    return step
+
+def jvp_step_best(bvec, wh, xmat, geotargets, dw, diffs, opts):
+    Jsolver = get_linop(bvec, wh, xmat, geotargets, dw, diffs)
+
+    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.gmres.html
+    # Construct a linear operator that computes P^-1 * x.
+    # M_x = lambda x: scipy.sparse.linalg.spsolve(P, x)
+    # scipy.sparse.linalg = spla.LinearOperator((bvec.size, bvec.size), M_x)
 
     step, info = scipy.sparse.linalg.lgmres(Jsolver, diffs, maxiter=opts.lgmres_maxiter) #  outer_k=3
     if info > 0:
@@ -321,6 +357,7 @@ def jvp_step(bvec, wh, xmat, geotargets, dw, diffs, opts):
     # if not step_results.success: print("Failure in getting step!! Check results carefully.")
     # step = step_results.x
     return step
+
 
 
 def jvp_step2a(bvec, wh, xmat, geotargets, dw, diffs, opts):
@@ -435,6 +472,26 @@ def jac_step_lu(bvec, wh, xmat, geotargets, dw, diffs, options):
     # step = jnp.dot(jinv, diffs)
 
     return step
+
+
+# %% low memory approach to getting the diagonal of the Jacobian
+def diag_jac_lowmem(f, x):
+    # get the diagonal of the jacobian iteratively while using very little memory
+    # do this so we can use the inverse of the diagaonal as a preconditioner
+    # inspired by:
+    #     https://github.com/google/jax/issues/1563 for general approach, and
+    #     https://github.com/google/jax/issues/1923 for map as alternative to vmap
+    #     map drastically reduces memory usage and actually is faster than vmap
+    #     as the jacobian gets larger
+    # call this as:
+    #   diag_jac_lowmem(f, jax.device_put(jax.numpy.array(x)))
+    # where f is a function of m variables that returns a vector of m values
+    # and x is the input vector to the function f
+    def partial_grad_f_index(i):
+        def partial_grad_f_x(xi):
+            return f(jax.ops.index_update(x, i, xi))[i]
+        return jax.grad(partial_grad_f_x)(x[i])
+    return jax.lax.map(partial_grad_f_index, jax.numpy.arange(x.shape[0]))
 
 
 # %% functions related to line search
