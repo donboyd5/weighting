@@ -254,10 +254,10 @@ opts.update({'lgmres_maxiter': 40})
 opts.update({'search_iter': 20})
 opts.update({'max_iter': 40})
 opts.update({'stepmethod': 'auto'})
-opts.update({'jac_threshold': 0})
+opts.update({'jac_threshold': 1e9})
 opts.update({'no_improvement_proportion': 1e-3})
-opts.update({'jac_min_improvement': 100.0})
-opts.update({'jvp_reset_steps': 40})
+opts.update({'jac_min_improvement': 0.0005})
+opts.update({'jvp_reset_steps': 1})
 opts.update({'jvp_precondition': False})
 
 # 168.29 secs, 22.81 l2norm, 5 iter for jvp precond

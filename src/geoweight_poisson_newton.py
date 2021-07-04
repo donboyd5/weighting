@@ -46,13 +46,14 @@ options_defaults = {
 
     'stepmethod': 'auto',
     'jac_threshold': 1e9,  # try to use jac when rmse is below this
+    'jac_precondition': False,
     'base_stepmethod': 'jac',  # jvp or jac, jac seems to work better
     'startup_period': 8,  # # of iterations in startup period (0 means no startup period)
     'startup_stepmethod': 'jvp',  # jac or jvp
     'step_fixed': False,  # False, or a fixed number
     'search_iter': 20,
     'jvp_reset_steps': 5,
-    'jvp_precondition': True,
+    'jvp_precondition': False,
     'lgmres_maxiter': 20,
     'notes': True,
     'quiet': True}
@@ -407,7 +408,6 @@ def get_jac(bvec, wh, xmat, geotargets, dw):
     jacfn = jax.jit(jacfn)
     jacmat = jacfn(bvec, wh, xmat, geotargets, dw)
     jacmat = np.array(jacmat).reshape((bvec.size, bvec.size))
-    # print(np.round(jacmat[0:10,0:5], 4))
     return jacmat
 
 def jac_step_M(bvec, wh, xmat, geotargets, dw, diffs, options):
@@ -428,6 +428,15 @@ def jac_step_M(bvec, wh, xmat, geotargets, dw, diffs, options):
 
     return step
 
+def jac_step(bvec, wh, xmat, geotargets, dw, diffs, options):
+    # jac_step_lgmres
+    jacmat = get_jac(bvec, wh, xmat, geotargets, dw)
+
+    # tol=1e-05  default
+    step, info = scipy.sparse.linalg.lgmres(jacmat, diffs, maxiter=options.lgmres_maxiter)
+
+    return step
+
 def jac_step_approx(bvec, wh, xmat, geotargets, dw, diffs, options):
     # from scipy.sparse.linalg import dsolve
     jacmat = get_jac(bvec, wh, xmat, geotargets, dw)
@@ -445,7 +454,8 @@ def jac_step_approx(bvec, wh, xmat, geotargets, dw, diffs, options):
     return step
 
 
-def jac_step(bvec, wh, xmat, geotargets, dw, diffs, options):
+def jac_step_best(bvec, wh, xmat, geotargets, dw, diffs, options):
+    # jac_step_best
     jacmat = get_jac(bvec, wh, xmat, geotargets, dw)
     # step = jnp.linalg.lstsq(jacmat, diffs, rcond=None)[0]
 
@@ -460,8 +470,55 @@ def jac_step(bvec, wh, xmat, geotargets, dw, diffs, options):
 
     return step
 
+def jac_step_qr(bvec, wh, xmat, geotargets, dw, diffs, options):
+    # jac_step_qr
+    jacmat = get_jac(bvec, wh, xmat, geotargets, dw)
+    # Ax = b
+    # A is jacmat, b is diffs, and x is step
+    q, r = jax.scipy.linalg.qr(jacmat)
+    p = jnp.dot(q.T, diffs)
+    step = jnp.dot(jnp.linalg.inv(r), p)
+    # step = jnp.linalg.lstsq(jacmat, diffs, rcond=None)[0]
 
-def jac_step_lu(bvec, wh, xmat, geotargets, dw, diffs, options):
+    # jinv = jnp.linalg.pinv(jacmat)
+    # jinv = scipy.linalg.pinv(jacmat)  # , cond=1e-11
+    # documentation for scipy 1.7.0 (caution: code currently uses 1.6.2)
+    # https://docs.scipy.org/doc/scipy/reference/reference/generated/scipy.linalg.pinv.html#scipy.linalg.pinv
+    # scipy.linalg.pinv(a, atol=None, rtol=None, return_rank=False, check_finite=True, cond=None, rcond=None)
+    # rcond in scipy 1.6.2 appears to be rtol in 1.7.0, and cond --> atol  DO NOT USE BOTH cond and rcond
+    # rtol default value is max(M, N) * eps where eps is the machine precision value of the datatype of a
+    # step = jnp.dot(jinv, diffs)
+
+    return step
+
+
+# A = np.array([[2, 5, 8, 7], [5, 2, 2, 8], [7, 5, 6, 6], [5, 4, 4, 8]])
+# b = np.array([1, 1, 1, 1])
+# lu, piv = lu_factor(A)
+# x = lu_solve((lu, piv), b)
+
+# A = np.array([[9, 3, 1, 5], [3, 7, 5, 1], [1, 5, 9, 2], [5, 1, 2, 6]])
+# c, low = cho_factor(A)
+# x = cho_solve((c, low), [1, 1, 1, 1])
+
+def jac_step_chol(bvec, wh, xmat, geotargets, dw, diffs, options):
+    # jac_step_chol
+    print("cholesky factorization...")
+    jacmat = get_jac(bvec, wh, xmat, geotargets, dw)
+    c, low = jax.scipy.linalg.cho_factor(jacmat)
+    step = jax.scipy.linalg.cho_solve((c, low), diffs)
+    return step
+
+def jac_step_lu1(bvec, wh, xmat, geotargets, dw, diffs, options):
+    # jac_step_lu1
+    # print("lu factorization...")
+    # which is better, pinv or lu??
+    jacmat = get_jac(bvec, wh, xmat, geotargets, dw)
+    lu, piv = jax.scipy.linalg.lu_factor(jacmat)
+    step = jax.scipy.linalg.lu_solve((lu, piv), diffs)
+    return step
+
+def jac_step_lu2(bvec, wh, xmat, geotargets, dw, diffs, options):
     jacmat = get_jac(bvec, wh, xmat, geotargets, dw)
     # step = jnp.linalg.lstsq(jacmat, diffs, rcond=None)[0]
     # create preconditioner
