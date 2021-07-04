@@ -24,6 +24,7 @@ class LineSearchWarning(RuntimeWarning):
     pass
 
 
+
 #------------------------------------------------------------------------------
 # Minpack's Wolfe line and scalar searches
 #------------------------------------------------------------------------------
@@ -538,9 +539,9 @@ def _quadmin(a, fa, fpa, b, fb):
 def _zoom(a_lo, a_hi, phi_lo, phi_hi, derphi_lo,
           phi, derphi, phi0, derphi0, c1, c2, extra_condition):
     """Zoom stage of approximate linesearch satisfying strong Wolfe conditions.
-    
+
     Part of the optimization algorithm in `scalar_search_wolfe2`.
-    
+
     Notes
     -----
     Implements Algorithm 3.6 (zoom) in Wright and Nocedal,

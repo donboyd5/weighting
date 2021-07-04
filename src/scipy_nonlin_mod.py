@@ -116,7 +116,7 @@ import scipy.sparse
 from scipy.linalg import get_blas_funcs
 import inspect
 from scipy._lib._util import getfullargspec_no_self as _getfullargspec
-from .linesearch import scalar_search_wolfe1, scalar_search_armijo
+from src.linesearch import scalar_search_wolfe1, scalar_search_armijo  # djb
 
 
 __all__ = [
