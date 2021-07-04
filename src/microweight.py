@@ -33,6 +33,7 @@ import src.utilities as ut
 import src.geoweight_direct_ipopt as gwd_ipopt
 
 import src.geoweight_poisson_ipopt as gwp_ipopt
+import src.geoweight_poisson_jfnk as gwp_jfnk
 import src.geoweight_poisson_lsq as gwp_lsq
 import src.geoweight_poisson_minimize_scipy as gwp_minsp
 import src.geoweight_poisson_minimize_jax as gwp_minjax
@@ -52,11 +53,11 @@ import src.reweight_leastsquares as rwls
 import src.reweight_minimizeNLP as rwmn
 import src.reweight_raking as rwrk
 
-
 # %% reimports
 importlib.reload(gwd_ipopt)
 
 importlib.reload(gwp_ipopt)
+importlib.reload(gwp_jfnk)
 importlib.reload(gwp_lsq)
 importlib.reload(gwp_minsp)
 importlib.reload(gwp_minjax)
@@ -220,6 +221,10 @@ class Microweight:
 
         elif method == 'poisson-root':
             method_result = gwp_root.poisson(self.wh, self.xmat, self.geotargets,
+                                         options=options)
+
+        elif method == 'poisson-jfnk':
+            method_result = gwp_jfnk.poisson(self.wh, self.xmat, self.geotargets,
                                          options=options)
 
         # calculate sum of squared percentage differences
