@@ -104,8 +104,11 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
 
     # l_diffsa = lambda bvec: jnp.array(fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw))
     # jacfn = jax.jacfwd(l_diffsa)
+    # l_diffs = lambda bvec: fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+    # get_jac(bvec, wh, xmat, geotargets, dw)
+    ljac = lambda bvec: get_jac(bvec, wh, xmat, geotargets, dw)
 
-    jacdjb = snl.jac_setup_djb(fjac, betavec0, jacobian='jvp_krylov')  # krylov, jvp_krylov
+    jacdjb = snl.jac_setup_djb(fjac, betavec0, jacobian='krylov') # ljac)  # 'krylov')  # krylov, jvp_krylov
     print("created jacdjb")
 
 
