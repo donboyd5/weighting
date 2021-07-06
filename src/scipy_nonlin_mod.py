@@ -116,16 +116,24 @@ import scipy.sparse
 from scipy.linalg import get_blas_funcs
 import inspect
 from scipy._lib._util import getfullargspec_no_self as _getfullargspec
-from src.linesearch import scalar_search_wolfe1, scalar_search_armijo  # djb
+
+# Boyd additional imports
+from src.scipy_linesearch_mod import scalar_search_wolfe1, scalar_search_armijo
+import jax
+import jax.numpy as jnp
+from jax import jvp, vjp
+# # this next line is CRUCIAL or we will lose precision
+from jax.config import config
+config.update('jax_enable_x64', True)
 
 
 __all__ = [
     'broyden1', 'broyden2', 'anderson', 'linearmixing',
     'diagbroyden', 'excitingmixing', 'newton_krylov']
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Utility functions
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 
 class NoConvergence(Exception):
@@ -156,9 +164,9 @@ def _safe_norm(v):
         return np.array(np.inf)
     return norm(v)
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Generic nonlinear solver machinery
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 
 _doc_parts = dict(
@@ -218,6 +226,19 @@ def _set_doc(obj):
         obj.__doc__ = obj.__doc__ % _doc_parts
 
 
+def jac_setup_djb(F, x0, jacobian='krylov'):
+    # Boyd function 7/5/2021
+    print("jacobian type is: ", jacobian)
+    jacobian = asjacobian(jacobian)
+    x0 = _as_inexact(x0)
+    # F = jax.jit(F)  # not any faster
+    def func(z): return _as_inexact(F(_array_like(z, x0))).flatten()
+    x = x0.flatten()
+    Fx = func(x)
+    jacobian.setup(x.copy(), Fx, func, F)  # Boyd added F_original to this
+    return jacobian
+
+
 def nonlin_solve(F, x0, jacobian='krylov', iter=None, verbose=False,
                  maxiter=None, f_tol=None, f_rtol=None, x_tol=None, x_rtol=None,
                  tol_norm=None, line_search='armijo', callback=None,
@@ -269,7 +290,7 @@ def nonlin_solve(F, x0, jacobian='krylov', iter=None, verbose=False,
                                      iter=iter, norm=tol_norm)
 
     x0 = _as_inexact(x0)
-    func = lambda z: _as_inexact(F(_array_like(z, x0))).flatten()
+    def func(z): return _as_inexact(F(_array_like(z, x0))).flatten()
     x = x0.flatten()
 
     dx = np.full_like(x, np.inf)
@@ -425,6 +446,7 @@ class TerminationCondition:
     - |dx| < x_tol
 
     """
+
     def __init__(self, f_tol=None, f_rtol=None, x_tol=None, x_rtol=None,
                  iter=None, norm=maxnorm):
 
@@ -472,9 +494,9 @@ class TerminationCondition:
                         and dx_norm/self.x_rtol <= x_norm))
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Generic Jacobian approximation
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 class Jacobian:
     """
@@ -535,8 +557,9 @@ class Jacobian:
     def update(self, x, F):
         pass
 
-    def setup(self, x, F, func):
+    def setup(self, x, F, func, F_original):  # Boyd added F_original to this
         self.func = func
+        self.F_original = F_original  # Boyd added this
         self.shape = (F.size, x.size)
         self.dtype = F.dtype
         if self.__class__.setup is Jacobian.setup:
@@ -650,14 +673,15 @@ def asjacobian(J):
                     diagbroyden=DiagBroyden,
                     linearmixing=LinearMixing,
                     excitingmixing=ExcitingMixing,
-                    krylov=KrylovJacobian)[J]()
+                    krylov=KrylovJacobian,
+                    jvp_krylov=JVPKrylovJacobian)[J]()
     else:
         raise TypeError('Cannot convert object to a Jacobian')
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Broyden
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 class GenericBroyden(Jacobian):
     def setup(self, x0, f0, func):
@@ -728,7 +752,7 @@ class LowRankMatrix:
         A = alpha * np.identity(len(cs), dtype=c0.dtype)
         for i, d in enumerate(ds):
             for j, c in enumerate(cs):
-                A[i,j] += dotc(d, c)
+                A[i, j] += dotc(d, c)
 
         q = np.zeros(len(cs), dtype=c0.dtype)
         for j, d in enumerate(ds):
@@ -768,7 +792,7 @@ class LowRankMatrix:
 
     def append(self, c, d):
         if self.collapsed is not None:
-            self.collapsed += c[:,None] * d[None,:].conj()
+            self.collapsed += c[:, None] * d[None, :].conj()
             return
 
         self.cs.append(c)
@@ -783,7 +807,7 @@ class LowRankMatrix:
 
         Gm = self.alpha*np.identity(self.n, dtype=self.dtype)
         for c, d in zip(self.cs, self.ds):
-            Gm += c[:,None]*d[None,:].conj()
+            Gm += c[:, None]*d[None, :].conj()
         return Gm
 
     def collapse(self):
@@ -874,8 +898,8 @@ class LowRankMatrix:
         D = dot(D, WH.T.conj())
 
         for k in range(q):
-            self.cs[k] = C[:,k].copy()
-            self.ds[k] = D[:,k].copy()
+            self.cs[k] = C[:, k].copy()
+            self.ds[k] = D[:, k].copy()
 
         del self.cs[q:]
         del self.ds[q:]
@@ -1078,9 +1102,9 @@ class BroydenSecond(BroydenFirst):
         self.Gm.append(c, d)
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Broyden-like (restricted memory)
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 class Anderson(GenericBroyden):
     """
@@ -1199,9 +1223,10 @@ class Anderson(GenericBroyden):
         b = np.empty((n, n), dtype=f.dtype)
         for i in range(n):
             for j in range(n):
-                b[i,j] = vdot(self.df[i], self.dx[j])
+                b[i, j] = vdot(self.df[i], self.dx[j])
                 if i == j and self.w0 != 0:
-                    b[i,j] -= vdot(self.df[i], self.df[i])*self.w0**2*self.alpha
+                    b[i, j] -= vdot(self.df[i], self.df[i]) * \
+                        self.w0**2*self.alpha
         gamma = solve(b, df_f)
 
         for m in range(n):
@@ -1228,14 +1253,14 @@ class Anderson(GenericBroyden):
                     wd = self.w0**2
                 else:
                     wd = 0
-                a[i,j] = (1+wd)*vdot(self.df[i], self.df[j])
+                a[i, j] = (1+wd)*vdot(self.df[i], self.df[j])
 
         a += np.triu(a, 1).T.conj()
         self.a = a
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Simple iterations
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 
 class DiagBroyden(GenericBroyden):
@@ -1411,9 +1436,9 @@ class ExcitingMixing(GenericBroyden):
         np.clip(self.beta, 0, self.alphamax, out=self.beta)
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Iterative/Krylov approximated Jacobians
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 class KrylovJacobian(Jacobian):
     r"""
@@ -1522,7 +1547,7 @@ class KrylovJacobian(Jacobian):
             lgmres=scipy.sparse.linalg.lgmres,
             cgs=scipy.sparse.linalg.cgs,
             minres=scipy.sparse.linalg.minres,
-            ).get(method, method)
+        ).get(method, method)
 
         self.method_kw = dict(maxiter=inner_maxiter, M=self.preconditioner)
 
@@ -1586,8 +1611,9 @@ class KrylovJacobian(Jacobian):
             if hasattr(self.preconditioner, 'update'):
                 self.preconditioner.update(x, f)
 
-    def setup(self, x, f, func):
-        Jacobian.setup(self, x, f, func)
+    def setup(self, x, f, func, F_original):
+        print("setting up krylov")
+        Jacobian.setup(self, x, f, func, F_original)
         self.x0 = x
         self.f0 = f
         self.op = scipy.sparse.linalg.aslinearoperator(self)
@@ -1603,9 +1629,247 @@ class KrylovJacobian(Jacobian):
                 self.preconditioner.setup(x, f, func)
 
 
-#------------------------------------------------------------------------------
+class JVPKrylovJacobian(Jacobian):
+    r"""
+    Find a root of a function, using Krylov approximation for inverse Jacobian.
+
+    This method is suitable for solving large-scale problems.
+
+    Boyd adaptation of scipy nonlin KrylovJacobian class to use a jax jacobian
+    vector product. 7/6/2021
+
+    Parameters
+    ----------
+    %(params_basic)s
+    rdiff : float, optional
+        Relative step size to use in numerical differentiation.
+    method : {'lgmres', 'gmres', 'bicgstab', 'cgs', 'minres'} or function
+        Krylov method to use to approximate the Jacobian.
+        Can be a string, or a function implementing the same interface as
+        the iterative solvers in `scipy.sparse.linalg`.
+
+        The default is `scipy.sparse.linalg.lgmres`.
+    inner_maxiter : int, optional
+        Parameter to pass to the "inner" Krylov solver: maximum number of
+        iterations. Iteration will stop after maxiter steps even if the
+        specified tolerance has not been achieved.
+    inner_M : LinearOperator or InverseJacobian
+        Preconditioner for the inner Krylov iteration.
+        Note that you can use also inverse Jacobians as (adaptive)
+        preconditioners. For example,
+
+        >>> from scipy.optimize.nonlin import BroydenFirst, KrylovJacobian
+        >>> from scipy.optimize.nonlin import InverseJacobian
+        >>> jac = BroydenFirst()
+        >>> kjac = KrylovJacobian(inner_M=InverseJacobian(jac))
+
+        If the preconditioner has a method named 'update', it will be called
+        as ``update(x, f)`` after each nonlinear step, with ``x`` giving
+        the current point, and ``f`` the current function value.
+    outer_k : int, optional
+        Size of the subspace kept across LGMRES nonlinear iterations.
+        See `scipy.sparse.linalg.lgmres` for details.
+    inner_kwargs : kwargs
+        Keyword parameters for the "inner" Krylov solver
+        (defined with `method`). Parameter names must start with
+        the `inner_` prefix which will be stripped before passing on
+        the inner method. See, e.g., `scipy.sparse.linalg.gmres` for details.
+    %(params_extra)s
+
+    See Also
+    --------
+    root : Interface to root finding algorithms for multivariate
+           functions. See ``method=='krylov'`` in particular.
+    scipy.sparse.linalg.gmres
+    scipy.sparse.linalg.lgmres
+
+    Notes
+    -----
+    This function implements a Newton-Krylov solver. The basic idea is
+    to compute the inverse of the Jacobian with an iterative Krylov
+    method. These methods require only evaluating the Jacobian-vector
+    products, which are conveniently approximated by a finite difference:
+
+    .. math:: J v \approx (f(x + \omega*v/|v|) - f(x)) / \omega
+
+    Due to the use of iterative matrix inverses, these methods can
+    deal with large nonlinear problems.
+
+    SciPy's `scipy.sparse.linalg` module offers a selection of Krylov
+    solvers to choose from. The default here is `lgmres`, which is a
+    variant of restarted GMRES iteration that reuses some of the
+    information obtained in the previous Newton steps to invert
+    Jacobians in subsequent steps.
+
+    For a review on Newton-Krylov methods, see for example [1]_,
+    and for the LGMRES sparse inverse method, see [2]_.
+
+    References
+    ----------
+    .. [1] D.A. Knoll and D.E. Keyes, J. Comp. Phys. 193, 357 (2004).
+           :doi:`10.1016/j.jcp.2003.08.010`
+    .. [2] A.H. Baker and E.R. Jessup and T. Manteuffel,
+           SIAM J. Matrix Anal. Appl. 26, 962 (2005).
+           :doi:`10.1137/S0895479803422014`
+
+    Examples
+    --------
+    The following functions define a system of nonlinear equations
+
+    >>> def fun(x):
+    ...     return [x[0] + 0.5 * x[1] - 1.0,
+    ...             0.5 * (x[1] - x[0]) ** 2]
+
+    A solution can be obtained as follows.
+
+    >>> from scipy import optimize
+    >>> sol = optimize.newton_krylov(fun, [0, 0])
+    >>> sol
+    array([0.66731771, 0.66536458])
+
+    """
+
+    def __init__(self, rdiff=None, method='lgmres', inner_maxiter=20,
+                 inner_M=None, outer_k=10, **kw):
+        self.preconditioner = inner_M
+        self.rdiff = rdiff
+        self.method = dict(
+            bicgstab=scipy.sparse.linalg.bicgstab,
+            gmres=scipy.sparse.linalg.gmres,
+            lgmres=scipy.sparse.linalg.lgmres,
+            cgs=scipy.sparse.linalg.cgs,
+            minres=scipy.sparse.linalg.minres,
+        ).get(method, method)
+
+        self.method_kw = dict(maxiter=inner_maxiter, M=self.preconditioner)
+
+        if self.method is scipy.sparse.linalg.gmres:
+            # Replace GMRES's outer iteration with Newton steps
+            self.method_kw['restrt'] = inner_maxiter
+            self.method_kw['maxiter'] = 1
+            self.method_kw.setdefault('atol', 0)
+        elif self.method is scipy.sparse.linalg.gcrotmk:
+            self.method_kw.setdefault('atol', 0)
+        elif self.method is scipy.sparse.linalg.lgmres:
+            self.method_kw['outer_k'] = outer_k
+            # Replace LGMRES's outer iteration with Newton steps
+            self.method_kw['maxiter'] = 1
+            # Carry LGMRES's `outer_v` vectors across nonlinear iterations
+            self.method_kw.setdefault('outer_v', [])
+            self.method_kw.setdefault('prepend_outer_v', True)
+            # But don't carry the corresponding Jacobian*v products, in case
+            # the Jacobian changes a lot in the nonlinear step
+            #
+            # XXX: some trust-region inspired ideas might be more efficient...
+            #      See e.g., Brown & Saad. But needs to be implemented separately
+            #      since it's not an inexact Newton method.
+            self.method_kw.setdefault('store_outer_Av', False)
+            self.method_kw.setdefault('atol', 0)
+
+        for key, value in kw.items():
+            if not key.startswith('inner_'):
+                raise ValueError("Unknown parameter %s" % key)
+            self.method_kw[key[6:]] = value
+
+    def _update_diff_step(self):
+        mx = abs(self.x0).max()
+        mf = abs(self.f0).max()
+        self.omega = self.rdiff * max(1, mx) / max(1, mf)
+
+    def matvec(self, v):
+        # Boyd modified this function to use l_jvp to calculate the matrix-vector product
+        # print("in matvec")
+        # l_jvp = lambda diffs: jax.jvp(l_diffs, (bvec,), (diffs,))[1]
+        # l_jvp = lambda v: jvp(self.F_original, (self.x0,), (v,))[1]  # ???
+        r = self.l_jvp(v)
+        nv = norm(v)
+        if nv == 0:
+            return 0*v
+        # sc = self.omega / nv
+        # r = (self.func(self.x0 + sc*v) - self.f0) / sc
+        if not np.all(np.isfinite(r)) and np.all(np.isfinite(v)):
+            raise ValueError('Function returned non-finite results')
+        return r
+
+    # def rmatvec(self, v):
+    #     # Boyd modified this function to use l_jvp to calculate the matrix-vector product
+    #     # print("in matvec")
+    #     # l_jvp = lambda diffs: jax.jvp(l_diffs, (bvec,), (diffs,))[1]
+    #     # l_vjp = lambda diffs: vjp(l_diffs, bvec)[1](diffs)
+    #     # l_jvp = lambda v: jvp(self.F_original, (self.x0,), (v,))[1]  # ???
+    #     print("in rmatvec")
+    #     # l_vjp = lambda v: vjp(self.F_original, self.x0)[1](v)
+    #     r = self.l_vjp(v)
+    #     nv = norm(v)
+    #     if nv == 0:
+    #         return 0*v
+    #     # sc = self.omega / nv
+    #     # r = (self.func(self.x0 + sc*v) - self.f0) / sc
+    #     if not np.all(np.isfinite(r)) and np.all(np.isfinite(v)):
+    #         raise ValueError('Function returned non-finite results')
+    #     return r
+
+    # def matvec(self, v):
+    #     nv = norm(v)
+    #     if nv == 0:
+    #         return 0*v
+    #     sc = self.omega / nv
+    #     r = (self.func(self.x0 + sc*v) - self.f0) / sc
+    #     if not np.all(np.isfinite(r)) and np.all(np.isfinite(v)):
+    #         raise ValueError('Function returned non-finite results')
+    #     return r
+
+    def solve(self, rhs, tol=0):
+        if 'tol' in self.method_kw:
+            sol, info = self.method(self.op, rhs, **self.method_kw)
+        else:
+            sol, info = self.method(self.op, rhs, tol=tol, **self.method_kw)
+        return sol
+
+    # def rsolve(self, rhs, tol=0):
+    #     if 'tol' in self.method_kw:
+    #         sol, info = self.method(self.op, rhs, **self.method_kw)
+    #     else:
+    #         sol, info = self.method(self.op, rhs, tol=tol, **self.method_kw)
+    #     return sol
+
+    def update(self, x, f):
+        self.x0 = x
+        self.f0 = f
+        self._update_diff_step()
+
+        # Update also the preconditioner, if possible
+        if self.preconditioner is not None:
+            if hasattr(self.preconditioner, 'update'):
+                self.preconditioner.update(x, f)
+
+    def setup(self, x, f, func, F_original):
+        # Boyd modified this function to create self.l_jvp
+        print("setting up JVP krylov")
+        Jacobian.setup(self, x, f, func, F_original)
+        self.x0 = x
+        self.f0 = f
+        self.F_original = F_original
+        # self.l_jvp = lambda v: jvp(F_original, (x,), (v,))[1]  # ???
+        self.l_jvp = lambda v: jvp(self.F_original, (self.x0,), (v,))[1]  # ???
+        # self.l_jvp = jax.jit(self.l_jvp)
+        # self.l_vjp = lambda v: vjp(self.F_original, self.x0)[1](v)
+        self.op = scipy.sparse.linalg.aslinearoperator(self)
+
+        if self.rdiff is None:
+            self.rdiff = np.finfo(x.dtype).eps ** (1./2)
+
+        self._update_diff_step()
+
+        # Setup also the preconditioner, if possible
+        if self.preconditioner is not None:
+            if hasattr(self.preconditioner, 'setup'):
+                self.preconditioner.setup(x, f, func)
+
+
+# ------------------------------------------------------------------------------
 # Wrapper functions
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 def _nonlin_wrapper(name, jac):
     """
