@@ -27,11 +27,14 @@ from collections import namedtuple
 
 import src.utilities as ut
 import src.functions_geoweight_poisson as fgp
+import src.scipy_nonlin_mod as snl
 # import make_test_problems as mtp  # src.make_test_problems
 
 
 # %% reimports
 importlib.reload(fgp)
+importlib.reload(snl)
+
 
 
 # %% option defaults
@@ -93,6 +96,22 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
     bvec = betavec0
     dw = fgp.jax_get_diff_weights(geotargets)
 
+    # we need to define jac after dw is defined
+    # def fjac(x):
+    #     return fgp.jax_targets_diff(x, wh, xmat, geotargets, dw)
+
+    fjac = l_diffs
+
+    # l_diffsa = lambda bvec: jnp.array(fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw))
+    # jacfn = jax.jacfwd(l_diffsa)
+    # l_diffs = lambda bvec: fgp.jax_targets_diff(bvec, wh, xmat, geotargets, dw)
+    # get_jac(bvec, wh, xmat, geotargets, dw)
+    ljac = lambda bvec: get_jac(bvec, wh, xmat, geotargets, dw)
+
+    jacdjb = snl.jac_setup_djb(fjac, betavec0, jacobian='krylov') # ljac)  # 'krylov')  # krylov, jvp_krylov
+    print("created jacdjb")
+
+
     count = 0
     no_improvement_count = 0
     jvpcount = 1e9
@@ -104,7 +123,6 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
     l2norm = norm(diffs, 2)
     maxpdiff = jnp.max(jnp.abs(diffs))
     rmse = math.sqrt(l2norm**2 / bvec.size)
-    rmsexmax = math.sqrt((l2norm**2 - maxpdiff**2) / (bvec.size - 1))
 
     # define initial best values
     iter_best = 0
@@ -118,6 +136,8 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
     no_improvement = False
     NO_IMPROVEMENT_MAX = 2
     ready_to_stop = False
+
+    # rng = np.random.default_rng(12345)
 
     print('Starting Newton iterations...\n', file=f)
     print('                          max abs                         -------- # seconds --------', file=f)
@@ -171,8 +191,13 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
 
         # get step direction and step size
         step_start = timer()
-        step_dir = get_step(bvec, wh, xmat, geotargets, dw, diffs, opts)
+        # step_dir = get_step(bvec, wh, xmat, geotargets, dw, diffs, opts)
+        step_dir = jacdjb.solve(diffs, tol=1e-3)
         step_end = timer()
+
+        # print('step: ', step_dir)
+        # step2 = jacdjb.solve(diffs, tol=1e-3)
+        # print('step2: ', step2)
 
         search_start = timer()
         if opts.step_fixed is False:
@@ -181,13 +206,22 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
         else: p = opts.step_fixed
         search_end = timer()
 
+        # if p == 0:
+        #     print("p==0 so perturbing step direction and trying 1 more time...")
+        #     tol = 1e-8
+        #     step_dir = step_dir * (1.0 + rng.uniform(low=-tol, high=tol, size=step_dir.size))
+        #     p = getp_min(bvec, step_dir, wh, xmat, geotargets, dw, l2norm_prior, opts)
+
         bvec = bvec - step_dir * p
+
         diffs = fgp.jax_targets_diff_copy(bvec, wh, xmat, geotargets, dw)
         l2norm = norm(diffs, 2)
+
+        jacdjb.update(bvec.copy(), diffs)
+
         pch = l2norm / l2norm_prior * 100 - 100
         maxpdiff = jnp.max(jnp.abs(diffs))
         rmse = math.sqrt(l2norm**2 / bvec.size)
-        rmsexmax = math.sqrt((l2norm**2 - maxpdiff**2) / (bvec.size - 1))
 
         iter_end = timer()
 
@@ -203,13 +237,14 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
         else:
             no_improvement_count = 0
 
-        if l2norm <= l2norm_best:
+        if l2norm < l2norm_best:
             iter_best = count
             bvec_best = bvec.copy()
             l2norm_best = l2norm.copy()
         else:
             # if this isn't the best iteration, prepare to reset
             bvec = bvec_best.copy()
+            l2norm = l2norm_best.copy()
 
         # check stopping conditions
         message = ''
@@ -428,7 +463,27 @@ def jac_step_M(bvec, wh, xmat, geotargets, dw, diffs, options):
 
     return step
 
-def jac_step(bvec, wh, xmat, geotargets, dw, diffs, options):
+def jac_step_lstsq(bvec, wh, xmat, geotargets, dw, diffs, options):
+    # jac_step_lstsq
+    jacmat = get_jac(bvec, wh, xmat, geotargets, dw)
+
+    step, res, rnk, s = scipy.linalg.lstsq(
+        jacmat, diffs,
+        cond=1e-12,
+        overwrite_a=False, overwrite_b=False,
+        check_finite=True,
+        lapack_driver='gelsd')  # gelsd, gelsy, gelss
+    return step
+
+
+def jac_step_solve(bvec, wh, xmat, geotargets, dw, diffs, options):
+    # jac_step_solve
+    jacmat = get_jac(bvec, wh, xmat, geotargets, dw)
+    step = np.linalg.solve(jacmat, diffs)
+    return step
+
+def jac_step_lgmres(bvec, wh, xmat, geotargets, dw, diffs, options):
+    # BEST
     # jac_step_lgmres
     jacmat = get_jac(bvec, wh, xmat, geotargets, dw)
 
@@ -509,7 +564,7 @@ def jac_step_chol(bvec, wh, xmat, geotargets, dw, diffs, options):
     step = jax.scipy.linalg.cho_solve((c, low), diffs)
     return step
 
-def jac_step_lu1(bvec, wh, xmat, geotargets, dw, diffs, options):
+def jac_step(bvec, wh, xmat, geotargets, dw, diffs, options):
     # jac_step_lu1
     # print("lu factorization...")
     # which is better, pinv or lu??
@@ -517,6 +572,7 @@ def jac_step_lu1(bvec, wh, xmat, geotargets, dw, diffs, options):
     lu, piv = jax.scipy.linalg.lu_factor(jacmat)
     step = jax.scipy.linalg.lu_solve((lu, piv), diffs)
     return step
+
 
 def jac_step_lu2(bvec, wh, xmat, geotargets, dw, diffs, options):
     jacmat = get_jac(bvec, wh, xmat, geotargets, dw)

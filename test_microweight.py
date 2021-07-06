@@ -256,7 +256,7 @@ opts.update({'max_iter': 40})
 opts.update({'stepmethod': 'auto'})
 opts.update({'jac_threshold': 1e9})
 opts.update({'no_improvement_proportion': 1e-3})
-opts.update({'jac_min_improvement': 0.0005})
+opts.update({'jac_min_improvement': 0.00})
 opts.update({'jvp_reset_steps': 1})
 opts.update({'jvp_precondition': False})
 
