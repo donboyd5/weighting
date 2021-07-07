@@ -46,10 +46,11 @@ options_defaults = {
     'maxiter': 2000,
     'search_iter': 20,
     'maxp_tol': .01,  # .01 is 1/100 of 1% for the max % difference from target
+    'bounds': (0, 1),
     'maxseconds': 20 * 60,
     'method_names': ('jac', 'krylov', 'jvp'),
     'method_maxiter_values': (40, 1000, 5),
-    'method_improvement_minimums': (0.1, 0.0001, 0.01),
+    'method_improvement_minimums': (0.05, 1e-6, 0.01),
 
     # step_method-specific options
     'krylov_tol': 1e-3,
@@ -122,6 +123,7 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
     no_improvement = True
     method_count = 0
     method_improvement = 0
+    method_improvement_min = 0
 
     # create a dict of step functions
     step_functions = {'jac': jac_step,
@@ -150,7 +152,8 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
         # decide whether we need to switch methods - always true when entering loop because no_improvement is true
         if no_improvement or \
             method_count >= method_maxiter or \
-                method_improvement < method_improvement_min:  # time to switch methods
+                np.abs(method_improvement) < method_improvement_min:  # time to switch methods
+            # print("count, improvement and min needed: ", count, method_improvement, method_improvement_min)
             step_method = next(method_names)
             get_step = step_functions[step_method]
             method_maxiter = next(method_maxiter_values)
@@ -612,7 +615,7 @@ def getp_min(bvec, step_dir, wh, xmat, geotargets, dw, l2norm_prior, opts):
     # if l2norm < l2norm_prior:
     #     return p
 
-    res = minimize_scalar(get_norm, bounds=(0, 1), args=(bvec, step_dir, wh, xmat, geotargets, dw),
+    res = minimize_scalar(get_norm, bounds=opts['pbounds'], args=(bvec, step_dir, wh, xmat, geotargets, dw),
                           method='bounded', options={'maxiter': opts['search_iter']})
     # https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize_scalar.html
     # scipy.optimize.minimize_scalar(fun, bracket=None, bounds=None, args=(), method='brent', tol=None, options=None)
