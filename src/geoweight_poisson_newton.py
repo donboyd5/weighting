@@ -138,12 +138,12 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
 
 
     print('\nStarting Newton iterations...\n', file=opts['f'])
-    print('                          max abs                            -------- # seconds --------', file=opts['f'])
-    print('                    %        %              ---- step ----   --- iteration ----    cumul-', file=opts['f'])
-    print(' iter   l2norm   change    error     rmse   method    size   step search  total    ative\n', file=opts['f'])
+    print('                            max abs                            -------- # seconds --------', file=opts['f'])
+    print('                      %        %              ---- step ----   --- iteration ----    cumul-', file=opts['f'])
+    print(' iter    l2norm    change    error     rmse   method    size   step search  total    ative\n', file=opts['f'])
 
     # print stats at start
-    print(f"{0: 4} {l2norm: 9.2f}        {maxpdiff: 10.2f} {rmse: 8.2f}", file=opts['f'])
+    print(f"{0: 5} {l2norm: 10.3f}        {maxpdiff: 10.2f} {rmse: 8.3f}", file=opts['f'])
 
     newt_start = timer()
     while not (goal_met or maxiter or maxseconds or stalled):
@@ -188,7 +188,7 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
         itime = iter_end - iter_start # iteration time
         ctime = iter_end - newt_start  # cumulative time
 
-        print(f'{count: 4} {l2norm: 9.2f}   {pch: 6.2f} {maxpdiff: 8.2f} {rmse: 8.2f}   {step_method:6}  {p: 6.3f} {step_time: 6.2f} {search_time: 6.2f} {itime: 6.2f}{ctime: 9.2f}', file=opts['f'])
+        print(f'{count: 5} {l2norm: 10.3f}   {pch: 6.3f} {maxpdiff: 8.3f} {rmse: 8.3f}   {step_method:6}  {p: 6.3f} {step_time: 6.2f} {search_time: 6.2f} {itime: 6.2f}{ctime: 9.2f}', file=opts['f'])
 
         # NOW we can set l2norm_prior and calculate a new l2norm
         if l2norm >= l2norm_prior:
