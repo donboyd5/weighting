@@ -268,6 +268,25 @@ opts
 OrderedDict(sorted(opts.items()))
 
 # %% spot
+opts = {
+    'scaling': True,
+    'scale_goal': 10.0,  # this is an important parameter!!
+    'init_beta': 0.0,
+    'maxiter': 1000,
+    'search_iter': 20,
+    'maxp_tol': .01,  # .01 is 1/100 of 1% for the max % difference from target
+    'maxseconds': 20 * 60,
+    'no_improvement_proportion': 1e-3,
+    'auto': True, # if True, methods will be used in order defined; if false, use methods[0]
+    'methods': ('jac', 'krylov', 'jvp'),
+
+    # step_method-specific options
+    'krylov_tol': 1e-3,
+    'jac_lgmres_maxiter': 20,
+    'jvp_lgmres_maxiter': 20,
+
+    'notes': False}
+
 gwpn = prob.geoweight(method='poisson-newton', options=opts)
 gwpn.elapsed_seconds
 gwpn.sspd

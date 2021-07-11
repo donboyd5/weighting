@@ -226,16 +226,16 @@ def _set_doc(obj):
         obj.__doc__ = obj.__doc__ % _doc_parts
 
 
-def jac_setup_djb(F, x0, jacobian='krylov'):
+def jac_initialize(F, x0, jacobian='krylov'):
     # Boyd function 7/5/2021
-    print("jacobian type is: ", jacobian)
+    # print("jacobian type is: ", jacobian)
     jacobian = asjacobian(jacobian)
     x0 = _as_inexact(x0)
     # F = jax.jit(F)  # not any faster
     def func(z): return _as_inexact(F(_array_like(z, x0))).flatten()
     x = x0.flatten()
     Fx = func(x)
-    jacobian.setup(x.copy(), Fx, func, F)  # Boyd added F_original to this
+    jacobian.setup(x.copy(), Fx, func, F)  # Boyd added original F as an argument
     return jacobian
 
 
@@ -1538,7 +1538,7 @@ class KrylovJacobian(Jacobian):
     """
 
     def __init__(self, rdiff=None, method='lgmres', inner_maxiter=20,
-                 inner_M=None, outer_k=10, **kw):
+                 inner_M=None, outer_k=10, **kw): # outer_k=10 original
         self.preconditioner = inner_M
         self.rdiff = rdiff
         self.method = dict(
@@ -1602,8 +1602,8 @@ class KrylovJacobian(Jacobian):
         return sol
 
     def update(self, x, f):
-        self.x0 = x
-        self.f0 = f
+        self.x0 = x  # this is my bvec -- the x values
+        self.f0 = f  # this is my diffs -- the function value at these x's
         self._update_diff_step()
 
         # Update also the preconditioner, if possible
@@ -1612,7 +1612,7 @@ class KrylovJacobian(Jacobian):
                 self.preconditioner.update(x, f)
 
     def setup(self, x, f, func, F_original):
-        print("setting up krylov")
+        # print("setting up krylov")
         Jacobian.setup(self, x, f, func, F_original)
         self.x0 = x
         self.f0 = f
