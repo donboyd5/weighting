@@ -4,12 +4,14 @@
 
 # %% imports
 # import inspect
+import importlib
 import src.scipy_nonlin_mod as snl
 import src.functions_geoweight_poisson as fgp
 import src.utilities as ut
 from collections import namedtuple
 from timeit import default_timer as timer
-import importlib
+
+from copy import deepcopy
 
 import sys
 import math
@@ -43,19 +45,19 @@ options_defaults = {
     'scaling': True,
     'scale_goal': 10.0,  # this is an important parameter!!
     'init_beta': 0.0,
-    'maxiter': 2000,
-    'max_search_iter': 20,
+    'maxiter': 3000,
+    'max_search_iter': 30,
     'maxp_tol': .01,  # .01 is 1/100 of 1% for the max % difference from target
-    'bounds': (0, 1),
-    'maxseconds': 20 * 60,
-    'method_names': ('jac', 'krylov', 'jvp'),
-    'method_maxiter_values': (40, 1000, 5),
-    'method_improvement_minimums': (0.05, 1e-6, 0.01),
+    'pbounds': (0, 1),
+    'maxseconds': 12 * 60,
+    'method_names': ('krylov', 'jac'),
+    'method_maxiter_values': (2000, 1),
+    'method_improvement_minimums': (0.0, ),
 
     # step_method-specific options
-    'krylov_tol': 1e-3,
-    'jac_lgmres_maxiter': 20,
-    'jvp_lgmres_maxiter': 20,
+    'krylov_tol': 1e-9,
+    'jac_lgmres_maxiter': 30,
+    'jvp_lgmres_maxiter': 30,
 
     'notes': False}
 
@@ -69,12 +71,19 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
     # override default options with user options, where appropriate
     opts = options_defaults
     opts.update(options)
+    opts = deepcopy(opts)  # we don't want to change this for future runs
 
     if logfile is None:
         opts['f'] = sys.stdout
     else:
         # maybe check if file is open and else open it??
         opts['f'] = logfile
+
+    print('\nOptions:', file=opts['f'])
+    for key, value in opts.items():
+        # don't print objects we've added to
+        if key not in ['jac_krylov']:
+            print('    ', key, ' : ', value, file=opts['f'])
 
     if opts['scaling']:
         xmat, geotargets, scale_factors = fgp.scale_problem(
@@ -138,12 +147,12 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
 
 
     print('\nStarting Newton iterations...\n', file=opts['f'])
-    print('                            max abs                            -------- # seconds --------', file=opts['f'])
-    print('                      %        %              ---- step ----   --- iteration ----    cumul-', file=opts['f'])
-    print(' iter    l2norm    change    error     rmse   method    size   step search  total    ative\n', file=opts['f'])
+    print('                             max abs                              -------- # seconds --------', file=opts['f'])
+    print('                      %         %                ---- step ----   --- iteration ----    cumul-', file=opts['f'])
+    print(' iter    l2norm    change     error   rmse (%)   method    size   step search  total    ative\n', file=opts['f'])
 
     # print stats at start
-    print(f"{0: 5} {l2norm: 10.3f}        {maxpdiff: 10.2f} {rmse: 8.3f}", file=opts['f'])
+    print(f"{0: 5} {l2norm: 10.3f}          {maxpdiff: 10.3f}  {rmse: 8.3f}", file=opts['f'])
 
     newt_start = timer()
     while not (goal_met or maxiter or maxseconds or stalled):
@@ -188,7 +197,7 @@ def poisson(wh, xmat, geotargets, options=None, logfile=None):
         itime = iter_end - iter_start # iteration time
         ctime = iter_end - newt_start  # cumulative time
 
-        print(f'{count: 5} {l2norm: 10.3f}   {pch: 6.3f} {maxpdiff: 8.3f} {rmse: 8.3f}   {step_method:6}  {p: 6.3f} {step_time: 6.2f} {search_time: 6.2f} {itime: 6.2f}{ctime: 9.2f}', file=opts['f'])
+        print(f'{count: 5} {l2norm: 10.3f}   {pch: 7.3f} {maxpdiff: 9.3f} {rmse: 9.3f}   {step_method:6}  {p: 6.3f} {step_time: 6.2f} {search_time: 6.2f} {itime: 6.2f}{ctime: 9.2f}', file=opts['f'])
 
         # NOW we can set l2norm_prior and calculate a new l2norm
         if l2norm >= l2norm_prior:
