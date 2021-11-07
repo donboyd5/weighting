@@ -287,6 +287,7 @@ opts = {
 
     'notes': False}
 
+
 gwpn = prob.geoweight(method='poisson-newton', options=opts)
 gwpn.elapsed_seconds
 gwpn.sspd
